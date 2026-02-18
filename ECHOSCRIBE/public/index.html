@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoiceScribe — Real-time Speech to Text</title>
+  <meta name="description"
+    content="Convert your speech to text in real-time using VoiceScribe. No API keys required." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <main class="container">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎙️</span>
+        <h1>VoiceScribe</h1>
+      </div>
+      <p class="subtitle">Real-time Speech to Text — Powered by AI</p>
+    </header>
+
+    <!-- Browser Warning -->
+    <div id="browser-warning" class="warning-banner" style="display: none;">
+      <span class="warning-icon">⚠️</span>
+      <span>Your browser does not support the Web Speech API. Please use <strong>Google Chrome</strong> or
+        <strong>Microsoft Edge</strong> for the best experience.</span>
+    </div>
+
+    <!-- Transcript Area -->
+    <div class="transcript-card">
+      <div class="card-header">
+        <span class="card-title">Transcript</span>
+        <div id="status-indicator" class="status-badge status-idle">
+          <span class="status-dot"></span>
+          <span id="status-text">Ready</span>
+        </div>
+      </div>
+      <div id="transcript-box" class="transcript-box" contenteditable="false">
+        <span class="placeholder-text" id="placeholder">Your transcribed text will appear here...</span>
+      </div>
+      <div class="card-footer">
+        <span id="word-count" class="word-count">0 words</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button id="btn-record" class="btn btn-record" title="Start Recording">
+        <span class="btn-icon" id="record-icon">🎤</span>
+        <span id="record-label">Start Recording</span>
+      </button>
+      <button id="btn-summarize" class="btn btn-summarize" title="Summarize with AI" disabled>
+        <span class="btn-icon" id="summarize-icon">✨</span>
+        <span id="summarize-label">Summarize</span>
+        <span class="spinner" id="summarize-spinner" style="display: none;"></span>
+      </button>
+    </div>
+
+    <div class="controls controls-secondary">
+      <button id="btn-clear" class="btn btn-secondary" title="Clear Transcript">
+        <span class="btn-icon">🗑️</span>
+        <span>Clear</span>
+      </button>
+      <button id="btn-copy" class="btn btn-secondary" title="Copy to Clipboard">
+        <span class="btn-icon">📋</span>
+        <span>Copy</span>
+      </button>
+    </div>
+
+    <!-- Language Selector -->
+    <div class="settings">
+      <label for="lang-select" class="settings-label">Language</label>
+      <select id="lang-select" class="lang-select">
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="en-IN">English (India)</option>
+        <option value="hi-IN">Hindi</option>
+        <option value="es-ES">Spanish</option>
+        <option value="fr-FR">French</option>
+        <option value="de-DE">German</option>
+        <option value="ja-JP">Japanese</option>
+        <option value="ko-KR">Korean</option>
+        <option value="zh-CN">Chinese (Mandarin)</option>
+        <option value="pt-BR">Portuguese (Brazil)</option>
+        <option value="ar-SA">Arabic</option>
+      </select>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast" style="display: none;">
+      <span id="toast-message"></span>
+    </div>
+
+    <footer class="footer">
+      <p>Built with the Web Speech API & Gemini AI — speech processing happens locally, summaries powered by AI.</p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
