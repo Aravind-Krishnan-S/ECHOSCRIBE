@@ -1,0 +1,175 @@
+/* Counseling Card - Pokémon Style */
+.counseling-card-container {
+    perspective: 1000px;
+    width: 320px;
+    margin: 2rem auto;
+}
+
+.counseling-card {
+    background: linear-gradient(135deg, #1e2029 0%, #232530 100%);
+    border-radius: 20px;
+    padding: 1.5rem;
+    position: relative;
+    box-shadow: 
+        0 0 15px rgba(0, 0, 0, 0.5),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+    border: 8px solid #2d303e;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.counseling-card:hover {
+    transform: translateY(-5px) rotateX(5deg);
+    box-shadow: 
+        0 15px 30px rgba(0, 0, 0, 0.6),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Holographic Effect Overlay */
+.counseling-card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        125deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 40%,
+        rgba(255, 255, 255, 0) 60%
+    );
+    pointer-events: none;
+    z-index: 10;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #3a3f55;
+    padding-bottom: 0.5rem;
+}
+
+.card-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #e0e6ed;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.card-hp {
+    font-size: 1rem;
+    color: #ff4d6a;
+    font-weight: 700;
+}
+
+.card-image-frame {
+    width: 100%;
+    height: 180px;
+    background: #111;
+    border: 4px solid #bba14f; /* Gold border */
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.card-avatar {
+    font-size: 5rem;
+}
+
+.card-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #a0aec0;
+}
+
+.stat-label {
+    font-weight: 600;
+    color: #718096;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+}
+
+.stat-text {
+    text-align: right;
+    color: #e2e8f0;
+    font-weight: 500;
+    max-width: 60%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Emotion Pill */
+.emotion-pill {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(66, 153, 225, 0.2);
+    color: #63b3ed;
+    border: 1px solid rgba(66, 153, 225, 0.4);
+}
+
+.card-footer {
+    margin-top: 1.5rem;
+    font-size: 0.7rem;
+    color: #555;
+    text-align: center;
+    font-style: italic;
+    border-top: 1px solid #333;
+    padding-top: 0.5rem;
+}
+
+/* Charts Section */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+@media (min-width: 768px) {
+    .charts-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.chart-container {
+    background: #1e2029;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.history-section {
+    margin-top: 3rem;
+}
+
+.session-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.session-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
