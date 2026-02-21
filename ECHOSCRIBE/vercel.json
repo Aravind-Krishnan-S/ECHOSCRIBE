@@ -13,54 +13,6 @@
     ],
     "routes": [
         {
-            "src": "/favicon.ico",
-            "dest": "/public/favicon.ico"
-        },
-        {
-            "src": "/favicon.svg",
-            "dest": "/public/favicon.svg"
-        },
-        {
-            "src": "/css/(.*)",
-            "dest": "/public/css/$1"
-        },
-        {
-            "src": "/js/(.*)",
-            "dest": "/public/js/$1"
-        },
-        {
-            "src": "/(auth-guard.js|app.js|login.js|signup.js|summary.js)",
-            "dest": "/public/$1"
-        },
-        {
-            "src": "/(style.css|card.css|modal.css)",
-            "dest": "/public/$1"
-        },
-        {
-            "src": "/api/(.*)",
-            "dest": "src/index.js"
-        },
-        {
-            "src": "/login",
-            "dest": "/public/login.html"
-        },
-        {
-            "src": "/signup",
-            "dest": "/public/signup.html"
-        },
-        {
-            "src": "/dashboard",
-            "dest": "/public/dashboard.html"
-        },
-        {
-            "src": "/summary",
-            "dest": "/public/summary.html"
-        },
-        {
-            "src": "/",
-            "dest": "/public/index.html"
-        },
-        {
             "src": "/(.*)",
             "dest": "src/index.js"
         }
