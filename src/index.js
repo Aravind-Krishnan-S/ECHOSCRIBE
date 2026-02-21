@@ -21,6 +21,9 @@ const env = validateEnv();
 // ─── Initialize App ───
 const app = express();
 
+// ─── Trust Proxy (required for Vercel / reverse proxies) ───
+app.set('trust proxy', 1);
+
 // ─── Body Parsing ───
 app.use(express.json({ limit: '10mb' }));
 

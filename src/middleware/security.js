@@ -32,6 +32,7 @@ function setupSecurity(app, env) {
         message: { error: 'Too many requests. Please wait a minute before trying again.' },
         standardHeaders: true,
         legacyHeaders: false,
+        validate: false,
     });
 
     // General rate limiter — 100 requests per minute
@@ -40,6 +41,7 @@ function setupSecurity(app, env) {
         max: 100,
         standardHeaders: true,
         legacyHeaders: false,
+        validate: false,
     });
 
     app.use(generalLimiter);
