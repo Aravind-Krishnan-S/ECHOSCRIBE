@@ -1,12 +1,22 @@
 const express = require('express');
 const { z } = require('zod');
+const multer = require('multer');
+const path = require('path');
+const os = require('os');
 const { validate } = require('../middleware/validate');
 const sessionController = require('../controllers/session.controller');
 const profileController = require('../controllers/profile.controller');
 const exportController = require('../controllers/export.controller');
 const patientController = require('../controllers/patient.controller');
+const transcribeController = require('../controllers/transcribe.controller');
 
 const router = express.Router();
+
+// Multer config for audio uploads (store in OS temp dir)
+const upload = multer({
+    dest: path.join(os.tmpdir(), 'echoscribe-uploads'),
+    limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
+});
 
 // All routes here require authentication (middleware applied in index.js)
 
@@ -41,6 +51,9 @@ const updatePatientSchema = z.object({
 router.post('/summarize', validate(summarizeSchema), sessionController.summarize);
 router.post('/session', validate(saveSessionSchema), sessionController.saveSession);
 router.get('/history', sessionController.getHistory);
+
+// --- Transcription Route ---
+router.post('/transcribe-audio', upload.single('audio'), transcribeController.transcribe);
 
 // --- Patient Routes ---
 router.get('/patients', patientController.listPatients);

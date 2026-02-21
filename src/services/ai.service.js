@@ -117,6 +117,23 @@ Return ONLY valid JSON with this exact structure:
     }
 }
 
+// --- Speech-to-Text via Groq Whisper ---
+
+async function transcribeAudio(filePath, lang = 'en') {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const fs = require('fs');
+
+    const transcription = await groq.audio.transcriptions.create({
+        file: fs.createReadStream(filePath),
+        model: 'whisper-large-v3-turbo',
+        language: lang,
+        response_format: 'verbose_json',
+    });
+
+    return transcription.text || '';
+}
+
 // --- Longitudinal Profile Analysis ---
 
 async function generateProfile(sessions) {
@@ -193,4 +210,4 @@ Return ONLY valid JSON:
     return profileAnalysis;
 }
 
-module.exports = { initGroq, summarizeTranscript, generateProfile };
+module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio };

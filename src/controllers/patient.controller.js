@@ -11,13 +11,23 @@ const listPatients = asyncHandler(async (req, res) => {
 const createPatient = asyncHandler(async (req, res) => {
     const { name, age, gender, notes } = req.body;
 
-    const data = await dbService.createPatient(req.supabaseToken, {
-        userId: req.user.id,
-        name,
-        age: age || null,
-        gender: gender || null,
-        notes: notes || '',
-    });
+    let data;
+    try {
+        data = await dbService.createPatient(req.supabaseToken, {
+            userId: req.user.id,
+            name,
+            age: age !== undefined ? age : null,
+            gender: gender || null,
+            notes: notes || '',
+        });
+    } catch (err) {
+        console.error('[Patient] Create failed:', err.message || err);
+        throw new AppError(err.message || 'Database error while creating patient.', 500);
+    }
+
+    if (!data || data.length === 0) {
+        throw new AppError('Patient was not created — the database returned no data. Check RLS policies.', 500);
+    }
 
     res.status(201).json(data[0]);
 });
