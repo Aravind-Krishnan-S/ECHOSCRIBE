@@ -88,8 +88,13 @@ app.use(errorHandler);
 
 // ─── Start Server ───
 const PORT = env.PORT;
-app.listen(PORT, () => {
-    console.log(`✅ EchoScribe server running at http://localhost:${PORT}`);
-    console.log(`📚 API Docs: http://localhost:${PORT}/api/docs`);
-    console.log(`🔒 Environment: ${env.NODE_ENV}`);
-});
+
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`✅ EchoScribe server running at http://localhost:${PORT}`);
+        console.log(`📚 API Docs: http://localhost:${PORT}/api/docs`);
+        console.log(`🔒 Environment: ${env.NODE_ENV}`);
+    });
+}
+
+module.exports = app;
