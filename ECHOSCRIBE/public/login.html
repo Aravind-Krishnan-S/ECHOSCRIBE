@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EchoScribe — Login</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="description" content="Log in to EchoScribe — AI-powered clinical documentation." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+    .auth-card {
+      background: rgba(15, 20, 40, 0.85);
+      border: 1px solid rgba(108, 99, 255, 0.2);
+      border-radius: 20px;
+      backdrop-filter: blur(30px);
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+    .auth-logo { text-align: center; margin-bottom: 2rem; }
+    .auth-logo-icon { font-size: 3rem; display: block; margin-bottom: 0.5rem; filter: drop-shadow(0 0 16px rgba(108, 99, 255, 0.5)); }
+    .auth-logo h1 {
+      font-size: 2rem; font-weight: 700;
+      background: linear-gradient(135deg, #6c63ff 0%, #a78bfa 50%, #f472b6 100%);
+      background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .auth-logo p { color: #8892b0; font-size: 0.9rem; margin-top: 0.3rem; }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 500; color: #a0aec0; margin-bottom: 0.4rem; }
+    .form-input {
+      width: 100%; padding: 0.75rem 1rem; background: rgba(26, 31, 53, 0.8); border: 1px solid rgba(108, 99, 255, 0.15);
+      border-radius: 10px; color: #e2e8f0; font-size: 0.95rem; font-family: 'Inter', sans-serif;
+      transition: border-color 0.3s, box-shadow 0.3s; outline: none;
+    }
+    .form-input:focus { border-color: #6c63ff; box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15); }
+    .form-input::placeholder { color: #4a5568; }
+    .auth-btn {
+      width: 100%; padding: 0.85rem; background: linear-gradient(135deg, #6c63ff 0%, #8b5cf6 100%);
+      color: #fff; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: transform 0.2s, box-shadow 0.3s; font-family: 'Inter', sans-serif;
+    }
+    .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(108, 99, 255, 0.3); }
+    .auth-btn:active { transform: scale(0.98); }
+    .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .auth-link { text-align: center; margin-top: 1.5rem; color: #8892b0; font-size: 0.9rem; }
+    .auth-link a { color: #a78bfa; text-decoration: none; font-weight: 500; }
+    .auth-link a:hover { text-decoration: underline; }
+    .auth-error { background: rgba(255, 77, 106, 0.1); border: 1px solid rgba(255, 77, 106, 0.3); color: #ff6b8a; padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; display: none; }
+    .auth-success { background: rgba(0, 230, 118, 0.1); border: 1px solid rgba(0, 230, 118, 0.3); color: #00e676; padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; display: none; }
+  </style>
+</head>
+
+<body>
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <span class="auth-logo-icon">🩺</span>
+        <h1>EchoScribe</h1>
+        <p>Clinical Documentation Platform</p>
+      </div>
+
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-success" id="auth-success"></div>
+
+      <form id="login-form" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input class="form-input" type="email" id="email" name="email" placeholder="clinician@example.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="auth-btn" id="login-btn">
+          Sign In
+        </button>
+      </form>
+
+      <div class="auth-link">
+        Don't have an account? <a href="/signup">Create one</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="auth-guard.js"></script>
+  <script src="login.js"></script>
+</body>
+
+</html>

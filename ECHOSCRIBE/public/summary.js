@@ -1,14 +1,47 @@
 /* ============================================
-   VoiceScribe — Summary Page Logic
+   EchoScribe — Summary Page Logic (SOAP Format)
    ============================================ */
 
 (function () {
     'use strict';
 
-    const summaryText = document.getElementById('summary-text');
-    const keyPointsList = document.getElementById('key-points-list');
-    const analysisText = document.getElementById('analysis-text');
-    const sentimentExplanation = document.getElementById('sentiment-explanation');
+    // --- Auth Guard ---
+    EchoAuth.guard();
+
+    // --- Theme ---
+    function initTheme() {
+        const saved = localStorage.getItem('echoscribe_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+        const toggle = document.getElementById('theme-toggle');
+        if (toggle) toggle.textContent = saved === 'dark' ? '🌙' : '☀️';
+    }
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('echoscribe_theme', next);
+        const toggle = document.getElementById('theme-toggle');
+        if (toggle) toggle.textContent = next === 'dark' ? '🌙' : '☀️';
+    }
+    initTheme();
+
+    // --- DOM Refs ---
+    const soapSubjective = document.getElementById('soap-subjective');
+    const soapObjective = document.getElementById('soap-objective');
+    const soapAssessment = document.getElementById('soap-assessment');
+    const soapPlan = document.getElementById('soap-plan');
+    const riskBanner = document.getElementById('risk-banner');
+    const riskIcon = document.getElementById('risk-icon');
+    const riskText = document.getElementById('risk-text');
+    const riskSI = document.getElementById('risk-si');
+    const riskSHLevel = document.getElementById('risk-sh-level');
+    const riskNotes = document.getElementById('risk-notes');
+    const confidenceFill = document.getElementById('confidence-fill');
+    const confidenceValue = document.getElementById('confidence-value');
+    const diagnosticList = document.getElementById('diagnostic-list');
+    const interventionsPills = document.getElementById('interventions-pills');
+    const medicationList = document.getElementById('medication-list');
+    const progressList = document.getElementById('progress-list');
     const statWords = document.getElementById('stat-words');
     const statDuration = document.getElementById('stat-duration');
     const statTopics = document.getElementById('stat-topics');
@@ -18,10 +51,16 @@
     const originalTranscript = document.getElementById('original-transcript');
     const btnCopySummary = document.getElementById('btn-copy-summary');
     const btnSave = document.getElementById('btn-save');
+    const btnExportPdf = document.getElementById('btn-export-pdf');
+    const btnExportCsv = document.getElementById('btn-export-csv');
     const btnAnalyzeProfile = document.getElementById('btn-analyze-profile');
+    const btnLogout = document.getElementById('btn-logout');
     const historyList = document.getElementById('history-list');
+    const profileModal = document.getElementById('profile-modal');
+    const modalClose = document.getElementById('modal-close');
+    const modalContent = document.getElementById('modal-content');
 
-    // Card Elements
+    // Card elements
     const cardName = document.getElementById('card-name');
     const cardLvl = document.getElementById('card-lvl');
     const cardProblem = document.getElementById('card-problem');
@@ -32,111 +71,168 @@
 
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
-
     let toastTimeout = null;
-    let charts = {}; // Store chart instances
-
-    // User ID (Pseudo-Auth)
-    let userId = localStorage.getItem('voicescribe_user_id');
-    if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('voicescribe_user_id', userId);
-    }
+    let lastSavedSessionId = null;
 
     // --- Load Data ---
-    const raw = localStorage.getItem('voicescribe_summary');
-
-    if (!raw) {
-        window.location.href = '/';
-        return;
-    }
+    const raw = localStorage.getItem('echoscribe_summary');
+    if (!raw) { window.location.href = '/'; return; }
 
     let data;
-    try {
-        data = JSON.parse(raw);
-    } catch (e) {
-        window.location.href = '/';
-        return;
+    try { data = JSON.parse(raw); } catch (e) { window.location.href = '/'; return; }
+
+    // --- Render SOAP ---
+    const soap = data.soap || {};
+    soapSubjective.textContent = soap.subjective || 'Not documented';
+    soapObjective.textContent = soap.objective || 'Not documented';
+    soapAssessment.textContent = soap.assessment || 'Not documented';
+    soapPlan.textContent = soap.plan || 'Not documented';
+
+    // --- Backward compatibility: legacy summary format ---
+    if (!data.soap && data.summary) {
+        soapSubjective.textContent = data.summary;
+        soapObjective.textContent = data.analysis || 'N/A';
+        soapAssessment.textContent = data.sentimentExplanation || 'N/A';
+        soapPlan.textContent = 'Upgrade to SOAP format for full clinical notes.';
     }
 
-    // --- Render Summary ---
-    summaryText.textContent = data.summary || 'No summary available.';
+    // --- Risk Assessment ---
+    const risk = data.risk_assessment || {};
+    const riskLevel = (risk.self_harm_risk || 'low').toLowerCase();
 
-    // --- Render Key Points ---
-    if (data.keyPoints && data.keyPoints.length > 0) {
-        keyPointsList.innerHTML = '';
-        data.keyPoints.forEach(function (point) {
+    if (riskLevel === 'high' || risk.suicidal_ideation) {
+        riskBanner.style.display = 'flex';
+        riskBanner.className = 'risk-banner risk-high';
+        riskIcon.textContent = '🚨';
+        riskText.textContent = 'HIGH RISK — Immediate attention recommended';
+    } else if (riskLevel === 'moderate') {
+        riskBanner.style.display = 'flex';
+        riskBanner.className = 'risk-banner risk-moderate';
+        riskIcon.textContent = '⚠️';
+        riskText.textContent = 'MODERATE RISK — Monitor closely';
+    }
+
+    riskSI.textContent = risk.suicidal_ideation ? 'YES' : 'No';
+    riskSI.className = 'risk-badge ' + (risk.suicidal_ideation ? 'risk-badge-high' : 'risk-badge-low');
+    riskSHLevel.textContent = riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1);
+    riskSHLevel.className = 'risk-badge risk-badge-' + riskLevel;
+    riskNotes.textContent = risk.notes || 'No additional notes.';
+
+    // --- Confidence Score ---
+    const confidence = Math.round((data.confidence_score || 0) * 100);
+    confidenceFill.style.width = confidence + '%';
+    confidenceValue.textContent = confidence + '%';
+    if (confidence >= 80) confidenceFill.style.background = 'linear-gradient(90deg, #00e676, #69f0ae)';
+    else if (confidence >= 50) confidenceFill.style.background = 'linear-gradient(90deg, #ffc107, #ffca28)';
+    else confidenceFill.style.background = 'linear-gradient(90deg, #ff4d6a, #ff6b8a)';
+
+    // --- Diagnostic Impressions ---
+    const diagnostics = data.diagnostic_impressions || [];
+    if (diagnostics.length > 0) {
+        diagnosticList.innerHTML = '';
+        diagnostics.forEach(d => {
             const li = document.createElement('li');
-            li.textContent = point;
-            keyPointsList.appendChild(li);
+            li.textContent = d;
+            diagnosticList.appendChild(li);
         });
     } else {
-        keyPointsList.innerHTML = '<li>No key points extracted.</li>';
+        diagnosticList.innerHTML = '<li>No diagnostic impressions noted.</li>';
     }
 
-    // --- Render Analysis ---
-    analysisText.textContent = data.analysis || 'No detailed analysis available.';
+    // --- Interventions ---
+    const interventions = data.interventions_used || [];
+    interventionsPills.innerHTML = '';
+    if (interventions.length > 0) {
+        interventions.forEach(i => {
+            const pill = document.createElement('span');
+            pill.className = 'topic-pill';
+            pill.textContent = i;
+            interventionsPills.appendChild(pill);
+        });
+    } else {
+        interventionsPills.innerHTML = '<span style="color:#718096; font-style:italic;">None identified</span>';
+    }
 
-    // --- Render Sentiment ---
-    const sentiment = (data.sentiment || 'neutral').toLowerCase();
-    const sentimentConfig = {
+    // --- Medication Changes ---
+    const meds = data.medication_changes || [];
+    if (meds.length > 0 && !(meds.length === 1 && meds[0].toLowerCase().includes('none'))) {
+        medicationList.innerHTML = '';
+        meds.forEach(m => {
+            const li = document.createElement('li');
+            li.textContent = m;
+            medicationList.appendChild(li);
+        });
+    } else {
+        medicationList.innerHTML = '<li>No medication changes discussed.</li>';
+    }
+
+    // --- Progress Indicators ---
+    const progress = data.progress_indicators || [];
+    if (progress.length > 0) {
+        progressList.innerHTML = '';
+        progress.forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = p;
+            progressList.appendChild(li);
+        });
+    } else {
+        progressList.innerHTML = '<li>No specific progress indicators noted.</li>';
+    }
+
+    // --- Emotional Tone & Stats ---
+    const tone = data.emotional_tone || data.sentiment || 'neutral';
+    const toneConfig = {
         positive: { emoji: '😊', color: '#00e676', bg: 'rgba(0, 230, 118, 0.15)' },
         negative: { emoji: '😟', color: '#ff4d6a', bg: 'rgba(255, 77, 106, 0.15)' },
         neutral: { emoji: '😐', color: '#8892b0', bg: 'rgba(136, 146, 176, 0.15)' },
-        mixed: { emoji: '🤔', color: '#ffc107', bg: 'rgba(255, 193, 7, 0.15)' }
+        mixed: { emoji: '🤔', color: '#ffc107', bg: 'rgba(255, 193, 7, 0.15)' },
+        anxious: { emoji: '😰', color: '#ffa726', bg: 'rgba(255, 167, 38, 0.15)' },
+        hopeful: { emoji: '🌟', color: '#4fc3f7', bg: 'rgba(79, 195, 247, 0.15)' },
+        frustrated: { emoji: '😤', color: '#ef5350', bg: 'rgba(239, 83, 80, 0.15)' },
+        sad: { emoji: '😢', color: '#7986cb', bg: 'rgba(121, 134, 203, 0.15)' },
     };
+    const toneLower = tone.toLowerCase();
+    const tc = toneConfig[toneLower] || toneConfig.neutral;
+    statSentiment.textContent = tc.emoji + ' ' + tone.charAt(0).toUpperCase() + tone.slice(1);
+    statSentiment.style.background = tc.bg;
+    statSentiment.style.color = tc.color;
 
-    const sc = sentimentConfig[sentiment] || sentimentConfig.neutral;
-    statSentiment.textContent = sc.emoji + ' ' + sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
-    statSentiment.style.background = sc.bg;
-    statSentiment.style.color = sc.color;
-
-    sentimentExplanation.textContent = data.sentimentExplanation || 'No sentiment details available.';
-
-    // --- Render Stats ---
+    // --- Stats ---
     const wc = data.wordCount || 0;
     statWords.textContent = wc.toLocaleString();
-
-    // Estimate duration: ~150 words per minute average speaking rate
     const minutes = Math.floor(wc / 150);
     const seconds = Math.round((wc % 150) / 2.5);
-    if (minutes > 0) {
-        statDuration.textContent = minutes + 'm ' + seconds + 's';
-    } else {
-        statDuration.textContent = seconds + 's';
-    }
+    statDuration.textContent = minutes > 0 ? minutes + 'm ' + seconds + 's' : seconds + 's';
 
-    // --- Render Topics ---
-    if (data.topicsDetected && data.topicsDetected.length > 0) {
+    // --- Topics ---
+    const topics = data.topics || data.topicsDetected || [];
+    if (topics.length > 0) {
         topicsSection.style.display = 'block';
-        statTopics.textContent = data.topicsDetected.length;
+        statTopics.textContent = topics.length;
         topicsPills.innerHTML = '';
-        data.topicsDetected.forEach(function (topic) {
+        topics.forEach(t => {
             const pill = document.createElement('span');
             pill.className = 'topic-pill';
-            pill.textContent = topic;
+            pill.textContent = t;
             topicsPills.appendChild(pill);
         });
     } else {
         statTopics.textContent = '0';
     }
 
-    // --- Render Card Data ---
+    // --- Counseling Card ---
     const stats = data.counselingStats || {};
-    cardName.textContent = stats.name !== 'Unknown' ? stats.name : 'Seeker';
-    // Calculate "Level" based on word count / 100 (Gamification)
+    cardName.textContent = stats.name !== 'Unknown' ? stats.name : 'Client';
     cardLvl.textContent = Math.floor(wc / 100) + 1;
     cardProblem.textContent = stats.presentingProblem || 'N/A';
     cardReason.textContent = stats.reasonForCounseling || 'N/A';
     cardProgress.textContent = stats.lastMajorProgress || 'None yet';
     cardMood.textContent = stats.currentEmotionalState || 'Neutral';
 
-    // Dynamic Avatar based on emotion
     const avatars = {
         'Anxious': '😰', 'Hopeful': '🌟', 'Frustrated': '😤', 'Happy': '😊',
         'Sad': '😢', 'Confused': '😵', 'Neutral': '👤', 'Angry': '😠'
     };
-    // Simple fuzzy match for avatar
     let avatar = '👤';
     const emotion = (stats.currentEmotionalState || '').toLowerCase();
     if (emotion.includes('anx')) avatar = avatars['Anxious'];
@@ -147,36 +243,38 @@
     else if (emotion.includes('ang')) avatar = avatars['Angry'];
     cardAvatar.textContent = avatar;
 
-    // --- Render Charts ---
+    // --- Charts ---
     renderCharts(data);
 
-    // --- Render Original Transcript ---
+    // --- Original Transcript ---
     originalTranscript.textContent = data.originalText || 'No original text available.';
 
-    // --- Fetch History ---
+    // --- History ---
     fetchHistory();
 
-    // --- Event Listeners ---
+    // ==================
+    // EVENT LISTENERS
+    // ==================
 
-    // Copy Summary
+    // Theme toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+    if (btnLogout) btnLogout.addEventListener('click', () => EchoAuth.logout());
+
+    // Copy SOAP Note
     btnCopySummary.addEventListener('click', function () {
-        let copyText = '📝 SPEECH SUMMARY\n\n';
-        copyText += '💡 Summary:\n' + (data.summary || '') + '\n\n';
-
-        if (data.keyPoints && data.keyPoints.length > 0) {
-            copyText += '🎯 Key Points:\n';
-            data.keyPoints.forEach(function (p, i) {
-                copyText += '  ' + (i + 1) + '. ' + p + '\n';
-            });
-            copyText += '\n';
-        }
-
-        copyText += '🔍 Analysis:\n' + (data.analysis || '') + '\n\n';
-        copyText += '💭 Sentiment: ' + (data.sentiment || 'neutral') + '\n';
-        copyText += '📊 Words: ' + wc + '\n';
+        let copyText = '🩺 ECHOSCRIBE — CLINICAL SOAP NOTE\n';
+        copyText += '='.repeat(40) + '\n\n';
+        copyText += '📋 SUBJECTIVE:\n' + (soap.subjective || '') + '\n\n';
+        copyText += '🔍 OBJECTIVE:\n' + (soap.objective || '') + '\n\n';
+        copyText += '📊 ASSESSMENT:\n' + (soap.assessment || '') + '\n\n';
+        copyText += '📝 PLAN:\n' + (soap.plan || '') + '\n\n';
+        copyText += '🛡️ RISK: Self-harm=' + riskLevel + ', SI=' + (risk.suicidal_ideation ? 'YES' : 'No') + '\n';
+        copyText += '💭 Emotional Tone: ' + tone + '\n';
+        copyText += '📊 Words: ' + wc + ' | Confidence: ' + confidence + '%\n';
 
         navigator.clipboard.writeText(copyText).then(function () {
-            showToast('✅ Summary copied to clipboard!');
+            showToast('✅ SOAP note copied to clipboard!');
         }).catch(function () {
             showToast('⚠️ Failed to copy');
         });
@@ -188,20 +286,20 @@
         btnSave.innerHTML = '<span class="btn-icon">⏳</span> Saving...';
 
         try {
-            const response = await fetch('/api/session', {
+            const response = await EchoAuth.authFetch('/api/session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: userId,
                     transcript: data.originalText,
-                    summary: data.summary,
-                    analysisJson: data
-                })
+                    summary: soap.subjective || data.summary || '',
+                    analysisJson: data,
+                }),
             });
 
             if (response.ok) {
+                const result = await response.json();
+                lastSavedSessionId = result.data?.[0]?.id;
                 showToast('✅ Session Saved!');
-                fetchHistory(); // Refresh history
+                fetchHistory();
             } else {
                 throw new Error('Save failed');
             }
@@ -214,80 +312,305 @@
         }
     });
 
-    // Analyze Profile
+    // Export PDF
+    btnExportPdf.addEventListener('click', async function () {
+        if (!lastSavedSessionId) {
+            showToast('💾 Please save the session first to export PDF.');
+            return;
+        }
+        try {
+            const response = await EchoAuth.authFetch(`/api/export/pdf/${lastSavedSessionId}`);
+            if (!response.ok) throw new Error('PDF export failed');
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `echoscribe-session-${lastSavedSessionId}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('📄 PDF exported!');
+        } catch (err) {
+            showToast('❌ PDF export failed.');
+            console.error(err);
+        }
+    });
+
+    // Export CSV
+    btnExportCsv.addEventListener('click', async function () {
+        try {
+            const response = await EchoAuth.authFetch('/api/export/csv');
+            if (!response.ok) throw new Error('CSV export failed');
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'echoscribe-sessions.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('📊 CSV exported!');
+        } catch (err) {
+            showToast('❌ CSV export failed.');
+            console.error(err);
+        }
+    });
+
+    // Analyze Profile — Modal
     btnAnalyzeProfile.addEventListener('click', async function () {
         btnAnalyzeProfile.disabled = true;
         btnAnalyzeProfile.textContent = 'Analyzing...';
+        profileModal.classList.add('active');
+        modalContent.innerHTML = '<p style="color:#a0aec0; text-align:center; padding:2rem;">⏳ Generating longitudinal analysis...</p>';
 
         try {
-            const response = await fetch(`/api/profile/${userId}`);
+            const response = await EchoAuth.authFetch('/api/profile');
             const profileData = await response.json();
 
             if (response.ok) {
-                // Show modal or alert with profile data (For now, simple alert)
-                alert(`📊 PROFILE ANALYSIS\n\nProgress: ${profileData.overallProgress}\n\nFocus: ${profileData.recommendedFocus}`);
+                renderProfileModal(profileData);
             } else {
-                alert('Analysis failed: ' + profileData.message);
+                modalContent.innerHTML = `<p style="color:#ff6b8a;">Analysis failed: ${profileData.error || profileData.message}</p>`;
             }
-        } catch (err) { console.error(err); alert('Failed to analyze profile.'); }
-        finally {
+        } catch (err) {
+            console.error(err);
+            modalContent.innerHTML = '<p style="color:#ff6b8a;">Failed to analyze profile. Please try again.</p>';
+        } finally {
             btnAnalyzeProfile.textContent = 'Analyze Profile';
             btnAnalyzeProfile.disabled = false;
         }
     });
 
-    // --- Helper Functions ---
+    // Modal close
+    modalClose.addEventListener('click', () => profileModal.classList.remove('active'));
+    profileModal.addEventListener('click', (e) => {
+        if (e.target === profileModal) profileModal.classList.remove('active');
+    });
+
+    // ==================
+    // HELPER FUNCTIONS
+    // ==================
 
     function renderCharts(data) {
-        // Topics Chart (Bar)
+        const topics = data.topics || data.topicsDetected || [];
+        const chartColors = ['#6c63ff', '#a78bfa', '#f472b6', '#4fd1c5', '#ffc107', '#00e676', '#ff4d6a', '#8892b0'];
+
+        // Topics Chart
         const ctxTopics = document.getElementById('topicsChart').getContext('2d');
-        // Mocking some "count" data for topics if not present, usually you'd aggregate history
-        // For a single session, we just show 1 for each topic
         new Chart(ctxTopics, {
             type: 'bar',
             data: {
-                labels: data.topicsDetected,
+                labels: topics.length > 0 ? topics : ['No topics'],
                 datasets: [{
                     label: 'Relevance',
-                    data: data.topicsDetected.map(() => 1), // Dummy value for presence
-                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
+                    data: topics.map(() => 1),
+                    backgroundColor: topics.map((_, i) => chartColors[i % chartColors.length] + '99'),
+                    borderColor: topics.map((_, i) => chartColors[i % chartColors.length]),
+                    borderWidth: 1,
+                    borderRadius: 6,
                 }]
             },
             options: {
                 responsive: true,
                 plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, ticks: { display: false } } }
+                scales: {
+                    y: { beginAtZero: true, ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { ticks: { color: '#8892b0', font: { size: 10 } }, grid: { display: false } },
+                },
             }
         });
 
-        // Sentiment Chart (Doughnut)
+        // Session Composition Doughnut
         const ctxSentiment = document.getElementById('sentimentChart').getContext('2d');
-        const sentimentScore = { 'positive': 100, 'neutral': 50, 'negative': 20, 'mixed': 60 }[sentiment] || 50;
+        const sections = [
+            { label: 'Subjective', value: (soap.subjective || '').split(' ').length },
+            { label: 'Objective', value: (soap.objective || '').split(' ').length },
+            { label: 'Assessment', value: (soap.assessment || '').split(' ').length },
+            { label: 'Plan', value: (soap.plan || '').split(' ').length },
+        ];
 
         new Chart(ctxSentiment, {
             type: 'doughnut',
             data: {
-                labels: ['Positive', 'Negative', 'Neutral'],
+                labels: sections.map(s => s.label),
                 datasets: [{
-                    data: sentiment === 'positive' ? [1, 0, 0] :
-                        sentiment === 'negative' ? [0, 1, 0] :
-                            sentiment === 'neutral' ? [0, 0, 1] : [0.5, 0, 0.5],
-                    backgroundColor: ['#00e676', '#ff4d6a', '#8892b0']
+                    data: sections.map(s => s.value || 1),
+                    backgroundColor: ['#6c63ff', '#4fd1c5', '#f472b6', '#ffc107'],
                 }]
             },
             options: {
                 responsive: true,
                 cutout: '70%',
-                plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } }
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 12, font: { size: 11 } } },
+                },
             }
         });
     }
 
+    function renderProfileModal(data) {
+        const trend = data.emotional_trend || 'stable';
+        const trendClasses = { improving: 'improving', stable: 'stable', declining: 'declining' };
+        const trendEmojis = { improving: '📈', stable: '➡️', declining: '📉' };
+        const score = data.treatment_effectiveness_score || 0;
+
+        let scoreColor = '#ff4d6a';
+        if (score >= 70) scoreColor = '#00e676';
+        else if (score >= 40) scoreColor = '#ffc107';
+
+        let html = '';
+
+        // Journey Summary
+        html += `<div class="modal-section">
+            <div class="modal-section-title">🗺️ Client Journey</div>
+            <p class="modal-section-text">${data.journey_summary || 'Not enough data for journey analysis.'}</p>
+        </div>`;
+
+        // Emotional Trend
+        html += `<div class="modal-section">
+            <div class="modal-section-title">💭 Emotional Trend</div>
+            <span class="modal-trend ${trendClasses[trend] || 'stable'}">
+                ${trendEmojis[trend] || '➡️'} ${trend.charAt(0).toUpperCase() + trend.slice(1)}
+            </span>
+        </div>`;
+
+        // Risk Trend
+        if (data.risk_trend) {
+            html += `<div class="modal-section">
+                <div class="modal-section-title">🛡️ Risk Trend</div>
+                <p class="modal-section-text">${data.risk_trend}</p>
+            </div>`;
+        }
+
+        // Recurring Themes
+        if (data.recurring_themes && data.recurring_themes.length > 0) {
+            html += `<div class="modal-section">
+                <div class="modal-section-title">🔄 Recurring Themes</div>
+                <div class="modal-pills">
+                    ${data.recurring_themes.map(t => `<span class="modal-pill">${t}</span>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        // Persistent Challenges
+        if (data.persistent_challenges) {
+            html += `<div class="modal-section">
+                <div class="modal-section-title">⚡ Persistent Challenges</div>
+                <p class="modal-section-text">${data.persistent_challenges}</p>
+            </div>`;
+        }
+
+        // Recommended Focus
+        if (data.recommended_focus && data.recommended_focus.length > 0) {
+            html += `<div class="modal-section">
+                <div class="modal-section-title">🎯 Recommended Focus</div>
+                <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:0.4rem;">
+                    ${data.recommended_focus.map(f => `<li style="color:#cbd5e0; font-size:0.9rem;">▸ ${f}</li>`).join('')}
+                </ul>
+            </div>`;
+        }
+
+        // Psychological Profile
+        if (data.psychological_profile) {
+            html += `<div class="modal-section">
+                <div class="modal-section-title">🧠 Psychological Profile</div>
+                <p class="modal-section-text">${data.psychological_profile}</p>
+            </div>`;
+        }
+
+        // Treatment Effectiveness Score
+        html += `<div class="modal-section">
+            <div class="modal-section-title">📊 Treatment Effectiveness</div>
+            <div class="modal-score">
+                <div class="modal-score-bar">
+                    <div class="modal-score-fill" style="width:${score}%; background:${scoreColor};"></div>
+                </div>
+                <span class="modal-score-label" style="color:${scoreColor};">${score}%</span>
+            </div>
+        </div>`;
+
+        // Charts for trends
+        if (data.emotional_trend_data || data.topic_frequency) {
+            html += '<div class="modal-charts-grid">';
+            if (data.emotional_trend_data && data.emotional_trend_data.length > 0) {
+                html += `<div class="modal-chart-box">
+                    <div class="modal-chart-title">Emotional Trend</div>
+                    <canvas id="modalEmotionChart"></canvas>
+                </div>`;
+            }
+            if (data.topic_frequency && data.topic_frequency.length > 0) {
+                html += `<div class="modal-chart-box">
+                    <div class="modal-chart-title">Topic Frequency</div>
+                    <canvas id="modalTopicChart"></canvas>
+                </div>`;
+            }
+            html += '</div>';
+        }
+
+        modalContent.innerHTML = html;
+
+        // Render modal charts after DOM insertion
+        setTimeout(() => {
+            if (data.emotional_trend_data && data.emotional_trend_data.length > 0) {
+                const ctx = document.getElementById('modalEmotionChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.emotional_trend_data.map(d => 'S' + d.session),
+                            datasets: [{
+                                label: 'Emotional Score',
+                                data: data.emotional_trend_data.map(d => d.score),
+                                borderColor: '#a78bfa',
+                                backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 4,
+                                pointBackgroundColor: '#a78bfa',
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                x: { ticks: { color: '#8892b0' }, grid: { display: false } },
+                            }
+                        }
+                    });
+                }
+            }
+            if (data.topic_frequency && data.topic_frequency.length > 0) {
+                const ctx = document.getElementById('modalTopicChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.topic_frequency.map(d => d.topic),
+                            datasets: [{
+                                data: data.topic_frequency.map(d => d.count),
+                                backgroundColor: '#4fd1c599',
+                                borderColor: '#4fd1c5',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            indexAxis: 'y',
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                y: { ticks: { color: '#8892b0', font: { size: 10 } }, grid: { display: false } },
+                            }
+                        }
+                    });
+                }
+            }
+        }, 100);
+    }
+
     async function fetchHistory() {
         try {
-            const response = await fetch(`/api/history/${userId}`);
+            const response = await EchoAuth.authFetch('/api/history');
             const history = await response.json();
 
             if (history && history.length > 0) {
@@ -296,18 +619,25 @@
                     const div = document.createElement('div');
                     div.className = 'session-item';
                     const date = new Date(item.created_at).toLocaleDateString();
+                    const analysis = item.analysis_json || {};
+                    const rk = analysis.risk_assessment?.self_harm_risk || 'low';
+                    const emo = analysis.counselingStats?.currentEmotionalState || analysis.emotional_tone || 'Unknown';
+
                     div.innerHTML = `
                         <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#e2e8f0; font-weight:600;">
                             <span>${date}</span>
-                            <span>${item.analysis_json.counselingStats?.currentEmotionalState || 'Unknown'}</span>
+                            <span style="display:flex; gap:0.5rem; align-items:center;">
+                                <span class="risk-badge risk-badge-${rk}" style="font-size:0.7rem; padding:0.15rem 0.5rem;">${rk.toUpperCase()}</span>
+                                <span>${emo}</span>
+                            </span>
                         </div>
                         <div style="font-size:0.8rem; color:#a0aec0; margin-top:0.3rem;">
-                            ${item.summary.substring(0, 60)}...
+                            ${(item.summary || '').substring(0, 60)}...
                         </div>
                     `;
                     div.addEventListener('click', () => {
-                        // Load this session into view
-                        localStorage.setItem('voicescribe_summary', JSON.stringify(item.analysis_json));
+                        localStorage.setItem('echoscribe_summary', JSON.stringify(item.analysis_json));
+                        lastSavedSessionId = item.id;
                         window.location.reload();
                     });
                     historyList.appendChild(div);
@@ -320,20 +650,15 @@
         }
     }
 
-    // --- Show Toast ---
     function showToast(message) {
         toastMessage.textContent = message;
         toast.style.display = 'block';
         toast.offsetHeight;
         toast.classList.add('show');
-
         if (toastTimeout) clearTimeout(toastTimeout);
-
         toastTimeout = setTimeout(function () {
             toast.classList.remove('show');
-            setTimeout(function () {
-                toast.style.display = 'none';
-            }, 400);
+            setTimeout(function () { toast.style.display = 'none'; }, 400);
         }, 2500);
     }
 

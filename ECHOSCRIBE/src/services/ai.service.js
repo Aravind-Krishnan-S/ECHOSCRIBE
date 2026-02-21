@@ -1,0 +1,196 @@
+const Groq = require('groq-sdk');
+const { AppError } = require('../middleware/errorHandler');
+
+let groq = null;
+
+function initGroq(apiKey) {
+    groq = new Groq({ apiKey });
+    return groq;
+}
+
+// --- Clinical SOAP Summarization ---
+
+async function summarizeTranscript(text, retries = 2) {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const wordCount = text.trim().split(/\s+/).length;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [
+                    {
+                        role: 'system',
+                        content: `You are an expert clinical documentation specialist trained in SOAP note formatting for mental health counseling sessions. 
+You analyze speech transcripts from counseling sessions and produce structured clinical documentation.
+You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
+Be thorough but clinically precise. Do not fabricate information not present in the transcript.
+If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.`
+                    },
+                    {
+                        role: 'user',
+                        content: `Analyze the following counseling session transcript and return a STRICT clinical SOAP note in JSON format.
+
+TRANSCRIPT:
+"""
+${text.trim()}
+"""
+
+Return ONLY valid JSON with this exact structure:
+{
+  "soap": {
+    "subjective": "Client's reported symptoms, feelings, concerns, and history as stated in their own words. Include chief complaint and relevant history.",
+    "objective": "Observable behaviors, affect, appearance cues noted from speech patterns. Include speech rate, coherence, emotional expression.",
+    "assessment": "Clinical assessment of the client's current state, diagnostic impressions, and clinical reasoning. Identify patterns and risk factors.",
+    "plan": "Recommended next steps, therapeutic interventions to continue, referrals, and follow-up actions."
+  },
+  "risk_assessment": {
+    "suicidal_ideation": false,
+    "self_harm_risk": "low",
+    "notes": "Brief risk assessment notes based on transcript content"
+  },
+  "diagnostic_impressions": ["Possible diagnostic considerations based on presentation"],
+  "interventions_used": ["Therapeutic interventions or techniques evident in the session"],
+  "medication_changes": ["Any medication-related discussions or changes mentioned"],
+  "progress_indicators": ["Signs of progress, improvement, or regression noted"],
+  "emotional_tone": "Primary emotional tone of the session",
+  "topics": ["Key topics discussed in the session"],
+  "confidence_score": 0.85,
+  "counselingStats": {
+    "name": "Client name if mentioned, otherwise Unknown",
+    "age": "Client age if mentioned, otherwise Unknown",
+    "presentingProblem": "The main issue described",
+    "reasonForCounseling": "Why the client is seeking help",
+    "lastMajorProgress": "Any recent positive developments",
+    "currentEmotionalState": "One-word emotion descriptor"
+  },
+  "wordCount": ${wordCount},
+  "originalText": ""
+}`
+                    }
+                ],
+                model: 'llama-3.3-70b-versatile',
+                temperature: 0.3,
+                max_tokens: 3000,
+                response_format: { type: 'json_object' },
+            });
+
+            const responseText = chatCompletion.choices[0]?.message?.content || '';
+
+            let parsedData;
+            try {
+                parsedData = JSON.parse(responseText);
+            } catch (parseError) {
+                // Try extracting JSON from code fences if present
+                const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (jsonMatch) {
+                    parsedData = JSON.parse(jsonMatch[1].trim());
+                } else {
+                    throw parseError;
+                }
+            }
+
+            // Ensure required fields
+            parsedData.wordCount = parsedData.wordCount || wordCount;
+            parsedData.originalText = text.trim();
+
+            // Normalize missing fields
+            parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
+            parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
+            parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
+            parsedData.interventions_used = parsedData.interventions_used || [];
+            parsedData.medication_changes = parsedData.medication_changes || [];
+            parsedData.progress_indicators = parsedData.progress_indicators || [];
+            parsedData.emotional_tone = parsedData.emotional_tone || 'neutral';
+            parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
+            parsedData.confidence_score = parsedData.confidence_score || 0.0;
+            parsedData.counselingStats = parsedData.counselingStats || {};
+
+            return parsedData;
+        } catch (err) {
+            if (attempt < retries) {
+                console.warn(`[AI Service] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
+                continue;
+            }
+            throw new AppError('Failed to analyze transcript. Please try again.', 500, err.message);
+        }
+    }
+}
+
+// --- Longitudinal Profile Analysis ---
+
+async function generateProfile(sessions) {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const sessionSummaries = sessions.map((s, i) => {
+        const analysis = s.analysis_json || {};
+        const stats = analysis.counselingStats || {};
+        const soap = analysis.soap || {};
+        const risk = analysis.risk_assessment || {};
+
+        return `Session ${i + 1} (${new Date(s.created_at).toLocaleDateString()}):
+- Subjective: ${soap.subjective || 'N/A'}
+- Assessment: ${soap.assessment || 'N/A'}
+- Problem: ${stats.presentingProblem || 'N/A'}
+- Progress: ${stats.lastMajorProgress || 'N/A'}
+- Emotion: ${stats.currentEmotionalState || 'N/A'}
+- Emotional Tone: ${analysis.emotional_tone || 'N/A'}
+- Risk Level: ${risk.self_harm_risk || 'N/A'}
+- Topics: ${(analysis.topics || []).join(', ') || 'N/A'}
+- Medications: ${(analysis.medication_changes || []).join(', ') || 'None'}
+- Interventions: ${(analysis.interventions_used || []).join(', ') || 'N/A'}`;
+    }).join('\n\n');
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: `You are an expert clinical supervisor analyzing longitudinal counseling data. You identify patterns, assess progress, and provide evidence-based recommendations. Respond with valid JSON only.`
+            },
+            {
+                role: 'user',
+                content: `Analyze the following chronological history of counseling sessions and generate a comprehensive longitudinal client profile.
+
+SESSION HISTORY:
+${sessionSummaries}
+
+Return ONLY valid JSON:
+{
+  "journey_summary": "Comprehensive narrative of the client's therapeutic journey across all sessions.",
+  "recurring_themes": ["Theme 1", "Theme 2"],
+  "emotional_trend": "improving|stable|declining",
+  "emotional_trend_data": [{"session": 1, "score": 5, "label": "Anxious"}, ...],
+  "risk_trend": "Description of how risk levels have changed over time",
+  "risk_trend_data": [{"session": 1, "level": "low"}, ...],
+  "topic_frequency": [{"topic": "anxiety", "count": 5}, ...],
+  "persistent_challenges": "Issues that keep recurring across sessions",
+  "recommended_focus": ["Specific actionable recommendations"],
+  "treatment_effectiveness_score": 65,
+  "psychological_profile": "Brief behavioral/psychological profile of the client"
+}`
+            }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.3,
+        max_tokens: 3000,
+        response_format: { type: 'json_object' },
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || '';
+
+    let profileAnalysis;
+    try {
+        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+            profileAnalysis = JSON.parse(jsonMatch[1].trim());
+        } else {
+            profileAnalysis = JSON.parse(responseText);
+        }
+    } catch (e) {
+        profileAnalysis = { journey_summary: responseText, error: 'Partial parse' };
+    }
+
+    return profileAnalysis;
+}
+
+module.exports = { initGroq, summarizeTranscript, generateProfile };

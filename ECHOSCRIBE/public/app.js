@@ -1,15 +1,32 @@
 /* ============================================
-   VoiceScribe — Speech Recognition Engine
+   EchoScribe — Speech Recognition Engine
    ============================================ */
 
 (function () {
     'use strict';
+
+    // --- Auth Guard ---
+    EchoAuth.guard();
+
+    // --- Patient Enforcement ---
+    const activePatientData = localStorage.getItem('echoscribe_active_patient');
+    if (!activePatientData) {
+        window.location.href = '/dashboard';
+        return;
+    }
+    const activePatient = JSON.parse(activePatientData);
+    const patientBanner = document.getElementById('active-patient-banner');
+    if (patientBanner) {
+        patientBanner.textContent = `👤 Patient: ${activePatient.name}`;
+    }
 
     // --- DOM Elements ---
     const btnRecord = document.getElementById('btn-record');
     const btnClear = document.getElementById('btn-clear');
     const btnCopy = document.getElementById('btn-copy');
     const btnSummarize = document.getElementById('btn-summarize');
+    const btnLogout = document.getElementById('btn-logout');
+    const themeToggle = document.getElementById('theme-toggle');
     const summarizeIcon = document.getElementById('summarize-icon');
     const summarizeLabel = document.getElementById('summarize-label');
     const summarizeSpinner = document.getElementById('summarize-spinner');
@@ -24,6 +41,30 @@
     const browserWarning = document.getElementById('browser-warning');
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
+    const userGreeting = document.getElementById('user-greeting');
+
+    // --- User Greeting ---
+    const user = EchoAuth.getUser();
+    if (user && userGreeting) {
+        userGreeting.textContent = `Logged in as ${user.email}`;
+    }
+
+    // --- Theme ---
+    function initTheme() {
+        const saved = localStorage.getItem('echoscribe_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+        if (themeToggle) themeToggle.textContent = saved === 'dark' ? '🌙' : '☀️';
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('echoscribe_theme', next);
+        themeToggle.textContent = next === 'dark' ? '🌙' : '☀️';
+    }
+
+    initTheme();
 
     // --- State ---
     let recognition = null;
@@ -52,7 +93,7 @@
         rec.maxAlternatives = 1;
 
         rec.onstart = function () {
-            console.log('[VoiceScribe] Recognition started');
+            console.log('[EchoScribe] Recognition started');
         };
 
         rec.onresult = function (event) {
@@ -73,7 +114,7 @@
         };
 
         rec.onerror = function (event) {
-            console.error('[VoiceScribe] Error:', event.error);
+            console.error('[EchoScribe] Error:', event.error);
 
             switch (event.error) {
                 case 'not-allowed':
@@ -81,7 +122,7 @@
                     stopRecording();
                     break;
                 case 'no-speech':
-                    console.log('[VoiceScribe] No speech detected, will auto-restart...');
+                    console.log('[EchoScribe] No speech detected, will auto-restart...');
                     break;
                 case 'audio-capture':
                     showToast('🎤 No microphone found. Please connect a microphone.');
@@ -100,13 +141,13 @@
         };
 
         rec.onend = function () {
-            console.log('[VoiceScribe] Recognition ended');
+            console.log('[EchoScribe] Recognition ended');
             if (isRecording) {
                 try {
                     rec.start();
-                    console.log('[VoiceScribe] Auto-restarted');
+                    console.log('[EchoScribe] Auto-restarted');
                 } catch (e) {
-                    console.error('[VoiceScribe] Auto-restart failed:', e);
+                    console.error('[EchoScribe] Auto-restart failed:', e);
                     stopRecording();
                 }
             }
@@ -127,7 +168,7 @@
             updateSummarizeButton();
             showToast('🎤 Recording started');
         } catch (e) {
-            console.error('[VoiceScribe] Start failed:', e);
+            console.error('[EchoScribe] Start failed:', e);
             showToast('⚠️ Could not start recording. Please try again.');
         }
     }
@@ -206,11 +247,11 @@
         btnSummarize.disabled = !canSummarize;
     }
 
-    // --- Summarize with Gemini ---
+    // --- Summarize with AI ---
     async function summarizeTranscript() {
         const text = finalTranscript.trim();
         if (!text) {
-            showToast('📝 No transcript to summarize');
+            showToast('📝 No transcript to analyze');
             return;
         }
 
@@ -225,14 +266,13 @@
         // Show loading state
         summarizeIcon.style.display = 'none';
         summarizeSpinner.style.display = 'inline-block';
-        summarizeLabel.textContent = 'Summarizing...';
-        showToast('✨ Analyzing your speech with AI...');
+        summarizeLabel.textContent = 'Analyzing...';
+        showToast('✨ Generating clinical SOAP note with AI...');
 
         try {
-            const response = await fetch('/api/summarize', {
+            const response = await EchoAuth.authFetch('/api/summarize', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text })
+                body: JSON.stringify({ text: text, patientId: activePatient.id }),
             });
 
             if (!response.ok) {
@@ -243,17 +283,23 @@
             const data = await response.json();
 
             // Store in localStorage and navigate
-            localStorage.setItem('voicescribe_summary', JSON.stringify(data));
-            window.location.href = 'summary.html';
+            localStorage.setItem('echoscribe_summary', JSON.stringify(data));
+            if (data.sessionId) {
+                localStorage.setItem('echoscribe_session_id', data.sessionId);
+            }
+            if (data.saved) {
+                showToast('✅ Session saved automatically');
+            }
+            setTimeout(() => { window.location.href = '/summary'; }, 500);
 
         } catch (err) {
-            console.error('[VoiceScribe] Summarize error:', err);
+            console.error('[EchoScribe] Analyze error:', err);
             showToast('⚠️ ' + err.message);
         } finally {
             isSummarizing = false;
             summarizeIcon.style.display = 'inline';
             summarizeSpinner.style.display = 'none';
-            summarizeLabel.textContent = 'Summarize';
+            summarizeLabel.textContent = 'Analyze (SOAP)';
             updateSummarizeButton();
         }
     }
@@ -332,6 +378,8 @@
     btnClear.addEventListener('click', clearTranscript);
     btnCopy.addEventListener('click', copyTranscript);
     btnSummarize.addEventListener('click', summarizeTranscript);
+    if (btnLogout) btnLogout.addEventListener('click', () => EchoAuth.logout());
+    if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
 
     langSelect.addEventListener('change', function () {
         if (isRecording) {
