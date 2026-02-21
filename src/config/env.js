@@ -13,11 +13,10 @@ function validateEnv() {
     const result = envSchema.safeParse(process.env);
 
     if (!result.success) {
-        console.error('❌ Environment validation failed:');
-        result.error.issues.forEach((issue) => {
-            console.error(`   → ${issue.path.join('.')}: ${issue.message}`);
-        });
-        process.exit(1);
+        const errorMsg = result.error.issues
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join(', ');
+        throw new Error(`Environment validation failed: ${errorMsg}`);
     }
 
     return result.data;
