@@ -1,5 +1,5 @@
 /* ============================================
-   VoiceScribe — Style Sheet
+   EchoScribe — Style Sheet
    ============================================ */
 
 *,
@@ -914,4 +914,125 @@ body {
     width: 100%;
     min-width: unset;
   }
+}
+
+/* --- Header Actions --- */
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+.btn-icon-only {
+  background: var(--bg-card);
+  border: 1px solid var(--bg-card-border);
+  color: var(--text-secondary);
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all var(--transition);
+  font-family: var(--font);
+}
+
+.btn-icon-only:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.user-greeting {
+  font-size: 0.8rem;
+  color: var(--text-placeholder);
+  margin-top: 0.25rem;
+}
+
+.btn-save {
+  justify-content: center;
+}
+
+/* ============================================
+   Light Theme
+   ============================================ */
+[data-theme="light"] {
+  --bg-primary: #f0f2f5;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-border: rgba(108, 99, 255, 0.15);
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-placeholder: #a0aec0;
+}
+
+[data-theme="light"] .blob {
+  opacity: 0.2;
+}
+
+[data-theme="light"] .counseling-card,
+[data-theme="light"] .summary-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(108, 99, 255, 0.12);
+}
+
+[data-theme="light"] .toast {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a202c;
+  border-color: rgba(108, 99, 255, 0.15);
+}
+
+[data-theme="light"] .summary-text,
+[data-theme="light"] .key-points-list li,
+[data-theme="light"] .risk-row {
+  color: #2d3748;
+}
+
+[data-theme="light"] .auth-card,
+[data-theme="light"] .modal {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(108, 99, 255, 0.15);
+}
+
+[data-theme="light"] .form-input {
+  background: rgba(240, 242, 245, 0.9);
+  border-color: rgba(108, 99, 255, 0.12);
+  color: #1a202c;
+}
+
+[data-theme="light"] .lang-select {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #1a202c;
+}
+
+[data-theme="light"] .lang-select option {
+  background: #fff;
+  color: #1a202c;
+}
+
+[data-theme="light"] .chart-container,
+[data-theme="light"] .modal-chart-box {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .stats-bar {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .session-item {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .session-item:hover {
+  background: rgba(108, 99, 255, 0.06);
 }

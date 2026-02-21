@@ -1,13 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VoiceScribe — Real-time Speech to Text</title>
+  <title>EchoScribe — AI Clinical Documentation</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <meta name="description"
-    content="Convert your speech to text in real-time using VoiceScribe. No API keys required." />
+  <meta name="description" content="AI-powered clinical documentation platform with real-time speech-to-text." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -23,11 +22,20 @@
 
   <main class="container">
     <header class="header">
-      <div class="logo">
-        <span class="logo-icon">🎙️</span>
-        <h1>VoiceScribe</h1>
+      <div class="header-top">
+        <div class="logo">
+          <span class="logo-icon">🩺</span>
+          <h1>EchoScribe</h1>
+        </div>
+        <div class="header-actions">
+          <button id="theme-toggle" class="btn btn-icon-only" title="Toggle Theme">🌙</button>
+          <a href="/dashboard" class="btn btn-secondary btn-sm" title="Back to Patients">← Patients</a>
+          <button id="btn-logout" class="btn btn-secondary btn-sm" title="Logout">🚪 Logout</button>
+        </div>
       </div>
-      <p class="subtitle">Real-time Speech to Text — Powered by AI</p>
+      <p class="subtitle">AI-Powered Clinical Documentation — Real-time Speech to Text</p>
+      <p id="active-patient-banner" style="color:#a78bfa; font-weight:600; font-size:0.9rem; margin-top:0.25rem;"></p>
+      <p class="user-greeting" id="user-greeting"></p>
     </header>
 
     <!-- Browser Warning -->
@@ -60,9 +68,9 @@
         <span class="btn-icon" id="record-icon">🎤</span>
         <span id="record-label">Start Recording</span>
       </button>
-      <button id="btn-summarize" class="btn btn-summarize" title="Summarize with AI" disabled>
+      <button id="btn-summarize" class="btn btn-summarize" title="Analyze with AI" disabled>
         <span class="btn-icon" id="summarize-icon">✨</span>
-        <span id="summarize-label">Summarize</span>
+        <span id="summarize-label">Analyze (SOAP)</span>
         <span class="spinner" id="summarize-spinner" style="display: none;"></span>
       </button>
     </div>
@@ -103,10 +111,12 @@
     </div>
 
     <footer class="footer">
-      <p>Built with the Web Speech API & Gemini AI — speech processing happens locally, summaries powered by AI.</p>
+      <p>EchoScribe — AI-powered clinical documentation. Speech processing happens locally, analysis powered by Groq.
+      </p>
     </footer>
   </main>
 
+  <script src="auth-guard.js"></script>
   <script src="app.js"></script>
 </body>
 
