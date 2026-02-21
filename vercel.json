@@ -4,10 +4,6 @@
         {
             "src": "src/index.js",
             "use": "@vercel/node"
-        },
-        {
-            "src": "public/**",
-            "use": "@vercel/static"
         }
     ],
     "routes": [
@@ -20,12 +16,24 @@
             "dest": "/public/favicon.svg"
         },
         {
-            "src": "/(.*\\.css)",
+            "src": "/css/(.*)",
+            "dest": "/public/css/$1"
+        },
+        {
+            "src": "/js/(.*)",
+            "dest": "/public/js/$1"
+        },
+        {
+            "src": "/(auth-guard.js|app.js|login.js|signup.js|summary.js)",
             "dest": "/public/$1"
         },
         {
-            "src": "/(.*\\.js)",
+            "src": "/(style.css|card.css|modal.css)",
             "dest": "/public/$1"
+        },
+        {
+            "src": "/api/(.*)",
+            "dest": "src/index.js"
         },
         {
             "src": "/login",
@@ -44,12 +52,12 @@
             "dest": "/public/summary.html"
         },
         {
-            "src": "/api/(.*)",
-            "dest": "/src/index.js"
+            "src": "/",
+            "dest": "/public/index.html"
         },
         {
             "src": "/(.*)",
-            "dest": "/src/index.js"
+            "dest": "src/index.js"
         }
     ]
 }
