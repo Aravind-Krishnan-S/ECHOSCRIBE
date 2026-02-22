@@ -23,6 +23,7 @@ async function summarizeTranscript(text, retries = 2) {
                         role: 'system',
                         content: `You are an expert clinical documentation specialist trained in SOAP note formatting for mental health counseling sessions. 
 You analyze speech transcripts from counseling sessions and produce structured clinical documentation.
+The transcript may contain speaker labels like "Counsellor:" and "Patient:" (or "Person 1:" / "Person 2:"). Use these to understand the dialogue flow.
 You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
 Be thorough but clinically precise. Do not fabricate information not present in the transcript.
 If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.`
@@ -129,9 +130,77 @@ async function transcribeAudio(filePath, lang = 'en') {
         model: 'whisper-large-v3-turbo',
         language: lang,
         response_format: 'verbose_json',
+        timestamp_granularities: ['segment'],
     });
 
-    return transcription.text || '';
+    // Return segments with timestamps for speaker diarization
+    const segments = (transcription.segments || []).map(seg => ({
+        start: seg.start,
+        end: seg.end,
+        text: (seg.text || '').trim(),
+    }));
+
+    return {
+        text: transcription.text || '',
+        segments,
+    };
+}
+
+// --- Speaker Identification via LLM ---
+
+async function identifySpeakers(diarizedTranscript) {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: `You are an expert at analyzing counseling session transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the Counsellor and which is the Patient.
+
+Clues to identify the Counsellor:
+- Asks open-ended questions ("How does that make you feel?", "Tell me more about...")
+- Uses therapeutic language ("I hear you", "Let's explore that")
+- Guides the conversation, summarizes, reflects
+- Uses professional/clinical terminology
+
+Clues to identify the Patient:
+- Describes personal experiences, feelings, problems
+- Responds to questions rather than asking clinical ones
+- Shares emotional content, concerns, symptoms
+- Seeks advice or help
+
+You MUST respond with valid JSON only.`
+            },
+            {
+                role: 'user',
+                content: `Analyze this counseling transcript and identify which person is the Counsellor and which is the Patient.
+
+TRANSCRIPT:
+"""
+${diarizedTranscript}
+"""
+
+Return ONLY valid JSON:
+{
+  "person1_role": "Counsellor" or "Patient",
+  "person2_role": "Counsellor" or "Patient",
+  "confidence": 0.0 to 1.0,
+  "reasoning": "Brief explanation of why"
+}`
+            }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.1,
+        max_tokens: 500,
+        response_format: { type: 'json_object' },
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || '';
+    try {
+        return JSON.parse(responseText);
+    } catch (e) {
+        return { person1_role: 'Person 1', person2_role: 'Person 2', confidence: 0, reasoning: 'Could not determine roles' };
+    }
 }
 
 // --- Longitudinal Profile Analysis ---
@@ -210,4 +279,4 @@ Return ONLY valid JSON:
     return profileAnalysis;
 }
 
-module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio };
+module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio, identifySpeakers };

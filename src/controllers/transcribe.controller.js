@@ -1,4 +1,4 @@
-const { transcribeAudio } = require('../services/ai.service');
+const { transcribeAudio, identifySpeakers } = require('../services/ai.service');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
 
@@ -11,12 +11,16 @@ const transcribe = asyncHandler(async (req, res) => {
     const lang = req.body.language || 'en';
 
     try {
-        const text = await transcribeAudio(req.file.path, lang);
+        const result = await transcribeAudio(req.file.path, lang);
 
         // Clean up temp file
         fs.unlink(req.file.path, () => { });
 
-        res.json({ text });
+        // Return text + segments with timestamps
+        res.json({
+            text: result.text,
+            segments: result.segments,
+        });
     } catch (err) {
         // Clean up temp file on error too
         if (req.file && req.file.path) {
@@ -27,4 +31,15 @@ const transcribe = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { transcribe };
+// POST /api/identify-speakers
+const identifySpeakersHandler = asyncHandler(async (req, res) => {
+    const { transcript } = req.body;
+    if (!transcript || !transcript.trim()) {
+        throw new AppError('Transcript is required.', 400);
+    }
+
+    const result = await identifySpeakers(transcript);
+    res.json(result);
+});
+
+module.exports = { transcribe, identifySpeakers: identifySpeakersHandler };
