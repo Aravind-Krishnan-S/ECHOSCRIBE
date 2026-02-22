@@ -128,11 +128,11 @@ async function getPatients(token, userId) {
     return data;
 }
 
-async function createPatient(token, { userId, name, age, gender, notes }) {
+async function createPatient(token, { userId, name, age, gender, notes, email, phone }) {
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('patients')
-        .insert([{ user_id: userId, name, age, gender, notes }])
+        .insert([{ user_id: userId, name, age, gender, notes, email, phone }])
         .select();
 
     if (error) throw error;
