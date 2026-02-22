@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EchoScribe — Patient Details</title>
+    <meta name="description" content="View patient history, longitudinal profile, and start new sessions." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="card.css" />
+    <style>
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .back-btn {
+            background: rgba(108, 99, 255, 0.1);
+            color: #a78bfa;
+            border: 1px solid rgba(108, 99, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(108, 99, 255, 0.2);
+            color: white;
+            transform: translateX(-2px);
+        }
+
+        .patient-header {
+            background: rgba(15, 20, 40, 0.7);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(12px);
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .patient-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .patient-avatar-large {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c63ff, #f472b6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 4px 15px rgba(244, 114, 182, 0.3);
+        }
+
+        .patient-details h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.3rem;
+            color: #e2e8f0;
+        }
+
+        .patient-meta-tags {
+            display: flex;
+            gap: 0.75rem;
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        .patient-meta-tags span {
+            background: rgba(136, 146, 176, 0.1);
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .btn-start-session {
+            background: linear-gradient(135deg, #6c63ff, #a78bfa);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .btn-start-session:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+        }
+
+        .profile-section {
+            background: rgba(15, 20, 40, 0.5);
+            border: 1px solid rgba(136, 146, 176, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #a78bfa;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(136, 146, 176, 0.1);
+            padding-bottom: 0.75rem;
+        }
+
+        .story-content {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: #ccd6f6;
+        }
+
+        .sessions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .session-item {
+            background: rgba(15, 20, 40, 0.4);
+            border: 1px solid rgba(136, 146, 176, 0.1);
+            border-left: 4px solid #6c63ff;
+            border-radius: 8px;
+            padding: 1.25rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .session-item:hover {
+            background: rgba(108, 99, 255, 0.05);
+            border-color: rgba(108, 99, 255, 0.3);
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .session-date {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        .session-badges {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(136, 146, 176, 0.1);
+            color: #a78bfa;
+        }
+
+        .badge-risk {
+            background: rgba(255, 77, 106, 0.1);
+            color: #ff4d6a;
+            border: 1px solid rgba(255, 77, 106, 0.2);
+        }
+
+        .session-preview {
+            font-size: 0.9rem;
+            color: #8892b0;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Profile Grid */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .profile-card {
+            background: rgba(15, 20, 40, 0.4);
+            border: 1px solid rgba(136, 146, 176, 0.1);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .profile-card h3 {
+            font-size: 0.95rem;
+            color: #8892b0;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag {
+            background: rgba(108, 99, 255, 0.1);
+            color: #a78bfa;
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(108, 99, 255, 0.2);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(108, 99, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #6c63ff;
+            animation: spin 1s ease-in-out infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .patient-header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .patient-info {
+                flex-direction: column;
+            }
+
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .session-header {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="container" style="max-width: 900px;">
+        <div class="header-top">
+            <a href="/dashboard.html" class="back-btn" title="Back to Dashboard">←</a>
+            <h1 style="font-size: 1.2rem; margin: 0; color: #8892b0;">Patient Details</h1>
+        </div>
+
+        <div id="loading-overlay" style="text-align: center; padding: 4rem;">
+            <div class="spinner"></div>
+            <p style="color: #8892b0; margin-top: 1rem;">Loading patient data...</p>
+        </div>
+
+        <div id="patient-content" style="display: none;">
+            <!-- Header -->
+            <div class="patient-header">
+                <div class="patient-info">
+                    <div class="patient-avatar-large" id="patient-avatar">--</div>
+                    <div class="patient-details">
+                        <h1 id="patient-name">Patient Name</h1>
+                        <div class="patient-meta-tags" id="patient-meta">
+                            <!-- Tags injected here -->
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-start-session" id="btn-start" onclick="startNewSession()">
+                    <span>🎙️ Start New Session</span>
+                </button>
+            </div>
+
+            <!-- AI Patient Story -->
+            <div class="profile-section">
+                <h2 class="section-title">🧠 Longitudinal Profile & Story</h2>
+
+                <div id="profile-loading" style="text-align: center; padding: 2rem;">
+                    <div class="spinner" style="width: 24px; height: 24px; border-width: 2px;"></div>
+                    <p style="color: #a78bfa; font-size: 0.9rem;">AI is analyzing session history...</p>
+                </div>
+
+                <div id="profile-content" style="display: none;">
+                    <div class="story-content" id="profile-story">
+                        <!-- AI Journey Summary -->
+                    </div>
+
+                    <div class="profile-grid">
+                        <div class="profile-card">
+                            <h3>Recurring Themes</h3>
+                            <div class="tag-list" id="profile-themes"></div>
+                        </div>
+                        <div class="profile-card">
+                            <h3>Persistent Challenges</h3>
+                            <p id="profile-challenges" style="color: #e2e8f0; font-size: 0.95rem; line-height: 1.5;">
+                            </p>
+                        </div>
+                        <div class="profile-card">
+                            <h3>Emotional Trend</h3>
+                            <p id="profile-emotion" style="color: #e2e8f0; font-size: 0.95rem; font-weight: 500;"></p>
+                        </div>
+                        <div class="profile-card">
+                            <h3>Recommended Focus</h3>
+                            <ul id="profile-recommendations"
+                                style="color: #e2e8f0; font-size: 0.95rem; padding-left: 1.2rem; line-height: 1.5;">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="profile-empty" style="display: none; text-align: center; color: #8892b0; padding: 2rem 0;">
+                    <p>Not enough session data yet. Record a few sessions to generate an AI longitudinal profile.</p>
+                </div>
+            </div>
+
+            <!-- Session History -->
+            <div class="profile-section">
+                <h2 class="section-title">📋 Session History</h2>
+                <div class="sessions-list" id="sessions-list">
+                    <!-- Sessions injected here -->
+                </div>
+                <div id="sessions-empty" style="display: none; text-align: center; color: #8892b0; padding: 2rem 0;">
+                    <p>No sessions recorded yet.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="auth-guard.js"></script>
+    <script>
+        (function () {
+            'use strict';
+            EchoAuth.guard();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const patientId = urlParams.get('id');
+
+            if (!patientId) {
+                window.location.href = '/dashboard.html';
+                return;
+            }
+
+            let currentPatient = null;
+            let currentSessions = [];
+
+            // Execute on load
+            document.addEventListener('DOMContentLoaded', () => {
+                initTheme();
+                loadPatientData();
+            });
+
+            function initTheme() {
+                const saved = localStorage.getItem('echoscribe_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+
+            async function loadPatientData() {
+                try {
+                    // Fetch Patient Details
+                    const pRes = await EchoAuth.authFetch(`/api/patients/${patientId}`);
+                    currentPatient = await pRes.json();
+                    renderPatientHeader();
+
+                    // Fetch Sessions
+                    const sRes = await EchoAuth.authFetch(`/api/patients/${patientId}/sessions`);
+                    currentSessions = await sRes.json();
+                    renderSessions();
+
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    document.getElementById('patient-content').style.display = 'block';
+
+                    // Trigger async profile AI generation if there are sessions
+                    if (currentSessions.length > 0) {
+                        loadLongitudinalProfile();
+                    } else {
+                        document.getElementById('profile-loading').style.display = 'none';
+                        document.getElementById('profile-empty').style.display = 'block';
+                    }
+
+                } catch (err) {
+                    console.error('Failed to load patient:', err);
+                    alert('Error loading patient data. They may have been deleted.');
+                    window.location.href = '/dashboard.html';
+                }
+            }
+
+            function renderPatientHeader() {
+                const p = currentPatient;
+
+                // Avatar
+                const initials = (p.name || 'P').split(' ').map(n => n.charAt(0).toUpperCase()).slice(0, 2).join('');
+                document.getElementById('patient-avatar').textContent = initials;
+
+                // Name
+                document.getElementById('patient-name').textContent = p.name;
+
+                // Meta tags
+                const metaDiv = document.getElementById('patient-meta');
+                metaDiv.innerHTML = '';
+                if (p.age) metaDiv.innerHTML += `<span>${p.age} years</span>`;
+                if (p.gender) metaDiv.innerHTML += `<span>${p.gender}</span>`;
+                metaDiv.innerHTML += `<span>Added ${new Date(p.created_at).toLocaleDateString()}</span>`;
+            }
+
+            function renderSessions() {
+                const list = document.getElementById('sessions-list');
+                const empty = document.getElementById('sessions-empty');
+                list.innerHTML = '';
+
+                if (currentSessions.length === 0) {
+                    empty.style.display = 'block';
+                    return;
+                }
+
+                currentSessions.forEach((s, index) => {
+                    const analysis = s.analysis_json || {};
+                    const risk = analysis.risk_assessment || {};
+                    const topics = analysis.topics || analysis.topicsDetected || [];
+
+                    let riskBadge = '';
+                    if (risk.suicidal_ideation || risk.self_harm_risk === 'high' || risk.self_harm_risk === 'moderate') {
+                        riskBadge = `<span class="badge badge-risk">⚠️ ${risk.self_harm_risk === 'high' ? 'High Risk' : 'Risk Flag'}</span>`;
+                    }
+
+                    const topicBadges = topics.slice(0, 2).map(t => `<span class="badge">${escapeHtml(t)}</span>`).join('');
+
+                    const el = document.createElement('div');
+                    el.className = 'session-item';
+
+                    const dateStr = new Date(s.created_at).toLocaleDateString(undefined, {
+                        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+
+                    // We use Session N. Since it's sorted descending, to get the right number:
+                    const sessionNumber = currentSessions.length - index;
+
+                    el.innerHTML = `
+                        <div class="session-header">
+                            <span class="session-date">Session ${sessionNumber} — ${dateStr}</span>
+                            <div class="session-badges">
+                                ${riskBadge}
+                                ${topicBadges}
+                            </div>
+                        </div>
+                        <div class="session-preview">
+                            ${escapeHtml(s.summary || 'No summary available.')}
+                        </div>
+                    `;
+
+                    // Click to view full summary (not implemented yet, but good UX placeholder)
+                    el.addEventListener('click', () => {
+                        window.location.href = `/summary.html?id=${s.id}`;
+                    });
+
+                    list.appendChild(el);
+                });
+            }
+
+            async function loadLongitudinalProfile() {
+                try {
+                    const res = await EchoAuth.authFetch(`/api/patients/${patientId}/profile`);
+                    if (!res.ok) throw new Error('Failed to generate profile');
+
+                    const profile = await res.json();
+
+                    // Hide loader, show content
+                    document.getElementById('profile-loading').style.display = 'none';
+                    document.getElementById('profile-content').style.display = 'block';
+
+                    // Render Aggregate Charts
+                    renderCharts();
+
+                    // Story
+                    document.getElementById('profile-story').innerHTML = profile.journey_summary.replace(/\n\n/g, '<br><br>');
+
+                    // Themes
+                    const themesDiv = document.getElementById('profile-themes');
+                    const themes = profile.recurring_themes || [];
+                    themesDiv.innerHTML = themes.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+
+                    // Challenges & Emotion & Plan
+                    document.getElementById('profile-challenges').textContent = profile.persistent_challenges || 'None listed.';
+
+                    const trend = profile.emotional_trend || 'stable';
+                    let trendEmoji = '➡️';
+                    if (trend.toLowerCase().includes('improve')) trendEmoji = '↗️';
+                    if (trend.toLowerCase().includes('declin')) trendEmoji = '↘️';
+                    document.getElementById('profile-emotion').innerHTML = `${trendEmoji} ${trend.charAt(0).toUpperCase() + trend.slice(1)}`;
+
+                    // Recommendations
+                    const recs = profile.recommended_focus || [];
+                    document.getElementById('profile-recommendations').innerHTML = recs.map(r => `<li>${escapeHtml(r)}</li>`).join('');
+
+                } catch (err) {
+                    console.error('Profile gen error:', err);
+                    document.getElementById('profile-loading').innerHTML = '<p style="color: #ff4d6a;">Unable to generate AI profile at this time. Try again later.</p>';
+                }
+            }
+
+            function renderCharts() {
+                if (currentSessions.length === 0) return;
+
+                // 1. Aggregate Topics
+                const topicCounts = {};
+                const sentimentCounts = {};
+
+                currentSessions.forEach(s => {
+                    const analysis = s.analysis_json || {};
+
+                    // Count Topics
+                    const topics = analysis.topics || analysis.topicsDetected || [];
+                    topics.forEach(t => {
+                        const cleanT = t.toLowerCase().trim();
+                        topicCounts[cleanT] = (topicCounts[cleanT] || 0) + 1;
+                    });
+
+                    // Count Sentiment
+                    const sentiment = analysis.emotional_tone || 'Neutral';
+                    sentimentCounts[sentiment] = (sentimentCounts[sentiment] || 0) + 1;
+                });
+
+                // Top 6 topics
+                const sortedTopics = Object.entries(topicCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 6);
+
+                const tLabels = sortedTopics.map(t => t[0]);
+                const tData = sortedTopics.map(t => t[1]);
+
+                const sLabels = Object.keys(sentimentCounts);
+                const sData = Object.values(sentimentCounts);
+
+                // Chart setup
+                Chart.defaults.color = '#8892b0';
+                Chart.defaults.font.family = "'Inter', sans-serif";
+
+                // Topics - Polar Area
+                const ctxTopics = document.getElementById('topicsChart');
+                if (ctxTopics && tData.length > 0) {
+                    new Chart(ctxTopics, {
+                        type: 'polarArea',
+                        data: {
+                            labels: tLabels,
+                            datasets: [{
+                                data: tData,
+                                backgroundColor: [
+                                    'rgba(108, 99, 255, 0.6)',
+                                    'rgba(244, 114, 182, 0.6)',
+                                    'rgba(79, 209, 197, 0.6)',
+                                    'rgba(246, 173, 85, 0.6)',
+                                    'rgba(159, 122, 234, 0.6)',
+                                    'rgba(113, 128, 150, 0.6)'
+                                ],
+                                borderWidth: 1,
+                                borderColor: 'rgba(15, 20, 40, 0.8)'
+                            }]
+                        },
+                        options: {
+                            scales: { r: { ticks: { display: false } } },
+                            plugins: {
+                                legend: { position: 'right' }
+                            },
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // Sentiment - Doughnut
+                const ctxSentiment = document.getElementById('sentimentChart');
+                if (ctxSentiment && sData.length > 0) {
+                    new Chart(ctxSentiment, {
+                        type: 'doughnut',
+                        data: {
+                            labels: sLabels,
+                            datasets: [{
+                                data: sData,
+                                backgroundColor: [
+                                    'rgba(79, 209, 197, 0.8)', // Teal
+                                    'rgba(246, 173, 85, 0.8)', // Orange
+                                    'rgba(244, 114, 182, 0.8)', // Pink/Red
+                                    'rgba(108, 99, 255, 0.8)', // Indigo
+                                    'rgba(160, 174, 192, 0.8)' // Gray
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            cutout: '70%',
+                            plugins: {
+                                legend: { position: 'right' }
+                            },
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+            }
+
+            function escapeHtml(unsafe) {
+                if (!unsafe) return '';
+                return unsafe
+                    .toString()
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // Expose globally for button
+            window.startNewSession = function () {
+                if (!currentPatient) return;
+
+                // Set active patient exactly like dashboard did
+                localStorage.setItem('echoscribe_active_patient', JSON.stringify({
+                    id: currentPatient.id,
+                    name: currentPatient.name,
+                }));
+
+                // Redirect to recorder
+                window.location.href = '/';
+            };
+
+        })();
+    </script>
+</body>
+
+</html>

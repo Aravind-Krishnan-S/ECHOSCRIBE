@@ -23,6 +23,7 @@ async function summarizeTranscript(text, retries = 2) {
                         role: 'system',
                         content: `You are an expert clinical documentation specialist trained in SOAP note formatting for mental health counseling sessions. 
 You analyze speech transcripts from counseling sessions and produce structured clinical documentation.
+The transcript may contain speaker labels like "Counsellor:" and "Patient:" (or "Person 1:" / "Person 2:"). Use these to understand the dialogue flow.
 You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
 Be thorough but clinically precise. Do not fabricate information not present in the transcript.
 If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.`
@@ -124,14 +125,101 @@ async function transcribeAudio(filePath, lang = 'en') {
 
     const fs = require('fs');
 
+    // Map language codes to ensure correct ISO 639-1 format
+    const langMap = {
+        'en': 'en', 'hi': 'hi', 'ml': 'ml', 'ta': 'ta',
+        'es': 'es', 'fr': 'fr', 'de': 'de', 'ja': 'ja',
+        'ko': 'ko', 'zh': 'zh', 'pt': 'pt', 'ar': 'ar',
+    };
+    const whisperLang = langMap[lang] || lang;
+
+    // Language-specific prompts improve accuracy by conditioning the model
+    const langPrompts = {
+        'en': 'This is a counseling session conversation in English between a counselor and a patient.',
+        'hi': 'यह एक परामर्श सत्र है। काउंसलर और मरीज़ हिंदी में बात कर रहे हैं।',
+        'ml': 'ഇത് ഒരു കൗൺസിലിംഗ് സെഷൻ ആണ്. കൗൺസിലറും രോഗിയും മലയാളത്തിൽ സംസാരിക്കുന്നു.',
+        'ta': 'இது ஒரு ஆலோசனை அமர்வு. ஆலோசகரும் நோயாளியும் தமிழில் பேசுகிறார்கள்.',
+    };
+    const prompt = langPrompts[whisperLang] || `This is a counseling session conversation in the selected language.`;
+
+    // Use whisper-large-v3 for best multilingual accuracy (not turbo)
     const transcription = await groq.audio.transcriptions.create({
         file: fs.createReadStream(filePath),
-        model: 'whisper-large-v3-turbo',
-        language: lang,
+        model: 'whisper-large-v3',
+        language: whisperLang,
+        prompt: prompt,
         response_format: 'verbose_json',
+        timestamp_granularities: ['segment'],
     });
 
-    return transcription.text || '';
+    // Return segments with timestamps for speaker diarization
+    const segments = (transcription.segments || []).map(seg => ({
+        start: seg.start,
+        end: seg.end,
+        text: (seg.text || '').trim(),
+    }));
+
+    return {
+        text: transcription.text || '',
+        segments,
+    };
+}
+
+// --- Speaker Identification via LLM ---
+
+async function identifySpeakers(diarizedTranscript) {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: `You are an expert at analyzing counseling session transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the Counsellor and which is the Patient.
+
+Clues to identify the Counsellor:
+- Asks open-ended questions ("How does that make you feel?", "Tell me more about...")
+- Uses therapeutic language ("I hear you", "Let's explore that")
+- Guides the conversation, summarizes, reflects
+- Uses professional/clinical terminology
+
+Clues to identify the Patient:
+- Describes personal experiences, feelings, problems
+- Responds to questions rather than asking clinical ones
+- Shares emotional content, concerns, symptoms
+- Seeks advice or help
+
+You MUST respond with valid JSON only.`
+            },
+            {
+                role: 'user',
+                content: `Analyze this counseling transcript and identify which person is the Counsellor and which is the Patient.
+
+TRANSCRIPT:
+"""
+${diarizedTranscript}
+"""
+
+Return ONLY valid JSON:
+{
+  "person1_role": "Counsellor" or "Patient",
+  "person2_role": "Counsellor" or "Patient",
+  "confidence": 0.0 to 1.0,
+  "reasoning": "Brief explanation of why"
+}`
+            }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.1,
+        max_tokens: 500,
+        response_format: { type: 'json_object' },
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || '';
+    try {
+        return JSON.parse(responseText);
+    } catch (e) {
+        return { person1_role: 'Person 1', person2_role: 'Person 2', confidence: 0, reasoning: 'Could not determine roles' };
+    }
 }
 
 // --- Longitudinal Profile Analysis ---
@@ -210,4 +298,61 @@ Return ONLY valid JSON:
     return profileAnalysis;
 }
 
-module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio };
+// --- LLM-based Speaker Diarization ---
+
+async function diarizeTranscript(rawText) {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
+
+Rules:
+- There are exactly 2 speakers: "Person 1" and "Person 2"
+- Person 1 is whoever speaks first
+- Identify speaker changes by analyzing: question-answer patterns, topic shifts, response cues, greetings, conversational flow
+- Each turn should contain what one person says before the other person responds
+- Do NOT merge multiple turns from different speakers
+- Do NOT fabricate or modify the text — use the exact words from the transcript
+- If unsure about a split point, make your best guess based on conversational logic
+
+You MUST respond with valid JSON only.`
+            },
+            {
+                role: 'user',
+                content: `Split this conversation transcript into speaker turns. Identify where one person stops speaking and the other responds.
+
+RAW TRANSCRIPT:
+"""
+${rawText}
+"""
+
+Return ONLY valid JSON in this format:
+{
+  "turns": [
+    { "speaker": 1, "text": "exact text from person 1" },
+    { "speaker": 2, "text": "exact text from person 2" },
+    { "speaker": 1, "text": "exact text from person 1" }
+  ]
+}`
+            }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.1,
+        max_tokens: 4000,
+        response_format: { type: 'json_object' },
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || '';
+    try {
+        const parsed = JSON.parse(responseText);
+        return parsed.turns || [];
+    } catch (e) {
+        // Fallback: return entire text as single speaker
+        return [{ speaker: 1, text: rawText }];
+    }
+}
+
+module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio, identifySpeakers, diarizeTranscript };

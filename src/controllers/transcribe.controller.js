@@ -1,4 +1,5 @@
-const { transcribeAudio } = require('../services/ai.service');
+const { transcribeAudio, identifySpeakers, diarizeTranscript } = require('../services/ai.service');
+const { transcribeAndDiarizeWithDeepgram } = require('../services/deepgram.service');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
 
@@ -11,12 +12,18 @@ const transcribe = asyncHandler(async (req, res) => {
     const lang = req.body.language || 'en';
 
     try {
-        const text = await transcribeAudio(req.file.path, lang);
+        // Use Deepgram for transcription + built-in robust diarization
+        const result = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
 
         // Clean up temp file
         fs.unlink(req.file.path, () => { });
 
-        res.json({ text });
+        // Return text + segments (turns)
+        res.json({
+            text: result.text,
+            segments: result.segments,
+            turns: result.turns
+        });
     } catch (err) {
         // Clean up temp file on error too
         if (req.file && req.file.path) {
@@ -27,4 +34,26 @@ const transcribe = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { transcribe };
+// POST /api/identify-speakers
+const identifySpeakersHandler = asyncHandler(async (req, res) => {
+    const { transcript } = req.body;
+    if (!transcript || !transcript.trim()) {
+        throw new AppError('Transcript is required.', 400);
+    }
+
+    const result = await identifySpeakers(transcript);
+    res.json(result);
+});
+
+// POST /api/diarize-transcript
+const diarizeHandler = asyncHandler(async (req, res) => {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+        throw new AppError('Transcript text is required.', 400);
+    }
+
+    const turns = await diarizeTranscript(text);
+    res.json({ turns });
+});
+
+module.exports = { transcribe, identifySpeakers: identifySpeakersHandler, diarize: diarizeHandler };
