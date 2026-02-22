@@ -379,14 +379,17 @@
 
         /* KPI grid (secondary) */
         .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
             width: 100%;
             margin-bottom: 1.5rem;
+            justify-content: center;
         }
 
         .kpi-card {
+            flex: 1 1 130px;
+            max-width: 200px;
             background: rgba(15, 20, 40, 0.5);
             border: 1px solid rgba(108, 99, 255, 0.08);
             border-radius: 12px;

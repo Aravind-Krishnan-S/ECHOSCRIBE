@@ -857,40 +857,28 @@
 
             const data = await response.json();
 
-            uploadProgressBar.style.width = '80%';
-            uploadProgressText.textContent = 'Identifying speakers with AI...';
+            uploadProgressBar.style.width = '90%';
+            uploadProgressText.textContent = 'Processing speaker segments...';
 
-            // Use the full text and send it to LLM for speaker diarization
             const rawText = data.text || '';
             if (!rawText.trim()) {
                 throw new Error('No speech detected in the audio file.');
             }
 
-            // Call LLM to identify speaker turns
-            const diarizeResponse = await EchoAuth.authFetch('/api/diarize-transcript', {
-                method: 'POST',
-                body: JSON.stringify({ text: rawText }),
-            });
-
-            if (diarizeResponse.ok) {
-                const diarizeData = await diarizeResponse.json();
-                if (diarizeData.turns && diarizeData.turns.length > 0) {
-                    hasTwoSpeakers = diarizeData.turns.some(t => t.speaker === 2);
-                    diarizeData.turns.forEach(turn => {
-                        speakerSegments.push({
-                            speaker: turn.speaker,
-                            text: turn.text,
-                            start: 0,
-                            end: 0,
-                            avgPitch: 0,
-                        });
+            // Since we switched to Deepgram, the backend returns accurately diarized 'turns' automatically!
+            if (data.turns && data.turns.length > 0) {
+                hasTwoSpeakers = data.turns.some(t => t.speaker === 2);
+                data.turns.forEach(turn => {
+                    speakerSegments.push({
+                        speaker: turn.speaker,
+                        text: turn.text,
+                        start: turn.start || 0,
+                        end: turn.end || 0,
+                        avgPitch: turn.avgPitch || 0,
                     });
-                } else {
-                    // Fallback — single block
-                    speakerSegments.push({ speaker: 1, text: rawText, start: 0, end: 0, avgPitch: 0 });
-                }
+                });
             } else {
-                // Diarization failed — show as single speaker
+                // Fallback — single block
                 speakerSegments.push({ speaker: 1, text: rawText, start: 0, end: 0, avgPitch: 0 });
             }
 

@@ -1,4 +1,5 @@
 const { transcribeAudio, identifySpeakers, diarizeTranscript } = require('../services/ai.service');
+const { transcribeAndDiarizeWithDeepgram } = require('../services/deepgram.service');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
 
@@ -11,15 +12,17 @@ const transcribe = asyncHandler(async (req, res) => {
     const lang = req.body.language || 'en';
 
     try {
-        const result = await transcribeAudio(req.file.path, lang);
+        // Use Deepgram for transcription + built-in robust diarization
+        const result = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
 
         // Clean up temp file
         fs.unlink(req.file.path, () => { });
 
-        // Return text + segments with timestamps
+        // Return text + segments (turns)
         res.json({
             text: result.text,
             segments: result.segments,
+            turns: result.turns
         });
     } catch (err) {
         // Clean up temp file on error too

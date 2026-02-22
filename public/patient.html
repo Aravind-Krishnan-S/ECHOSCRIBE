@@ -513,6 +513,9 @@
                     document.getElementById('profile-loading').style.display = 'none';
                     document.getElementById('profile-content').style.display = 'block';
 
+                    // Render Aggregate Charts
+                    renderCharts();
+
                     // Story
                     document.getElementById('profile-story').innerHTML = profile.journey_summary.replace(/\n\n/g, '<br><br>');
 
@@ -537,6 +540,105 @@
                 } catch (err) {
                     console.error('Profile gen error:', err);
                     document.getElementById('profile-loading').innerHTML = '<p style="color: #ff4d6a;">Unable to generate AI profile at this time. Try again later.</p>';
+                }
+            }
+
+            function renderCharts() {
+                if (currentSessions.length === 0) return;
+
+                // 1. Aggregate Topics
+                const topicCounts = {};
+                const sentimentCounts = {};
+
+                currentSessions.forEach(s => {
+                    const analysis = s.analysis_json || {};
+
+                    // Count Topics
+                    const topics = analysis.topics || analysis.topicsDetected || [];
+                    topics.forEach(t => {
+                        const cleanT = t.toLowerCase().trim();
+                        topicCounts[cleanT] = (topicCounts[cleanT] || 0) + 1;
+                    });
+
+                    // Count Sentiment
+                    const sentiment = analysis.emotional_tone || 'Neutral';
+                    sentimentCounts[sentiment] = (sentimentCounts[sentiment] || 0) + 1;
+                });
+
+                // Top 6 topics
+                const sortedTopics = Object.entries(topicCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 6);
+
+                const tLabels = sortedTopics.map(t => t[0]);
+                const tData = sortedTopics.map(t => t[1]);
+
+                const sLabels = Object.keys(sentimentCounts);
+                const sData = Object.values(sentimentCounts);
+
+                // Chart setup
+                Chart.defaults.color = '#8892b0';
+                Chart.defaults.font.family = "'Inter', sans-serif";
+
+                // Topics - Polar Area
+                const ctxTopics = document.getElementById('topicsChart');
+                if (ctxTopics && tData.length > 0) {
+                    new Chart(ctxTopics, {
+                        type: 'polarArea',
+                        data: {
+                            labels: tLabels,
+                            datasets: [{
+                                data: tData,
+                                backgroundColor: [
+                                    'rgba(108, 99, 255, 0.6)',
+                                    'rgba(244, 114, 182, 0.6)',
+                                    'rgba(79, 209, 197, 0.6)',
+                                    'rgba(246, 173, 85, 0.6)',
+                                    'rgba(159, 122, 234, 0.6)',
+                                    'rgba(113, 128, 150, 0.6)'
+                                ],
+                                borderWidth: 1,
+                                borderColor: 'rgba(15, 20, 40, 0.8)'
+                            }]
+                        },
+                        options: {
+                            scales: { r: { ticks: { display: false } } },
+                            plugins: {
+                                legend: { position: 'right' }
+                            },
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // Sentiment - Doughnut
+                const ctxSentiment = document.getElementById('sentimentChart');
+                if (ctxSentiment && sData.length > 0) {
+                    new Chart(ctxSentiment, {
+                        type: 'doughnut',
+                        data: {
+                            labels: sLabels,
+                            datasets: [{
+                                data: sData,
+                                backgroundColor: [
+                                    'rgba(79, 209, 197, 0.8)', // Teal
+                                    'rgba(246, 173, 85, 0.8)', // Orange
+                                    'rgba(244, 114, 182, 0.8)', // Pink/Red
+                                    'rgba(108, 99, 255, 0.8)', // Indigo
+                                    'rgba(160, 174, 192, 0.8)' // Gray
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            cutout: '70%',
+                            plugins: {
+                                legend: { position: 'right' }
+                            },
+                            maintainAspectRatio: false
+                        }
+                    });
                 }
             }
 

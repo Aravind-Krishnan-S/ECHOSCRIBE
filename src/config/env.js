@@ -2,6 +2,7 @@ const { z } = require('zod');
 
 const envSchema = z.object({
     GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
+    DEEPGRAM_API_KEY: z.string().min(1, 'DEEPGRAM_API_KEY is required'),
     SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
     SUPABASE_KEY: z.string().min(1, 'SUPABASE_KEY is required'),
     PORT: z.coerce.number().default(3000),
