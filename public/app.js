@@ -22,6 +22,10 @@
     }
 
     // --- DOM Elements ---
+    const btnInsights = document.getElementById('btn-insights');
+    if (btnInsights) {
+        btnInsights.href = `/patient.html?id=${activePatient.id}`;
+    }
     const btnRecord = document.getElementById('btn-record');
     const btnUpload = document.getElementById('btn-upload');
     const btnClear = document.getElementById('btn-clear');
