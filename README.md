@@ -276,10 +276,19 @@ Interactive docs available at **`/api/docs`** (Swagger UI).
 
 ## 📄 License
 
-This project is developed by [Aravind Krishnan S](https://github.com/Aravind-Krishnan-S).
+This project is developed by Aravind Krishnan S, Parvathy Krishna M, Angisha B, and Lloyd Sebastian.
 
 ---
 
 <p align="center">
   Built with ❤️ using Groq AI & Supabase
 </p>
+
+---
+
+**Contributors:**
+- Aravind Krishnan S
+- Parvathy Krishna M
+- Angisha B
+- Lloyd Sebastian
+
