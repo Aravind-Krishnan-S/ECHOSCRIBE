@@ -263,12 +263,17 @@
 
     // Copy SOAP Note
     btnCopySummary.addEventListener('click', function () {
+        const currentSubjective = soapSubjective.innerText || '';
+        const currentObjective = soapObjective.innerText || '';
+        const currentAssessment = soapAssessment.innerText || '';
+        const currentPlan = soapPlan.innerText || '';
+
         let copyText = '🩺 ECHOSCRIBE — CLINICAL SOAP NOTE\n';
         copyText += '='.repeat(40) + '\n\n';
-        copyText += '📋 SUBJECTIVE:\n' + (soap.subjective || '') + '\n\n';
-        copyText += '🔍 OBJECTIVE:\n' + (soap.objective || '') + '\n\n';
-        copyText += '📊 ASSESSMENT:\n' + (soap.assessment || '') + '\n\n';
-        copyText += '📝 PLAN:\n' + (soap.plan || '') + '\n\n';
+        copyText += '📋 SUBJECTIVE:\n' + currentSubjective + '\n\n';
+        copyText += '🔍 OBJECTIVE:\n' + currentObjective + '\n\n';
+        copyText += '📊 ASSESSMENT:\n' + currentAssessment + '\n\n';
+        copyText += '📝 PLAN:\n' + currentPlan + '\n\n';
         copyText += '🛡️ RISK: Self-harm=' + riskLevel + ', SI=' + (risk.suicidal_ideation ? 'YES' : 'No') + '\n';
         copyText += '💭 Emotional Tone: ' + tone + '\n';
         copyText += '📊 Words: ' + wc + ' | Confidence: ' + confidence + '%\n';
@@ -285,12 +290,19 @@
         btnSave.disabled = true;
         btnSave.innerHTML = '<span class="btn-icon">⏳</span> Saving...';
 
+        // Update data object with potential edits
+        if (!data.soap) data.soap = {};
+        data.soap.subjective = soapSubjective.innerText || '';
+        data.soap.objective = soapObjective.innerText || '';
+        data.soap.assessment = soapAssessment.innerText || '';
+        data.soap.plan = soapPlan.innerText || '';
+
         try {
             const response = await EchoAuth.authFetch('/api/session', {
                 method: 'POST',
                 body: JSON.stringify({
                     transcript: data.originalText,
-                    summary: soap.subjective || data.summary || '',
+                    summary: data.soap.subjective || data.summary || '',
                     analysisJson: data,
                 }),
             });
