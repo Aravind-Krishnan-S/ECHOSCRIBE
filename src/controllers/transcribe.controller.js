@@ -12,18 +12,29 @@ const transcribe = asyncHandler(async (req, res) => {
     const lang = req.body.language || 'en';
 
     try {
-        // Use Deepgram for transcription + built-in robust diarization
-        const result = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
+        let result;
+
+        if (req.body.live === 'true') {
+            // Live chunks just need raw text fast for visual feedback
+            result = await transcribeAudio(req.file.path, lang);
+
+            res.json({
+                text: result.text,
+                segments: result.segments // whisper segments
+            });
+        } else {
+            // Full completed recordings go to Deepgram for perfect diarization
+            result = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
+
+            res.json({
+                text: result.text,
+                segments: result.segments,
+                turns: result.turns // deepgram speaker turns
+            });
+        }
 
         // Clean up temp file
         fs.unlink(req.file.path, () => { });
-
-        // Return text + segments (turns)
-        res.json({
-            text: result.text,
-            segments: result.segments,
-            turns: result.turns
-        });
     } catch (err) {
         // Clean up temp file on error too
         if (req.file && req.file.path) {

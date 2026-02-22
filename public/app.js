@@ -72,33 +72,23 @@
 
     initTheme();
 
-    // --- State ---
-    let mediaRecorder = null;
+    // State
+    let mediaRecorder = null; // Used for live chunks
+    let fullRecorder = null;  // Used for continuous Deepgram recording
     let audioStream = null;
     let isRecording = false;
     let isSummarizing = false;
     let isUploading = false;
     let toastTimeout = null;
 
-    // Speaker diarization state
-    let speakerSegments = [];      // { speaker: 1|2, text, start, end, avgPitch }
+    let fullAudioChunks = []; // Stores the unbroken recording
+
+    // Speaker diarization state (now just flat text blocks during live)
+    let speakerSegments = [];      // { speaker: 1|2, text, start, end }
     let chunkStartTime = 0;
     let recordingStartTime = 0;
     let chunkQueue = [];
     let isProcessingChunk = false;
-
-    // Voice analysis state
-    let audioContext = null;
-    let analyserNode = null;
-    let pitchSamples = [];         // { time: seconds, pitch: Hz }
-    let pitchTrackingInterval = null;
-    let sourceNode = null;
-
-    // Speaker pitch profiles (built dynamically)
-    let speakerProfiles = {
-        speaker1: { pitches: [], avgPitch: 0 },
-        speaker2: { pitches: [], avgPitch: 0 },
-    };
     let hasTwoSpeakers = false;
 
     // Periodic recording state
@@ -114,154 +104,6 @@
         btnRecord.style.opacity = '0.4';
         btnRecord.style.cursor = 'not-allowed';
         return;
-    }
-
-    // =============================================
-    //  VOICE PITCH ANALYSIS (Web Audio API)
-    // =============================================
-
-    function setupVoiceAnalysis(stream) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        sourceNode = audioContext.createMediaStreamSource(stream);
-        analyserNode = audioContext.createAnalyser();
-        analyserNode.fftSize = 2048;
-        sourceNode.connect(analyserNode);
-        // Don't connect to destination (no feedback)
-
-        pitchSamples = [];
-
-        // Sample pitch every 200ms
-        pitchTrackingInterval = setInterval(() => {
-            const pitch = detectPitch();
-            if (pitch > 0) {
-                const elapsed = (Date.now() - recordingStartTime) / 1000;
-                pitchSamples.push({ time: elapsed, pitch });
-            }
-        }, 200);
-    }
-
-    function teardownVoiceAnalysis() {
-        if (pitchTrackingInterval) {
-            clearInterval(pitchTrackingInterval);
-            pitchTrackingInterval = null;
-        }
-        if (sourceNode) {
-            sourceNode.disconnect();
-            sourceNode = null;
-        }
-        if (audioContext && audioContext.state !== 'closed') {
-            audioContext.close().catch(() => { });
-            audioContext = null;
-        }
-        analyserNode = null;
-    }
-
-    // Autocorrelation-based pitch detection
-    function detectPitch() {
-        if (!analyserNode) return 0;
-
-        const bufferLength = analyserNode.fftSize;
-        const buffer = new Float32Array(bufferLength);
-        analyserNode.getFloatTimeDomainData(buffer);
-
-        // Check if there's enough signal (not silence)
-        let rms = 0;
-        for (let i = 0; i < bufferLength; i++) {
-            rms += buffer[i] * buffer[i];
-        }
-        rms = Math.sqrt(rms / bufferLength);
-        if (rms < 0.01) return 0; // Too quiet, likely silence
-
-        // Autocorrelation to find fundamental frequency
-        const sampleRate = audioContext.sampleRate;
-        const minPeriod = Math.floor(sampleRate / 500); // Max 500Hz (high voice)
-        const maxPeriod = Math.floor(sampleRate / 60);  // Min 60Hz (low voice)
-
-        let bestCorrelation = 0;
-        let bestPeriod = 0;
-
-        for (let period = minPeriod; period < maxPeriod && period < bufferLength / 2; period++) {
-            let correlation = 0;
-            for (let i = 0; i < bufferLength - period; i++) {
-                correlation += buffer[i] * buffer[i + period];
-            }
-            correlation = correlation / (bufferLength - period);
-
-            if (correlation > bestCorrelation) {
-                bestCorrelation = correlation;
-                bestPeriod = period;
-            }
-        }
-
-        if (bestPeriod === 0 || bestCorrelation < 0.01) return 0;
-
-        return sampleRate / bestPeriod;
-    }
-
-    // Get average pitch for a time range
-    function getAvgPitchForRange(startTime, endTime) {
-        const relevant = pitchSamples.filter(s => s.time >= startTime && s.time <= endTime && s.pitch > 0);
-        if (relevant.length === 0) return 0;
-        const sum = relevant.reduce((acc, s) => acc + s.pitch, 0);
-        return sum / relevant.length;
-    }
-
-    // Assign a segment to a speaker based on pitch similarity
-    function assignSpeaker(avgPitch) {
-        if (avgPitch === 0) {
-            // No pitch data — assign to last speaker or speaker 1
-            return speakerSegments.length > 0 ? speakerSegments[speakerSegments.length - 1].speaker : 1;
-        }
-
-        const sp = speakerProfiles;
-
-        // First segment — assign to speaker 1
-        if (sp.speaker1.pitches.length === 0) {
-            sp.speaker1.pitches.push(avgPitch);
-            sp.speaker1.avgPitch = avgPitch;
-            return 1;
-        }
-
-        // Calculate distance to each speaker's avg pitch
-        const dist1 = Math.abs(avgPitch - sp.speaker1.avgPitch);
-        const dist2 = sp.speaker2.pitches.length > 0 ? Math.abs(avgPitch - sp.speaker2.avgPitch) : Infinity;
-
-        // Threshold for "same speaker" — within 30Hz is likely same person
-        const SAME_SPEAKER_THRESHOLD = 30;
-
-        if (dist1 <= SAME_SPEAKER_THRESHOLD) {
-            // Matches speaker 1
-            sp.speaker1.pitches.push(avgPitch);
-            sp.speaker1.avgPitch = sp.speaker1.pitches.reduce((a, b) => a + b, 0) / sp.speaker1.pitches.length;
-            return 1;
-        }
-
-        if (sp.speaker2.pitches.length === 0) {
-            // New speaker detected! This is speaker 2
-            sp.speaker2.pitches.push(avgPitch);
-            sp.speaker2.avgPitch = avgPitch;
-            hasTwoSpeakers = true;
-            return 2;
-        }
-
-        if (dist2 <= SAME_SPEAKER_THRESHOLD) {
-            // Matches speaker 2
-            sp.speaker2.pitches.push(avgPitch);
-            sp.speaker2.avgPitch = sp.speaker2.pitches.reduce((a, b) => a + b, 0) / sp.speaker2.pitches.length;
-            return 2;
-        }
-
-        // Doesn't clearly match either — assign to closest
-        if (dist1 <= dist2) {
-            sp.speaker1.pitches.push(avgPitch);
-            sp.speaker1.avgPitch = sp.speaker1.pitches.reduce((a, b) => a + b, 0) / sp.speaker1.pitches.length;
-            return 1;
-        } else {
-            sp.speaker2.pitches.push(avgPitch);
-            sp.speaker2.avgPitch = sp.speaker2.pitches.reduce((a, b) => a + b, 0) / sp.speaker2.pitches.length;
-            hasTwoSpeakers = true;
-            return 2;
-        }
     }
 
     // =============================================
@@ -294,15 +136,11 @@
         recordingStartTime = Date.now();
         chunkQueue = [];
         isProcessingChunk = false;
-        pitchSamples = [];
-        speakerProfiles = {
-            speaker1: { pitches: [], avgPitch: 0 },
-            speaker2: { pitches: [], avgPitch: 0 },
-        };
         hasTwoSpeakers = false;
+        fullAudioChunks = [];
 
-        // Start voice pitch analysis
-        setupVoiceAnalysis(audioStream);
+        transcriptBox.innerHTML = '';
+        placeholder.style.display = 'inline';
 
         // Determine best MIME type
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -311,9 +149,16 @@
                 ? 'audio/webm'
                 : 'audio/mp4';
 
-        let audioChunks = [];
+        // 1. Continuous Recorder for Deepgram
+        fullRecorder = new MediaRecorder(audioStream, { mimeType });
+        fullRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) fullAudioChunks.push(event.data);
+        };
+        fullRecorder.start();
 
-        function createRecorder() {
+        // 2. Fragmented Recorder for Live Visual Feedback (Groq Whisper)
+        let audioChunks = [];
+        function createLiveRecorder() {
             const recorder = new MediaRecorder(audioStream, { mimeType });
 
             recorder.ondataavailable = (event) => {
@@ -335,21 +180,21 @@
             return recorder;
         }
 
-        mediaRecorder = createRecorder();
+        mediaRecorder = createLiveRecorder();
         mediaRecorder.start();
         isRecording = true;
         updateUI(true);
         updateSummarizeButton();
-        showToast('🎤 Recording — voice analysis active');
+        showToast('🎤 Recording started');
 
-        // Periodically restart recorder to send chunks
+        // Periodically restart live recorder to send chunks for visual feedback
         chunkInterval = setInterval(() => {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 audioChunks = [];
                 setTimeout(() => {
                     if (isRecording && audioStream && audioStream.active) {
-                        mediaRecorder = createRecorder();
+                        mediaRecorder = createLiveRecorder();
                         mediaRecorder.start();
                     }
                 }, 100);
@@ -357,7 +202,7 @@
         }, CHUNK_DURATION_MS);
     }
 
-    function stopRecording() {
+    async function stopRecording() {
         isRecording = false;
 
         if (chunkInterval) {
@@ -365,8 +210,14 @@
             chunkInterval = null;
         }
 
+        // Stop live feedback recorder
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
+        }
+
+        // Stop full continuous recorder
+        if (fullRecorder && fullRecorder.state !== 'inactive') {
+            fullRecorder.stop();
         }
 
         if (audioStream) {
@@ -374,15 +225,88 @@
             audioStream = null;
         }
 
-        teardownVoiceAnalysis();
-
         updateUI(false);
         updateSummarizeButton();
+        showToast('⏹️ Recording Stopped. Processing full audio through Deepgram...');
 
-        if (hasTwoSpeakers) {
-            showToast('⏹️ Stopped — 2 distinct voices detected');
-        } else {
-            showToast('⏹️ Stopped — single voice detected');
+        // Wait a tiny bit for the fullRecorder's ondataavailable to flush the final chunks
+        setTimeout(processFullRecordingWithDeepgram, 500);
+    }
+
+    // =============================================
+    //  DEEPGRAM FULL AUDIO PROCESSING
+    // =============================================
+
+    async function processFullRecordingWithDeepgram() {
+        if (fullAudioChunks.length === 0) {
+            showToast('⚠️ No audio recorded.');
+            return;
+        }
+
+        // Create the unbroken Blob
+        const ext = fullAudioChunks[0].type.includes('webm') ? 'webm' : 'mp4';
+        const finalBlob = new Blob(fullAudioChunks, { type: fullAudioChunks[0].type });
+        const file = new File([finalBlob], `recording.${ext}`, { type: finalBlob.type });
+
+        statusText.textContent = 'Diarizing with Deepgram...';
+        recordIcon.classList.add('pulse');
+        btnRecord.disabled = true;
+        btnUpload.disabled = true;
+        btnClear.disabled = true;
+
+        const formData = new FormData();
+        formData.append('audio', file);
+
+        const fullLang = langSelect.value;
+        const lang = fullLang.split('-')[0];
+        formData.append('language', lang);
+
+        try {
+            const response = await EchoAuth.authFetch('/api/transcribe-audio', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Deepgram processing failed');
+            }
+
+            const data = await response.json();
+
+            // Clear the messy live segments and replace with perfect Deepgram turns
+            speakerSegments = [];
+            let foundTwoSpeakers = false;
+
+            if (data.turns && data.turns.length > 0) {
+                foundTwoSpeakers = data.turns.some(t => t.speaker === 2);
+                data.turns.forEach(turn => {
+                    speakerSegments.push({
+                        speaker: turn.speaker,
+                        text: turn.text,
+                        start: turn.start || 0,
+                        end: turn.end || 0
+                    });
+                });
+            } else if (data.text) {
+                speakerSegments.push({ speaker: 1, text: data.text, start: 0, end: 0 });
+            }
+
+            hasTwoSpeakers = foundTwoSpeakers;
+            renderTranscript();
+            updateWordCount(getFullTranscriptText());
+
+            showToast(`✅ Deepgram Diarization Complete!`);
+
+        } catch (err) {
+            console.error('[EchoScribe] Deepgram Error:', err);
+            showToast('⚠️ Deepgram Processing Failed. Kept live transcript.');
+        } finally {
+            statusText.textContent = 'Ready';
+            recordIcon.classList.remove('pulse');
+            btnRecord.disabled = false;
+            btnUpload.disabled = false;
+            btnClear.disabled = false;
+            updateSummarizeButton();
         }
     }
 
@@ -424,6 +348,9 @@
         const lang = fullLang.split('-')[0];
         formData.append('language', lang);
 
+        // Flag to tell backend this is just a quick visual feedback chunk
+        formData.append('live', 'true');
+
         statusText.textContent = 'Transcribing...';
 
         try {
@@ -450,31 +377,23 @@
                     const adjustedStart = seg.start + startOffset;
                     const adjustedEnd = seg.end + startOffset;
 
-                    // Get pitch for this segment's time range
-                    const avgPitch = getAvgPitchForRange(adjustedStart, adjustedEnd);
-                    const speaker = assignSpeaker(avgPitch);
-
+                    // Live chunks just get appended under "Live Recording" (Speaker 0 placeholder)
                     speakerSegments.push({
-                        speaker,
+                        speaker: 0,
                         text: seg.text,
                         start: adjustedStart,
-                        end: adjustedEnd,
-                        avgPitch,
+                        end: adjustedEnd
                     });
                 });
             } else if (data.text && data.text.trim()) {
                 const adjustedStart = startOffset;
                 const adjustedEnd = (Date.now() - recordingStartTime) / 1000;
 
-                const avgPitch = getAvgPitchForRange(adjustedStart, adjustedEnd);
-                const speaker = assignSpeaker(avgPitch);
-
                 speakerSegments.push({
-                    speaker,
+                    speaker: 0,
                     text: data.text.trim(),
                     start: adjustedStart,
-                    end: adjustedEnd,
-                    avgPitch,
+                    end: adjustedEnd
                 });
             }
 
@@ -530,9 +449,13 @@
 
         let html = '';
         grouped.forEach(group => {
-            const speakerClass = group.speaker === 1 ? 'speaker-1' : 'speaker-2';
-            const label = group.identifiedRole || `Person ${group.speaker}`;
-            const roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : '👤';
+            let speakerClass = group.speaker === 0 ? 'speaker-0' : (group.speaker === 1 ? 'speaker-1' : 'speaker-2');
+            let label = group.identifiedRole || (group.speaker === 0 ? 'Live Processing...' : `Person ${group.speaker}`);
+            let roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : (group.speaker === 0 ? '🎙️' : '👤');
+
+            // Re-map colors safely
+            if (group.speaker === 0) speakerClass = 'speaker-1'; // fallback visually for live text
+
             const timestamp = formatTime(group.start);
 
             html += `<div class="speaker-block ${speakerClass}">`;
@@ -570,9 +493,13 @@
 
         let html = '';
         grouped.forEach(group => {
-            const speakerClass = group.speaker === 1 ? 'speaker-1' : 'speaker-2';
-            const label = group.identifiedRole || `Person ${group.speaker}`;
-            const roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : '👤';
+            let speakerClass = group.speaker === 0 ? 'speaker-0' : (group.speaker === 1 ? 'speaker-1' : 'speaker-2');
+            let label = group.identifiedRole || (group.speaker === 0 ? 'Live Processing...' : `Person ${group.speaker}`);
+            let roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : (group.speaker === 0 ? '🎙️' : '👤');
+
+            // Re-map colors safely
+            if (group.speaker === 0) speakerClass = 'speaker-1'; // fallback visually for live text
+
             const timestamp = formatTime(group.start);
 
             html += `<div class="speaker-block ${speakerClass}">`;
