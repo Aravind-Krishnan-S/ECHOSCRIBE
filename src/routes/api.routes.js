@@ -63,8 +63,11 @@ const updatePatientSchema = z.object({
 });
 
 // --- Session Routes ---
-router.post('/summarize', validate(summarizeSchema), sessionController.summarize);
-router.post('/session', validate(saveSessionSchema), sessionController.saveSession);
+
+// We transition these to accept multipart/form-data (audio blob + text fields)
+router.post('/summarize', upload.single('audio'), sessionController.summarize);
+router.post('/session', upload.single('audio'), sessionController.saveSession);
+
 router.get('/history', sessionController.getHistory);
 
 // --- Transcription Routes ---

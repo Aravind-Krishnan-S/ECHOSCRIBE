@@ -44,6 +44,12 @@
             <span class="summary-page-icon">🩺</span>
             <h1 class="summary-page-title">Clinical SOAP Note</h1>
             <p class="summary-page-subtitle">AI-powered analysis by EchoScribe</p>
+
+            <!-- Audio Player (Hidden by default, shown if audioUrl exists) -->
+            <div id="audio-player-container" class="audio-player-container"
+                style="display: none; margin-top: 15px; text-align: center;">
+                <audio id="session-audio-player" controls style="width: 100%; max-width: 600px;"></audio>
+            </div>
         </header>
 
         <!-- Risk Badge -->

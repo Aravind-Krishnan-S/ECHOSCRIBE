@@ -1,18 +1,40 @@
 const aiService = require('../services/ai.service');
 const dbService = require('../services/db.service');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const fs = require('fs');
 
 // POST /api/summarize — analyze + auto-save
 const summarize = asyncHandler(async (req, res) => {
+    // text and patientId now come from req.body (form-data)
     const { text, patientId, language } = req.body;
 
     if (!text || text.trim().length === 0) {
+        if (req.file) fs.unlink(req.file.path, () => { });
         throw new AppError('No transcript text provided.', 400);
     }
 
     const result = await aiService.summarizeTranscript(text, language || 'en');
 
-    // Auto-save the session to the database
+    // 1. Upload audio if present
+    let audioUrl = null;
+    if (req.file) {
+        try {
+            const fileBuffer = fs.readFileSync(req.file.path);
+            audioUrl = await dbService.uploadAudioToStorage(
+                req.supabaseToken,
+                req.user.id,
+                fileBuffer,
+                req.file.filename
+            );
+            fs.unlink(req.file.path, () => { }); // clean up local temp file
+        } catch (uploadErr) {
+            console.error('[SessionController] Audio upload failed:', uploadErr.message);
+            // Non-fatal, we still want to save the SOAP note
+            if (req.file) fs.unlink(req.file.path, () => { });
+        }
+    }
+
+    // 2. Auto-save the session to the database
     let sessionId = null;
     try {
         const saved = await dbService.saveSession(req.supabaseToken, {
@@ -21,6 +43,7 @@ const summarize = asyncHandler(async (req, res) => {
             summary: result.soap ? result.soap.subjective : '',
             analysisJson: result,
             patientId: patientId || null,
+            audioUrl: audioUrl
         });
         if (saved && saved.length > 0) {
             sessionId = saved[0].id;
@@ -38,12 +61,38 @@ const saveSession = asyncHandler(async (req, res) => {
     const { transcript, summary, analysisJson, patientId } = req.body;
     const userId = req.user.id;
 
+    let parsedAnalysis = {};
+    if (typeof analysisJson === 'string') {
+        try { parsedAnalysis = JSON.parse(analysisJson); } catch (e) { }
+    } else {
+        parsedAnalysis = analysisJson || {};
+    }
+
+    // 1. Upload audio if present
+    let audioUrl = null;
+    if (req.file) {
+        try {
+            const fileBuffer = fs.readFileSync(req.file.path);
+            audioUrl = await dbService.uploadAudioToStorage(
+                req.supabaseToken,
+                userId,
+                fileBuffer,
+                req.file.filename
+            );
+            fs.unlink(req.file.path, () => { });
+        } catch (uploadErr) {
+            console.error('[SessionController] Audio upload failed:', uploadErr.message);
+            if (req.file) fs.unlink(req.file.path, () => { });
+        }
+    }
+
     const data = await dbService.saveSession(req.supabaseToken, {
         userId,
         transcript,
         summary,
-        analysisJson,
+        analysisJson: parsedAnalysis,
         patientId: patientId || null,
+        audioUrl: audioUrl
     });
 
     res.json({ success: true, data });
