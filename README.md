@@ -1,6 +1,6 @@
 # 🩺 EchoScribe
 
-**AI-powered clinical documentation platform with speech-to-text, speaker diarization, SOAP note generation, and longitudinal client intelligence.**
+**AI-powered clinical documentation platform with dual-stream speech-to-text, speaker diarization, SOAP note generation, longitudinal client intelligence, and unified audio storage.**
 
 [![Live Demo](https://img.shields.io/badge/Live-echoscribe--vert.vercel.app-blueviolet?style=for-the-badge)](https://echoscribe-vert.vercel.app)
 
@@ -10,48 +10,40 @@
 
 | Feature | Description |
 |---|---|
-| 🎙️ **Speech Transcription** | Real-time speech-to-text powered by Groq Whisper Large V3. Audio uploads use Deepgram Nova-2 |
-| 🗣️ **Speaker Diarization** | Native Deepgram Speaker Diarization API to differentiate Counsellor & Patient (processed automatically after live recording or file upload) |
-| 📁 **Audio File Upload** | Upload pre-recorded audio files (MP3, WAV, WEBM, OGG, FLAC, M4A) for transcription & analysis |
-| 🌐 **Multilingual Support** | English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
-| 📋 **Clinical SOAP Notes** | AI generates Subjective, Objective, Assessment, and Plan sections |
-| ⚠️ **Risk Assessment** | Automatic suicidal ideation and self-harm risk detection |
-| 📊 **Analytics Dashboard** | KPI cards, longitudinal Topic Distribution and Emotional Tone charts |
-| 👤 **Patient Management** | Create, edit, and track patients with linked session histories |
-| 🧠 **Client Profiling** | Longitudinal analysis across 20+ sessions — recurring themes, emotional trends, treatment effectiveness |
-| 📄 **PDF/CSV/JSON Export** | Professional clinical documentation export |
-| 🔐 **Authentication** | Supabase Auth with JWT, auto-refresh, and Row-Level Security |
-| 🌗 **Dark/Light Theme** | Persistent theme toggle across all pages |
-| 📖 **Swagger API Docs** | Interactive API documentation at `/api/docs` |
+| 🎙️ **Dual-Architecture Transcription** | Live speech-to-text via Groq Whisper with instant visual feedback, backed by pristine Deepgram Nova-2 diarization for the final transcript |
+| 🗣️ **Native Speaker Diarization** | Deepgram AI instantly differentiates between Counsellor & Patient (via audio + LLM role identification) |
+| 🗄️ **Integrated Audio Storage** | Recorded and uploaded sessions are auto-saved to secure Supabase Storage buckets, enabling playback directly on the Session Summary |
+| 📁 **File Uploads** | Batch-upload pre-recorded clinical MP3, WAV, WEBM, OGG, FLAC, M4A files for instant bulk analysis |
+| 🌐 **Multilingual Core** | Full support for English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
+| 📋 **Clinical SOAP Notes** | AI-generated Subjective, Objective, Assessment, and Plan summaries |
+| 📈 **Patient Insights Dashboard** | Beautiful Chart.js visual analytics tracking longitudinal Topic distributions (Polar charts) and Emotional Tones (Doughnut charts) |
+| ⚠️ **Risk Assessment** | Automated detection and flagging for self-harm and suicidal ideation risks |
+| 👤 **Patient Hub & CMS** | Create, edit, and intelligently track linked session histories |
+| 🧠 **Intelligent Profiling** | Cross-session continuous profiling highlighting therapeutic momentum, recurring themes, and treatment effectiveness |
+| 📄 **Data Export** | Professional one-click clinical exports to PDF, CSV, and JSON |
+| ⚡ **Vercel Edge Ready** | Fully optimized for Serverless execution with bypassed `os.tmpdir()` logic to support heavy Audio Multer buffering |
+| 🔐 **Authentication & RLS** | Supabase Auth mapped directly to PostgreSQL Row-Level Security for HIPPA structural emulation |
 
 ---
 
-## 🗣️ Speaker Diarization
+## 🗣️ Deepgram Diarization Pipeline
 
-EchoScribe uses the **Deepgram API** natively for pristine audio diarization and transcription:
+EchoScribe completely bypasses generic LLM hallucinating by natively using **Deepgram** for high-fidelity audio diarization.
 
-1. **Dual-Recorder Architecture**: When recording live, the app streams short chunks to Groq Whisper for instant visual feedback. Simultaneously, it records a pristine, contiguous audio blob in the background.
-2. **Deepgram Transcription**: Once recording finishes (or an audio file is uploaded), the full audio file is sent to Deepgram's `nova-2` model.
-3. **Turn Identification**: Deepgram automatically segments the conversation and assigns exact timestamps and speaker IDs (e.g. `Person 1`, `Person 2`).
-
-### Role Identification
-After recording/upload, clicking **Analyze (SOAP)** triggers:
-1. LLM natively identifies which person is the **Counsellor** vs **Patient** based on therapeutic language, questioning style, and content.
-2. The SOAP note is generated with this specific role-aware analysis.
+1. **Dual-Recorder Streaming**: During a live session, the frontend streams micro-chunks to Groq Whisper for instant visual feedback on-screen. Concurrently, a perfect contiguous WebM blob is maintained silently in the background.
+2. **Post-Processing**: Upon clicking *Analyze*, the full blob is piped directly to Deepgram's `nova-2` endpoint alongside local file uploads.
+3. **Turn Identification**: Deepgram maps the raw dialogue into timestamps and generic identities. Finally, an LLM pass intelligently tags exactly which speaker is the **Counsellor** and which is the **Patient** based on clinical context structure.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Architecture
 
-- **Backend:** Node.js, Express, Helmet, CORS, Rate Limiting
-- **AI — Transcription & Diarization:** Deepgram SDK (Final Audio & Uploads), Groq Whisper Large V3 (Live Visual Feedback)
-- **AI — Analysis:** Groq SDK (Llama 3.3 70B) for SOAP notes, speaker identification, and patient profiling
-- **Database:** Supabase (PostgreSQL) with Row-Level Security
-- **Auth:** Supabase Auth (email/password, JWT)
-- **Audio Processing:** MediaRecorder API
-- **Export:** PDFKit, json2csv
-- **Validation:** Zod schemas on all endpoints
-- **Frontend:** Vanilla HTML/CSS/JS, Chart.js
+- **Backend:** Node.js, Express, Helmet, CORS, Rate Limiting (Optimized for Vercel Serverless Functions)
+- **AI (STT/Diarization):** Deepgram SDK (Final Audio), Groq Whisper Large V3 (Live Visual Chunks)
+- **AI (Analysis):** Groq SDK (Llama 3.3 70B Fast inference)
+- **Database/Storage:** Supabase (PostgreSQL tables, Authentication, SQL Row-Level-Security, Cloud Object Storage for `.webm/.mp4`)
+- **Audio Pipeline:** Native MediaRecorder browser API piped to Multer buffer logic 
+- **Frontend / Vis:** Vanilla HTML/CSS/JS with `Chart.js` for data visualization.
 
 ---
 
@@ -68,34 +60,31 @@ ECHOSCRIBE/
 │   │   └── errorHandler.js            # AppError class + asyncHandler
 │   ├── services/
 │   │   ├── ai.service.js              # Whisper STT, SOAP, diarization, profiles
-│   │   └── db.service.js              # RLS-aware Supabase CRUD
+│   │   ├── deepgram.service.js        # Deepgram Nova-2 Integration
+│   │   └── db.service.js              # RLS-aware Supabase CRUD + Audio Storage Bucket
 │   ├── controllers/
-│   │   ├── auth.controller.js         # signup, login, logout, me, refresh
-│   │   ├── session.controller.js      # summarize, save, history
-│   │   ├── transcribe.controller.js   # audio transcription + speaker diarization
-│   │   ├── patient.controller.js      # patient CRUD
-│   │   ├── profile.controller.js      # longitudinal client profile
+│   │   ├── auth.controller.js         # signup, login, logout, refresh
+│   │   ├── session.controller.js      # summarize, save metadata + audioUrl mapping
+│   │   ├── transcribe.controller.js   # groq vs deepgram audio ingestion
+│   │   ├── patient.controller.js      # patient CMS & chart data prep
+│   │   ├── profile.controller.js      # longitudinal client generation
 │   │   └── export.controller.js       # PDF, CSV, JSON export
 │   ├── routes/
 │   │   ├── auth.routes.js             # /api/auth/*
-│   │   └── api.routes.js              # /api/* (protected)
+│   │   └── api.routes.js              # /api/* (protected with Multipart Multer)
 │   ├── docs/swagger.js                # OpenAPI 3.0 spec
-│   └── index.js                       # Entry point
+│   └── index.js                       # Primary Entry Point
 ├── public/
-│   ├── index.html                     # Recorder page (record + upload)
-│   ├── app.js                         # MediaRecorder, Whisper, pitch analysis
-│   ├── summary.html / summary.js      # SOAP note display + charts
-│   ├── dashboard.html                 # Patient management + analytics
-│   ├── login.html / login.js          # Login page
-│   ├── signup.html / signup.js        # Signup page
-│   ├── auth-guard.js                  # Token management + authFetch
-│   ├── style.css                      # Main stylesheet (dark/light)
-│   ├── card.css                       # Summary card styles
-│   └── modal.css                      # Profile modal styles
+│   ├── index.html / app.js            # Recorder page, audio Blob aggregation
+│   ├── summary.html / summary.js      # SOAP display, Risk cards, HTML5 Audio Player
+│   ├── patient.html / patient.js      # Chart.js Dashboard and insight visualizations
+│   ├── dashboard.html                 # Main patient directory CMS
+│   ├── style.css                      # Unified design tokens (dark/light map)
 ├── supabase/
-│   └── create_patients_table.sql      # Patients table + RLS setup
+│   ├── create_patients_table.sql      # Patients table RLS constraints
+│   └── setup_audio_storage.sql        # session-audio Bucket configuration
+├── vercel.json                        # Serverless function timeout overrides
 ├── .env.example                       # Environment template
-└── package.json
 ```
 
 ---
@@ -171,6 +160,8 @@ CREATE POLICY "Users can delete own sessions" ON sessions
 ```
 
 3. **Create patients table** — run `supabase/create_patients_table.sql` in the SQL Editor.
+
+4. **Initialize Audio Storage** — run `supabase/setup_audio_storage.sql` to create the `session-audio` bucket and its Row Level Security rules.
 
 ### 4. Start the Server
 
