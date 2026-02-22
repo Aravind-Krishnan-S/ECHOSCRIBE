@@ -617,13 +617,21 @@
             showToast('✨ Generating clinical SOAP note...');
 
             const selectedLanguage = document.getElementById('lang-select').value;
+
+            // Build FormData instead of JSON so we can send the audio file text string
+            const formData = new FormData();
+            formData.append('text', labeledTranscript);
+            formData.append('language', selectedLanguage);
+            if (activePatient) {
+                formData.append('patientId', activePatient.id);
+            }
+            if (currentAudioFile) {
+                formData.append('audio', currentAudioFile);
+            }
+
             const response = await EchoAuth.authFetch('/api/summarize', {
                 method: 'POST',
-                body: JSON.stringify({
-                    text: labeledTranscript,
-                    patientId: activePatient ? activePatient.id : undefined,
-                    language: selectedLanguage
-                }),
+                body: formData,
             });
 
             if (!response.ok) {
@@ -743,6 +751,8 @@
             showToast('⚠️ File too large. Max 4.5MB for cloud deployment. Try a shorter clip.');
             return;
         }
+
+        currentAudioFile = file; // Store for later summarization
 
         isUploading = true;
         btnUpload.disabled = true;

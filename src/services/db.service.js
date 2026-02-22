@@ -26,9 +26,37 @@ function getAuthClient(token) {
     });
 }
 
+// --- Storage Operations ---
+
+async function uploadAudioToStorage(token, userId, audioBuffer, filename) {
+    const client = getAuthClient(token);
+
+    // Upload directly to the user's personal folder for organization
+    const filePath = `${userId}/${Date.now()}_${filename}`;
+
+    const { data, error } = await client.storage
+        .from('session-audio')
+        .upload(filePath, audioBuffer, {
+            contentType: 'audio/webm',
+            upsert: false
+        });
+
+    if (error) {
+        console.error('[Supabase Storage] Upload error:', error);
+        throw error;
+    }
+
+    // Get public URL
+    const { data: urlData } = client.storage
+        .from('session-audio')
+        .getPublicUrl(filePath);
+
+    return urlData.publicUrl;
+}
+
 // --- Session Operations ---
 
-async function saveSession(token, { userId, transcript, summary, analysisJson, patientId }) {
+async function saveSession(token, { userId, transcript, summary, analysisJson, patientId, audioUrl }) {
     const client = getAuthClient(token);
     const row = {
         user_id: userId,
@@ -37,6 +65,8 @@ async function saveSession(token, { userId, transcript, summary, analysisJson, p
         analysis_json: analysisJson,
     };
     if (patientId) row.patient_id = patientId;
+    if (audioUrl) row.audio_url = audioUrl;
+
     const { data, error } = await client
         .from('sessions')
         .insert([row])
@@ -165,6 +195,7 @@ module.exports = {
     getSupabase,
     getAuthClient,
     saveSession,
+    uploadAudioToStorage,
     getHistory,
     getSessionById,
     getRecentSessions,
