@@ -1,4 +1,4 @@
-const { transcribeAudio, identifySpeakers } = require('../services/ai.service');
+const { transcribeAudio, identifySpeakers, diarizeTranscript } = require('../services/ai.service');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
 
@@ -42,4 +42,15 @@ const identifySpeakersHandler = asyncHandler(async (req, res) => {
     res.json(result);
 });
 
-module.exports = { transcribe, identifySpeakers: identifySpeakersHandler };
+// POST /api/diarize-transcript
+const diarizeHandler = asyncHandler(async (req, res) => {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+        throw new AppError('Transcript text is required.', 400);
+    }
+
+    const turns = await diarizeTranscript(text);
+    res.json({ turns });
+});
+
+module.exports = { transcribe, identifySpeakers: identifySpeakersHandler, diarize: diarizeHandler };

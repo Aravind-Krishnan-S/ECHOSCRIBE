@@ -69,6 +69,7 @@ router.get('/history', sessionController.getHistory);
 // --- Transcription Routes ---
 router.post('/transcribe-audio', upload.single('audio'), transcribeController.transcribe);
 router.post('/identify-speakers', transcribeController.identifySpeakers);
+router.post('/diarize-transcript', transcribeController.diarize);
 
 // --- Patient Routes ---
 router.get('/patients', patientController.listPatients);
