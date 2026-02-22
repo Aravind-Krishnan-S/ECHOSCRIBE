@@ -783,22 +783,31 @@
 
                     card.innerHTML = `
                         <div class="patient-actions">
+                            <button class="patient-action-btn insight-btn" title="Insights" data-id="${p.id}">📊</button>
                             <button class="patient-action-btn edit-btn" title="Edit" data-id="${p.id}">✏️</button>
                             <button class="patient-action-btn delete patient-delete-btn" title="Delete" data-id="${p.id}">🗑️</button>
                         </div>
                         <div class="patient-avatar">${initials}</div>
                         <div class="patient-name">${escapeHtml(p.name)}</div>
                         <div class="patient-meta">${metaParts.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>
-                        <div class="patient-sessions-count">Click to start session →</div>
+                        <div class="patient-sessions-count">Click to view past sessions →</div>
                     `;
 
                     // Click card → select patient → go to recorder
                     card.addEventListener('click', (e) => {
-                        if (e.target.closest('.patient-action-btn')) return; // don't trigger on edit/delete
+                        if (e.target.closest('.patient-action-btn')) return; // don't trigger on edit/delete/insight
                         selectPatient(p);
                     });
 
                     grid.appendChild(card);
+                });
+
+                // Bind insight buttons
+                grid.querySelectorAll('.insight-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        window.location.href = `/patient.html?id=${btn.dataset.id}`;
+                    });
                 });
 
                 // Bind edit/delete buttons
