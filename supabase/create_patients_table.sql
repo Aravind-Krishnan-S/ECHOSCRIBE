@@ -29,20 +29,24 @@ END $$;
 -- 3. Enable RLS
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 
--- 4. RLS policies — users can only access their own patients
+-- 4. RLS policies — users can only access their own patients (safe to re-run)
+DROP POLICY IF EXISTS "Users can view their own patients" ON patients;
 CREATE POLICY "Users can view their own patients"
     ON patients FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own patients" ON patients;
 CREATE POLICY "Users can insert their own patients"
     ON patients FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own patients" ON patients;
 CREATE POLICY "Users can update their own patients"
     ON patients FOR UPDATE
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own patients" ON patients;
 CREATE POLICY "Users can delete their own patients"
     ON patients FOR DELETE
     USING (auth.uid() = user_id);
