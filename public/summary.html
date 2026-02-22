@@ -197,11 +197,13 @@
                     </div>
                     <p class="risk-notes" id="booking-reason">No follow-up discussed.</p>
                 </div>
-                <div style="margin-top: 1rem;">
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-direction: column;">
                     <button class="btn btn-sm" id="btn-create-booking"
-                        style="background:#805ad5; color:#fff; width:100%; border-radius:6px; display:none;"
-                        onclick="alert('Follow-up securely scheduled in calendar and patient notified.')">Schedule
+                        style="background:#805ad5; color:#fff; width:100%; border-radius:6px; display:none;">Schedule
                         It</button>
+                    <button class="btn btn-sm" id="btn-reschedule-booking"
+                        style="background:rgba(255,255,255,0.1); color:#fff; width:100%; border-radius:6px; display:none;">Reschedule
+                        / Manage Appointment</button>
                 </div>
             </div>
         </div>
@@ -224,8 +226,8 @@
                 </div>
                 <div style="margin-top: 1rem;">
                     <button class="btn btn-sm" id="btn-create-referral"
-                        style="background:#ed64a6; color:#fff; width:100%; border-radius:6px; display:none;"
-                        onclick="alert('Referral form generated and sent to specialist securely.')">Generate Referral
+                        style="background:#ed64a6; color:#fff; width:100%; border-radius:6px; display:none;">Generate
+                        Referral
                         Form</button>
                 </div>
             </div>
@@ -306,9 +308,8 @@
                             style="color:#e0e6ed; padding: 0.75rem; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top:0.5rem;">
                             None generated.</p>
                     </div>
-                    <button class="btn btn-sm" style="align-self: flex-start; background: #2b6cb0; color: #fff;"
-                        onclick="alert('Instructions sent securely to patient portal/SMS/Email.')">Send to
-                        Patient</button>
+                    <button class="btn btn-sm" id="btn-send-patient-instructions"
+                        style="align-self: flex-start; background: #2b6cb0; color: #fff;">Send to Patient</button>
                 </div>
             </div>
         </div>

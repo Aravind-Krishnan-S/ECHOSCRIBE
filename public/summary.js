@@ -73,6 +73,7 @@
     const toastMessage = document.getElementById('toast-message');
     let toastTimeout = null;
     let lastSavedSessionId = null;
+    let fullPatientData = null;
 
     // --- Load Data ---
     const raw = localStorage.getItem('echoscribe_summary');
@@ -80,6 +81,37 @@
 
     let data;
     try { data = JSON.parse(raw); } catch (e) { window.location.href = '/'; return; }
+
+    const activePatientRaw = localStorage.getItem('echoscribe_active_patient');
+    const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;
+
+    async function fetchFullPatientData() {
+        if (!activePatient || !activePatient.id) return;
+        try {
+            const res = await EchoAuth.authFetch(`/api/patients/${activePatient.id}`);
+            if (res.ok) {
+                fullPatientData = await res.json();
+                console.log('Fetched full patient data:', fullPatientData);
+                // After fetching, potentially update UI or enable automatic sending
+                if (fullPatientData.email || fullPatientData.phone) {
+                    document.getElementById('btn-send-patient-instructions').style.display = 'block';
+
+                    // Automatically send instructions after a short delay if this is a fresh summary
+                    const isFresh = !localStorage.getItem('echoscribe_session_id') || localStorage.getItem('echoscribe_summary_processed') !== 'true';
+                    if (isFresh) {
+                        setTimeout(() => {
+                            console.log('Triggering auto-send of instructions...');
+                            document.getElementById('btn-send-patient-instructions').click();
+                            localStorage.setItem('echoscribe_summary_processed', 'true');
+                        }, 3000); // 3 second delay to let user see the page first
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch full patient data:', err);
+        }
+    }
+    fetchFullPatientData();
 
     // --- Render SOAP ---
     const soap = data.soap || {};
@@ -188,7 +220,10 @@
         bookingNeeded.style.color = booking.needs_follow_up ? '#ed64a6' : '#fff';
         document.getElementById('booking-timeframe').textContent = booking.suggested_timeframe || 'None';
         document.getElementById('booking-reason').textContent = booking.reason || 'No follow-up discussed.';
-        if (booking.needs_follow_up) document.getElementById('btn-create-booking').style.display = 'block';
+        if (booking.needs_follow_up) {
+            document.getElementById('btn-create-booking').style.display = 'block';
+            document.getElementById('btn-reschedule-booking').style.display = 'block';
+        }
     }
 
     // --- Referral ---
@@ -692,6 +727,73 @@
         } catch (err) {
             console.error('Failed to fetch history', err);
         }
+    }
+
+    async function sendCommsMessage(type, content) {
+        if (!fullPatientData) {
+            showToast('⚠️ No patient contact info available.');
+            return;
+        }
+
+        const body = {
+            patientId: fullPatientData.id,
+            patientEmail: fullPatientData.email,
+            patientPhone: fullPatientData.phone,
+            type: type, // 'Follow-up', 'Referral', or 'Instruction'
+            content: content
+        };
+
+        try {
+            const res = await EchoAuth.authFetch('/api/communications/send', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                showToast(`✅ ${result.message}`);
+            } else {
+                throw new Error('Failed to send communication');
+            }
+        } catch (err) {
+            showToast(`❌ Error: ${err.message}`);
+        }
+    }
+
+    // --- Communication Button Listeners ---
+    if (document.getElementById('btn-send-patient-instructions')) {
+        document.getElementById('btn-send-patient-instructions').addEventListener('click', () => {
+            const english = document.getElementById('comm-english').textContent;
+            const translated = document.getElementById('comm-translated').textContent;
+            const content = `[English]\n${english}\n\n[Translated]\n${translated}`;
+            sendCommsMessage('Patient Instructions', content);
+        });
+    }
+
+    if (document.getElementById('btn-create-booking')) {
+        document.getElementById('btn-create-booking').addEventListener('click', () => {
+            const timeframe = document.getElementById('booking-timeframe').textContent;
+            const reason = document.getElementById('booking-reason').textContent;
+            const content = `Scheduled follow-up in ${timeframe}. Reason: ${reason}. Please let us know if you need to reschedule.`;
+            sendCommsMessage('Follow-up Confirmation', content);
+        });
+    }
+
+    if (document.getElementById('btn-reschedule-booking')) {
+        document.getElementById('btn-reschedule-booking').addEventListener('click', () => {
+            const currentBooking = document.getElementById('booking-timeframe').textContent;
+            const content = `Request to manage/reschedule follow-up (current: ${currentBooking}). Please contact our office or use the link below.`;
+            sendCommsMessage('Reschedule/Follow-up Management', content);
+        });
+    }
+
+    if (document.getElementById('btn-create-referral')) {
+        document.getElementById('btn-create-referral').addEventListener('click', () => {
+            const specialty = document.getElementById('referral-specialty').textContent;
+            const reason = document.getElementById('referral-reason').textContent;
+            const content = `A referral form has been generated for ${specialty}. Reason: ${reason}.`;
+            sendCommsMessage('Referral Notice', content);
+        });
     }
 
     function showToast(message) {
