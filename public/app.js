@@ -23,6 +23,7 @@
 
     // --- DOM Elements ---
     const btnRecord = document.getElementById('btn-record');
+    const btnUpload = document.getElementById('btn-upload');
     const btnClear = document.getElementById('btn-clear');
     const btnCopy = document.getElementById('btn-copy');
     const btnSummarize = document.getElementById('btn-summarize');
@@ -43,6 +44,10 @@
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     const userGreeting = document.getElementById('user-greeting');
+    const audioFileInput = document.getElementById('audio-file-input');
+    const uploadProgress = document.getElementById('upload-progress');
+    const uploadProgressBar = document.getElementById('upload-progress-bar');
+    const uploadProgressText = document.getElementById('upload-progress-text');
 
     // --- User Greeting ---
     const user = EchoAuth.getUser();
@@ -72,6 +77,7 @@
     let audioStream = null;
     let isRecording = false;
     let isSummarizing = false;
+    let isUploading = false;
     let toastTimeout = null;
 
     // Speaker diarization state
@@ -775,12 +781,138 @@
         return div.innerHTML;
     }
 
+    // =============================================
+    //  FILE UPLOAD HANDLER
+    // =============================================
+
+    function triggerUpload() {
+        if (isRecording || isUploading) {
+            showToast('⚠️ Stop recording first or wait for upload to finish');
+            return;
+        }
+        audioFileInput.click();
+    }
+
+    async function handleFileUpload(file) {
+        if (!file) return;
+
+        // Validate file size (25MB max)
+        if (file.size > 25 * 1024 * 1024) {
+            showToast('⚠️ File too large. Maximum size is 25MB.');
+            return;
+        }
+
+        isUploading = true;
+        btnUpload.disabled = true;
+        btnRecord.disabled = true;
+        uploadProgress.style.display = 'block';
+        uploadProgressBar.style.width = '10%';
+        uploadProgressText.textContent = `Uploading ${file.name}...`;
+        showToast(`📁 Uploading ${file.name}...`);
+
+        // Clear existing transcript
+        speakerSegments = [];
+        speakerProfiles = { speaker1: { pitches: [], avgPitch: 0 }, speaker2: { pitches: [], avgPitch: 0 } };
+        hasTwoSpeakers = false;
+
+        const formData = new FormData();
+        formData.append('audio', file);
+
+        const fullLang = langSelect.value;
+        const lang = fullLang.split('-')[0];
+        formData.append('language', lang);
+
+        uploadProgressBar.style.width = '30%';
+        uploadProgressText.textContent = 'Sending to Groq Whisper...';
+
+        try {
+            const response = await EchoAuth.authFetch('/api/transcribe-audio', {
+                method: 'POST',
+                body: formData,
+            });
+
+            uploadProgressBar.style.width = '70%';
+            uploadProgressText.textContent = 'Processing transcription...';
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Transcription failed');
+            }
+
+            const data = await response.json();
+
+            uploadProgressBar.style.width = '90%';
+            uploadProgressText.textContent = 'Building transcript...';
+
+            if (data.segments && data.segments.length > 0) {
+                // Use segments — assign alternating speakers since we can't do pitch analysis on uploaded files
+                // Use gap-based detection as fallback for uploaded files
+                let lastEnd = 0;
+                let currentSpeakerLocal = 1;
+
+                data.segments.forEach(seg => {
+                    if (lastEnd > 0 && (seg.start - lastEnd) > 2.0) {
+                        currentSpeakerLocal = currentSpeakerLocal === 1 ? 2 : 1;
+                    }
+
+                    speakerSegments.push({
+                        speaker: currentSpeakerLocal,
+                        text: seg.text,
+                        start: seg.start,
+                        end: seg.end,
+                        avgPitch: 0,
+                    });
+
+                    lastEnd = seg.end;
+                });
+            } else if (data.text && data.text.trim()) {
+                speakerSegments.push({
+                    speaker: 1,
+                    text: data.text.trim(),
+                    start: 0,
+                    end: 0,
+                    avgPitch: 0,
+                });
+            }
+
+            uploadProgressBar.style.width = '100%';
+            uploadProgressText.textContent = 'Done!';
+
+            renderTranscript();
+            updateWordCount(getFullTranscriptText());
+            updateSummarizeButton();
+
+            showToast(`✅ Transcribed ${file.name} — ${speakerSegments.length} segments`);
+
+        } catch (err) {
+            console.error('[EchoScribe] Upload error:', err);
+            showToast('⚠️ Upload: ' + err.message);
+        } finally {
+            isUploading = false;
+            btnUpload.disabled = false;
+            btnRecord.disabled = false;
+            setTimeout(() => {
+                uploadProgress.style.display = 'none';
+                uploadProgressBar.style.width = '0%';
+            }, 1500);
+            updateSummarizeButton();
+        }
+    }
+
     // --- Event Listeners ---
     btnRecord.addEventListener('click', function () {
         if (isRecording) {
             stopRecording();
         } else {
             startRecording();
+        }
+    });
+
+    if (btnUpload) btnUpload.addEventListener('click', triggerUpload);
+    if (audioFileInput) audioFileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            handleFileUpload(e.target.files[0]);
+            e.target.value = ''; // Reset so same file can be re-selected
         }
     });
 
