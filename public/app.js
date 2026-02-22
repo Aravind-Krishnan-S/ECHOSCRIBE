@@ -857,38 +857,41 @@
 
             const data = await response.json();
 
-            uploadProgressBar.style.width = '90%';
-            uploadProgressText.textContent = 'Building transcript...';
+            uploadProgressBar.style.width = '80%';
+            uploadProgressText.textContent = 'Identifying speakers with AI...';
 
-            if (data.segments && data.segments.length > 0) {
-                // Use segments — assign alternating speakers since we can't do pitch analysis on uploaded files
-                // Use gap-based detection as fallback for uploaded files
-                let lastEnd = 0;
-                let currentSpeakerLocal = 1;
+            // Use the full text and send it to LLM for speaker diarization
+            const rawText = data.text || '';
+            if (!rawText.trim()) {
+                throw new Error('No speech detected in the audio file.');
+            }
 
-                data.segments.forEach(seg => {
-                    if (lastEnd > 0 && (seg.start - lastEnd) > 2.0) {
-                        currentSpeakerLocal = currentSpeakerLocal === 1 ? 2 : 1;
-                    }
+            // Call LLM to identify speaker turns
+            const diarizeResponse = await EchoAuth.authFetch('/api/diarize-transcript', {
+                method: 'POST',
+                body: JSON.stringify({ text: rawText }),
+            });
 
-                    speakerSegments.push({
-                        speaker: currentSpeakerLocal,
-                        text: seg.text,
-                        start: seg.start,
-                        end: seg.end,
-                        avgPitch: 0,
+            if (diarizeResponse.ok) {
+                const diarizeData = await diarizeResponse.json();
+                if (diarizeData.turns && diarizeData.turns.length > 0) {
+                    hasTwoSpeakers = diarizeData.turns.some(t => t.speaker === 2);
+                    diarizeData.turns.forEach(turn => {
+                        speakerSegments.push({
+                            speaker: turn.speaker,
+                            text: turn.text,
+                            start: 0,
+                            end: 0,
+                            avgPitch: 0,
+                        });
                     });
-
-                    lastEnd = seg.end;
-                });
-            } else if (data.text && data.text.trim()) {
-                speakerSegments.push({
-                    speaker: 1,
-                    text: data.text.trim(),
-                    start: 0,
-                    end: 0,
-                    avgPitch: 0,
-                });
+                } else {
+                    // Fallback — single block
+                    speakerSegments.push({ speaker: 1, text: rawText, start: 0, end: 0, avgPitch: 0 });
+                }
+            } else {
+                // Diarization failed — show as single speaker
+                speakerSegments.push({ speaker: 1, text: rawText, start: 0, end: 0, avgPitch: 0 });
             }
 
             uploadProgressBar.style.width = '100%';

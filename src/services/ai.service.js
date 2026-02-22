@@ -279,4 +279,61 @@ Return ONLY valid JSON:
     return profileAnalysis;
 }
 
-module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio, identifySpeakers };
+// --- LLM-based Speaker Diarization ---
+
+async function diarizeTranscript(rawText) {
+    if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
+
+Rules:
+- There are exactly 2 speakers: "Person 1" and "Person 2"
+- Person 1 is whoever speaks first
+- Identify speaker changes by analyzing: question-answer patterns, topic shifts, response cues, greetings, conversational flow
+- Each turn should contain what one person says before the other person responds
+- Do NOT merge multiple turns from different speakers
+- Do NOT fabricate or modify the text — use the exact words from the transcript
+- If unsure about a split point, make your best guess based on conversational logic
+
+You MUST respond with valid JSON only.`
+            },
+            {
+                role: 'user',
+                content: `Split this conversation transcript into speaker turns. Identify where one person stops speaking and the other responds.
+
+RAW TRANSCRIPT:
+"""
+${rawText}
+"""
+
+Return ONLY valid JSON in this format:
+{
+  "turns": [
+    { "speaker": 1, "text": "exact text from person 1" },
+    { "speaker": 2, "text": "exact text from person 2" },
+    { "speaker": 1, "text": "exact text from person 1" }
+  ]
+}`
+            }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.1,
+        max_tokens: 4000,
+        response_format: { type: 'json_object' },
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || '';
+    try {
+        const parsed = JSON.parse(responseText);
+        return parsed.turns || [];
+    } catch (e) {
+        // Fallback: return entire text as single speaker
+        return [{ speaker: 1, text: rawText }];
+    }
+}
+
+module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio, identifySpeakers, diarizeTranscript };
