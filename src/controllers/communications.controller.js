@@ -23,7 +23,7 @@ const sendCommunication = asyncHandler(async (req, res) => {
     if (patientEmail) {
         try {
             const { data, error } = await resend.emails.send({
-                from: 'EchoScribe <onboarding@resend.dev>',
+                from: 'onboarding@resend.dev',
                 to: [patientEmail],
                 subject: `EchoScribe: ${type}`,
                 html: `
