@@ -52,8 +52,9 @@ router.post('/summarize', validate(summarizeSchema), sessionController.summarize
 router.post('/session', validate(saveSessionSchema), sessionController.saveSession);
 router.get('/history', sessionController.getHistory);
 
-// --- Transcription Route ---
+// --- Transcription Routes ---
 router.post('/transcribe-audio', upload.single('audio'), transcribeController.transcribe);
+router.post('/identify-speakers', transcribeController.identifySpeakers);
 
 // --- Patient Routes ---
 router.get('/patients', patientController.listPatients);
