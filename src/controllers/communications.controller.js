@@ -1,6 +1,7 @@
 const { Resend } = require('resend');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
+// Redeploy trigger: 2026-02-22T21:44:00
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // POST /api/communications/send
@@ -55,9 +56,9 @@ const sendCommunication = asyncHandler(async (req, res) => {
     }
 
     res.json({
-        success: true,
+        success: emailResult ? emailResult.success : true,
         message: patientEmail
-            ? `Communication processed. Email status: ${emailResult.success ? 'Sent' : 'Failed'}`
+            ? (emailResult.success ? 'Email sent successfully!' : `Email failed: ${emailResult.error}`)
             : 'Communication processed (SMS mocked).',
         details: {
             patientEmail,
