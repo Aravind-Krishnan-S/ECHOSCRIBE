@@ -125,10 +125,29 @@ async function transcribeAudio(filePath, lang = 'en') {
 
     const fs = require('fs');
 
+    // Map language codes to ensure correct ISO 639-1 format
+    const langMap = {
+        'en': 'en', 'hi': 'hi', 'ml': 'ml', 'ta': 'ta',
+        'es': 'es', 'fr': 'fr', 'de': 'de', 'ja': 'ja',
+        'ko': 'ko', 'zh': 'zh', 'pt': 'pt', 'ar': 'ar',
+    };
+    const whisperLang = langMap[lang] || lang;
+
+    // Language-specific prompts improve accuracy by conditioning the model
+    const langPrompts = {
+        'en': 'This is a counseling session conversation in English between a counselor and a patient.',
+        'hi': 'यह एक परामर्श सत्र है। काउंसलर और मरीज़ हिंदी में बात कर रहे हैं।',
+        'ml': 'ഇത് ഒരു കൗൺസിലിംഗ് സെഷൻ ആണ്. കൗൺസിലറും രോഗിയും മലയാളത്തിൽ സംസാരിക്കുന്നു.',
+        'ta': 'இது ஒரு ஆலோசனை அமர்வு. ஆலோசகரும் நோயாளியும் தமிழில் பேசுகிறார்கள்.',
+    };
+    const prompt = langPrompts[whisperLang] || `This is a counseling session conversation in the selected language.`;
+
+    // Use whisper-large-v3 for best multilingual accuracy (not turbo)
     const transcription = await groq.audio.transcriptions.create({
         file: fs.createReadStream(filePath),
-        model: 'whisper-large-v3-turbo',
-        language: lang,
+        model: 'whisper-large-v3',
+        language: whisperLang,
+        prompt: prompt,
         response_format: 'verbose_json',
         timestamp_granularities: ['segment'],
     });
