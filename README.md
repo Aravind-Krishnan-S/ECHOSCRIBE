@@ -229,20 +229,20 @@ Interactive docs available at **`/api/docs`** (Swagger UI).
 
 ## 🌐 Supported Languages
 
-| Language | Code | Accuracy |
-|---|---|---|
-| English (US/UK/India) | `en` | ⭐⭐⭐⭐⭐ |
-| Malayalam | `ml` | ⭐⭐⭐⭐⭐ |
-| Hindi | `hi` | ⭐⭐⭐⭐⭐ |
-| Tamil | `ta` | ⭐⭐⭐⭐ |
-| Spanish | `es` | ⭐⭐⭐⭐ |
-| French | `fr` | ⭐⭐⭐⭐ |
-| German | `de` | ⭐⭐⭐⭐ |
-| Japanese | `ja` | ⭐⭐⭐⭐ |
-| Korean | `ko` | ⭐⭐⭐⭐ |
-| Chinese (Mandarin) | `zh` | ⭐⭐⭐⭐ |
-| Portuguese (Brazil) | `pt` | ⭐⭐⭐⭐ |
-| Arabic | `ar` | ⭐⭐⭐⭐ |
+| Language | Code |
+|---|---|
+| English (US/UK/India) | `en` |
+| Malayalam | `ml` |
+| Hindi | `hi` |
+| Tamil | `ta` |
+| Spanish | `es` |
+| French | `fr` |
+| German | `de` |
+| Japanese | `ja` |
+| Korean | `ko` |
+| Chinese (Mandarin) | `zh` |
+| Portuguese (Brazil) | `pt` |
+| Arabic | `ar` |
 
 > Language-specific prompts are used to condition Whisper for maximum accuracy. Select the correct language **before** recording or uploading.
 
