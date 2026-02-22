@@ -433,8 +433,14 @@
             });
 
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Transcription failed');
+                let errMsg = 'Transcription failed';
+                try {
+                    const err = await response.json();
+                    errMsg = err.error || errMsg;
+                } catch (_) {
+                    errMsg = `Server error (${response.status})`;
+                }
+                throw new Error(errMsg);
             }
 
             const data = await response.json();
@@ -796,9 +802,9 @@
     async function handleFileUpload(file) {
         if (!file) return;
 
-        // Validate file size (25MB max)
-        if (file.size > 25 * 1024 * 1024) {
-            showToast('⚠️ File too large. Maximum size is 25MB.');
+        // Validate file size (4.5MB max — Vercel serverless limit)
+        if (file.size > 4.5 * 1024 * 1024) {
+            showToast('⚠️ File too large. Max 4.5MB for cloud deployment. Try a shorter clip.');
             return;
         }
 
@@ -835,8 +841,18 @@
             uploadProgressText.textContent = 'Processing transcription...';
 
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Transcription failed');
+                let errMsg = 'Transcription failed';
+                try {
+                    const err = await response.json();
+                    errMsg = err.error || errMsg;
+                } catch (_) {
+                    if (response.status === 413) {
+                        errMsg = 'File too large for server. Try a shorter/smaller audio file.';
+                    } else {
+                        errMsg = `Server error (${response.status})`;
+                    }
+                }
+                throw new Error(errMsg);
             }
 
             const data = await response.json();
