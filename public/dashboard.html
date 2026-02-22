@@ -634,10 +634,16 @@
                     style="color: #e2e8f0; font-size: 0.9rem; margin-top: 0.25rem; white-space: pre-wrap;"></p>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="color:#e2e8f0; font-size:1.05rem; margin:0;">Past Records</h3>
-                <button class="btn-primary" id="btn-start-session" style="padding: 0.5rem 1rem; font-size: 0.85rem;">+
-                    Start New Session</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; font-size: 1.2rem; color: #e2e8f0;">Past Records</h3>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <a id="btn-profile-insights" href="#" class="btn btn-secondary btn-sm" title="View Patient Insights"
+                        style="background: rgba(108, 99, 255, 0.1); border-color: rgba(108, 99, 255, 0.2); color: #a78bfa;">📊
+                        Insights</a>
+                    <button id="btn-start-session" class="btn btn-record"
+                        style="padding: 0.5rem 1rem; font-size: 0.9rem; min-width: auto; border-radius: 8px;">＋ Start
+                        New Session</button>
+                </div>
             </div>
 
             <div id="profile-sessions-list"
@@ -852,6 +858,12 @@
             async function selectPatient(patient) {
                 currentProfilePatient = patient;
                 document.getElementById('profile-name').textContent = patient.name;
+
+                // Set the Insights button href directly
+                const btnProfileInsights = document.getElementById('btn-profile-insights');
+                if (btnProfileInsights) {
+                    btnProfileInsights.href = `/patient.html?id=${patient.id}`;
+                }
 
                 const metaParts = [];
                 if (patient.age) metaParts.push(`${patient.age} yrs`);
