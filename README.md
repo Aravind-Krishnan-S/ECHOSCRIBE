@@ -11,7 +11,7 @@
 | Feature | Description |
 |---|---|
 | 🎙️ **Speech Transcription** | Real-time speech-to-text powered by Groq Whisper Large V3. Audio uploads use Deepgram Nova-2 |
-| 🗣️ **Speaker Diarization** | Live: Voice-based pitch analysis. Uploaded: Native Deepgram Speaker Diarization API to differentiate Counsellor & Patient |
+| 🗣️ **Speaker Diarization** | Native Deepgram Speaker Diarization API to differentiate Counsellor & Patient (processed automatically after live recording or file upload) |
 | 📁 **Audio File Upload** | Upload pre-recorded audio files (MP3, WAV, WEBM, OGG, FLAC, M4A) for transcription & analysis |
 | 🌐 **Multilingual Support** | English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
 | 📋 **Clinical SOAP Notes** | AI generates Subjective, Objective, Assessment, and Plan sections |
@@ -28,33 +28,27 @@
 
 ## 🗣️ Speaker Diarization
 
-EchoScribe uses a **hybrid approach** to differentiate speakers:
+EchoScribe uses the **Deepgram API** natively for pristine audio diarization and transcription:
 
-### Live Recording
-1. **Web Audio API** captures real-time voice pitch via autocorrelation every 200ms
-2. Speaker profiles are built dynamically — if pitch differs by >30Hz, a new speaker is detected
-3. Transcript segments are labeled as **Person 1** / **Person 2** during recording
-
-### Uploaded Audio Files
-1. **Deepgram API** (Nova-2 model) transcribes the full audio
-2. **Deepgram Speaker Diarization** automatically identifies accurate speaker turns and word timestamps
-3. Segments are labeled as **Person 1** / **Person 2**
+1. **Dual-Recorder Architecture**: When recording live, the app streams short chunks to Groq Whisper for instant visual feedback. Simultaneously, it records a pristine, contiguous audio blob in the background.
+2. **Deepgram Transcription**: Once recording finishes (or an audio file is uploaded), the full audio file is sent to Deepgram's `nova-2` model.
+3. **Turn Identification**: Deepgram automatically segments the conversation and assigns exact timestamps and speaker IDs (e.g. `Person 1`, `Person 2`).
 
 ### Role Identification
 After recording/upload, clicking **Analyze (SOAP)** triggers:
-1. LLM identifies which person is the **Counsellor** vs **Patient** based on therapeutic language, questioning style, and content
-2. The SOAP note is generated with role-aware analysis
+1. LLM natively identifies which person is the **Counsellor** vs **Patient** based on therapeutic language, questioning style, and content.
+2. The SOAP note is generated with this specific role-aware analysis.
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Backend:** Node.js, Express, Helmet, CORS, Rate Limiting
-- **AI — Transcription & Diarization:** Deepgram SDK (Uploaded audio), Groq Whisper Large V3 (Live audio)
+- **AI — Transcription & Diarization:** Deepgram SDK (Final Audio & Uploads), Groq Whisper Large V3 (Live Visual Feedback)
 - **AI — Analysis:** Groq SDK (Llama 3.3 70B) for SOAP notes, speaker identification, and patient profiling
 - **Database:** Supabase (PostgreSQL) with Row-Level Security
 - **Auth:** Supabase Auth (email/password, JWT)
-- **Audio Processing:** Web Audio API (pitch detection), MediaRecorder API
+- **Audio Processing:** MediaRecorder API
 - **Export:** PDFKit, json2csv
 - **Validation:** Zod schemas on all endpoints
 - **Frontend:** Vanilla HTML/CSS/JS, Chart.js

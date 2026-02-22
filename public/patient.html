@@ -13,6 +13,7 @@
         rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="card.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .header-top {
             display: flex;
@@ -199,6 +200,7 @@
             color: #8892b0;
             line-height: 1.5;
             display: -webkit-box;
+            line-clamp: 2;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
@@ -356,6 +358,37 @@
 
                 <div id="profile-empty" style="display: none; text-align: center; color: #8892b0; padding: 2rem 0;">
                     <p>Not enough session data yet. Record a few sessions to generate an AI longitudinal profile.</p>
+                </div>
+            </div>
+
+            <!-- Visual Insights -->
+            <div class="profile-section" id="visual-insights" style="display: none;">
+                <h2 class="section-title">📊 Visual Insights</h2>
+                <div class="profile-grid">
+                    <div class="profile-card" style="display: flex; flex-direction: column; align-items: center;">
+                        <h3>Topics (Polar)</h3>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="topicsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="profile-card" style="display: flex; flex-direction: column; align-items: center;">
+                        <h3>Risk (Doughnut)</h3>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="sentimentChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="profile-card" style="display: flex; flex-direction: column; align-items: center;">
+                        <h3>Session Activity (Bar)</h3>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="profile-card" style="display: flex; flex-direction: column; align-items: center;">
+                        <h3>Overall Emotion (Pie)</h3>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="emotionPieChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -546,12 +579,26 @@
             function renderCharts() {
                 if (currentSessions.length === 0) return;
 
-                // 1. Aggregate Topics
+                // Aggregated Data structures
                 const topicCounts = {};
                 const sentimentCounts = {};
+                const riskCounts = { 'Low': 0, 'Moderate': 0, 'High': 0 };
 
-                currentSessions.forEach(s => {
+                // Chronological data for trends
+                const sessionLabels = [];
+                const wordCounts = [];
+                const confidenceScores = [];
+
+                // currentSessions is newest first, so reverse for trend charts
+                const chronoSessions = [...currentSessions].reverse();
+
+                chronoSessions.forEach((s, i) => {
                     const analysis = s.analysis_json || {};
+                    const risk = analysis.risk_assessment || {};
+
+                    sessionLabels.push(`S${i + 1}`);
+                    wordCounts.push(analysis.wordCount || 0);
+                    confidenceScores.push((analysis.confidence_score || 0) * 100);
 
                     // Count Topics
                     const topics = analysis.topics || analysis.topicsDetected || [];
@@ -563,24 +610,30 @@
                     // Count Sentiment
                     const sentiment = analysis.emotional_tone || 'Neutral';
                     sentimentCounts[sentiment] = (sentimentCounts[sentiment] || 0) + 1;
+
+                    // Count Risk
+                    const riskLevel = (risk.self_harm_risk || 'low').toLowerCase();
+                    if (riskLevel === 'high' || risk.suicidal_ideation) riskCounts['High']++;
+                    else if (riskLevel === 'moderate') riskCounts['Moderate']++;
+                    else riskCounts['Low']++;
                 });
 
                 // Top 6 topics
-                const sortedTopics = Object.entries(topicCounts)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 6);
-
+                const sortedTopics = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
                 const tLabels = sortedTopics.map(t => t[0]);
                 const tData = sortedTopics.map(t => t[1]);
 
                 const sLabels = Object.keys(sentimentCounts);
                 const sData = Object.values(sentimentCounts);
 
+                const rLabels = Object.keys(riskCounts);
+                const rData = Object.values(riskCounts);
+
                 // Chart setup
                 Chart.defaults.color = '#8892b0';
                 Chart.defaults.font.family = "'Inter', sans-serif";
 
-                // Topics - Polar Area
+                // 1. Topics - Polar Area
                 const ctxTopics = document.getElementById('topicsChart');
                 if (ctxTopics && tData.length > 0) {
                     new Chart(ctxTopics, {
@@ -590,52 +643,84 @@
                             datasets: [{
                                 data: tData,
                                 backgroundColor: [
-                                    'rgba(108, 99, 255, 0.6)',
-                                    'rgba(244, 114, 182, 0.6)',
-                                    'rgba(79, 209, 197, 0.6)',
-                                    'rgba(246, 173, 85, 0.6)',
-                                    'rgba(159, 122, 234, 0.6)',
-                                    'rgba(113, 128, 150, 0.6)'
+                                    'rgba(108, 99, 255, 0.6)', 'rgba(244, 114, 182, 0.6)', 'rgba(79, 209, 197, 0.6)',
+                                    'rgba(246, 173, 85, 0.6)', 'rgba(159, 122, 234, 0.6)', 'rgba(113, 128, 150, 0.6)'
                                 ],
-                                borderWidth: 1,
-                                borderColor: 'rgba(15, 20, 40, 0.8)'
+                                borderWidth: 1, borderColor: 'rgba(15, 20, 40, 0.8)'
                             }]
                         },
                         options: {
                             scales: { r: { ticks: { display: false } } },
-                            plugins: {
-                                legend: { position: 'right' }
-                            },
+                            plugins: { legend: { position: 'right' } },
                             maintainAspectRatio: false
                         }
                     });
                 }
 
-                // Sentiment - Doughnut
-                const ctxSentiment = document.getElementById('sentimentChart');
-                if (ctxSentiment && sData.length > 0) {
+                // 2. Risk - Doughnut
+                const ctxSentiment = document.getElementById('sentimentChart'); // (Container re-used)
+                if (ctxSentiment && rData.length > 0) {
                     new Chart(ctxSentiment, {
                         type: 'doughnut',
+                        data: {
+                            labels: rLabels,
+                            datasets: [{
+                                data: rData,
+                                backgroundColor: ['rgba(79, 209, 197, 0.8)', 'rgba(246, 173, 85, 0.8)', 'rgba(244, 114, 182, 0.8)'],
+                                borderWidth: 0, hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            cutout: '70%',
+                            plugins: { legend: { position: 'right' } },
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // 3. Session Activity - Bar Graph
+                const ctxActivity = document.getElementById('activityChart');
+                if (ctxActivity && wordCounts.length > 0) {
+                    new Chart(ctxActivity, {
+                        type: 'bar',
+                        data: {
+                            labels: sessionLabels,
+                            datasets: [{
+                                label: 'Word Count',
+                                data: wordCounts,
+                                backgroundColor: 'rgba(108, 99, 255, 0.7)',
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                x: { grid: { display: false } }
+                            },
+                            plugins: { legend: { display: false } },
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // 4. Overall Emotion - Pie Chart
+                const ctxPie = document.getElementById('emotionPieChart');
+                if (ctxPie && sData.length > 0) {
+                    new Chart(ctxPie, {
+                        type: 'pie',
                         data: {
                             labels: sLabels,
                             datasets: [{
                                 data: sData,
                                 backgroundColor: [
-                                    'rgba(79, 209, 197, 0.8)', // Teal
-                                    'rgba(246, 173, 85, 0.8)', // Orange
-                                    'rgba(244, 114, 182, 0.8)', // Pink/Red
-                                    'rgba(108, 99, 255, 0.8)', // Indigo
-                                    'rgba(160, 174, 192, 0.8)' // Gray
+                                    'rgba(79, 209, 197, 0.8)', 'rgba(246, 173, 85, 0.8)', 'rgba(244, 114, 182, 0.8)',
+                                    'rgba(108, 99, 255, 0.8)', 'rgba(160, 174, 192, 0.8)', 'rgba(255, 99, 132, 0.8)'
                                 ],
-                                borderWidth: 0,
-                                hoverOffset: 4
+                                borderWidth: 0, hoverOffset: 4
                             }]
                         },
                         options: {
-                            cutout: '70%',
-                            plugins: {
-                                legend: { position: 'right' }
-                            },
+                            plugins: { legend: { position: 'right' } },
                             maintainAspectRatio: false
                         }
                     });

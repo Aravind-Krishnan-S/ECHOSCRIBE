@@ -59,6 +59,15 @@
     const profileModal = document.getElementById('profile-modal');
     const modalClose = document.getElementById('modal-close');
     const modalContent = document.getElementById('modal-content');
+    const btnInsights = document.getElementById('btn-insights');
+
+    // --- Active Patient for Insights ---
+    const activePatientData = localStorage.getItem('echoscribe_active_patient');
+    if (activePatientData && btnInsights) {
+        const activePatient = JSON.parse(activePatientData);
+        btnInsights.href = `/patient.html?id=${activePatient.id}`;
+        btnInsights.style.display = 'inline-flex';
+    }
 
     // Card elements
     const cardName = document.getElementById('card-name');
