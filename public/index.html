@@ -69,11 +69,21 @@
         <span class="btn-icon" id="record-icon">🎤</span>
         <span id="record-label">Start Recording</span>
       </button>
+      <button id="btn-upload" class="btn btn-upload" title="Upload Audio File">
+        <span class="btn-icon">📁</span>
+        <span>Upload Audio</span>
+      </button>
       <button id="btn-summarize" class="btn btn-summarize" title="Analyze with AI" disabled>
         <span class="btn-icon" id="summarize-icon">✨</span>
         <span id="summarize-label">Analyze (SOAP)</span>
         <span class="spinner" id="summarize-spinner" style="display: none;"></span>
       </button>
+    </div>
+    <input type="file" id="audio-file-input" accept=".mp3,.wav,.webm,.ogg,.flac,.m4a,.mp4,.mpeg,.mpga,.opus"
+      style="display:none;">
+    <div id="upload-progress" class="upload-progress" style="display:none;">
+      <div class="upload-progress-bar" id="upload-progress-bar"></div>
+      <span class="upload-progress-text" id="upload-progress-text">Uploading...</span>
     </div>
 
     <div class="controls controls-secondary">
@@ -94,6 +104,8 @@
         <option value="en-US">English (US)</option>
         <option value="en-GB">English (UK)</option>
         <option value="en-IN">English (India)</option>
+        <option value="ml-IN">Malayalam</option>
+        <option value="ta-IN">Tamil</option>
         <option value="hi-IN">Hindi</option>
         <option value="es-ES">Spanish</option>
         <option value="fr-FR">French</option>
