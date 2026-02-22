@@ -38,6 +38,7 @@ const upload = multer({
 const summarizeSchema = z.object({
     text: z.string().min(1, 'Transcript text is required').max(50000, 'Transcript too long'),
     patientId: z.string().uuid().optional(),
+    language: z.string().optional().default('en'),
 });
 
 const saveSessionSchema = z.object({

@@ -10,7 +10,7 @@ function initGroq(apiKey) {
 
 // --- Clinical SOAP Summarization ---
 
-async function summarizeTranscript(text, retries = 2) {
+async function summarizeTranscript(text, lang = 'en', retries = 2) {
     if (!groq) throw new AppError('AI service not initialized', 500);
 
     const wordCount = text.trim().split(/\s+/).length;
@@ -26,7 +26,8 @@ You analyze speech transcripts from counseling sessions and produce structured c
 The transcript may contain speaker labels like "Counsellor:" and "Patient:" (or "Person 1:" / "Person 2:"). Use these to understand the dialogue flow.
 You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
 Be thorough but clinically precise. Do not fabricate information not present in the transcript.
-If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.`
+If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.
+You must also generate a patient-facing communication summary translated into the locale: ${lang}.`
                     },
                     {
                         role: 'user',
@@ -49,6 +50,20 @@ Return ONLY valid JSON with this exact structure:
     "suicidal_ideation": false,
     "self_harm_risk": "low",
     "notes": "Brief risk assessment notes based on transcript content"
+  },
+  "auto_booking": {
+    "needs_follow_up": false,
+    "suggested_timeframe": "string (e.g., '2 weeks', 'next Tuesday' or 'None')",
+    "reason": "string"
+  },
+  "referral_form": {
+    "referral_needed": false,
+    "specialty_or_service": "string",
+    "reason": "string"
+  },
+  "patient_communication": {
+    "instructions_english": "A warm, patient-friendly summary and instructions for the patient to take home, in English.",
+    "instructions_translated": "The exact same patient-friendly summary and instructions, translated to language code: ${lang}."
   },
   "diagnostic_impressions": ["Possible diagnostic considerations based on presentation"],
   "interventions_used": ["Therapeutic interventions or techniques evident in the session"],
@@ -98,6 +113,9 @@ Return ONLY valid JSON with this exact structure:
             // Normalize missing fields
             parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
             parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
+            parsedData.auto_booking = parsedData.auto_booking || { needs_follow_up: false, suggested_timeframe: 'None', reason: '' };
+            parsedData.referral_form = parsedData.referral_form || { referral_needed: false, specialty_or_service: 'None', reason: '' };
+            parsedData.patient_communication = parsedData.patient_communication || { instructions_english: 'No instructions generated.', instructions_translated: 'No translated instructions generated.' };
             parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
             parsedData.interventions_used = parsedData.interventions_used || [];
             parsedData.medication_changes = parsedData.medication_changes || [];
