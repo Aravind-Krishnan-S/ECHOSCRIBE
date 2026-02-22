@@ -77,6 +77,8 @@ router.post('/patients', validate(createPatientSchema), patientController.create
 router.put('/patients/:id', validate(updatePatientSchema), patientController.updatePatient);
 router.delete('/patients/:id', patientController.deletePatient);
 router.get('/patients/:id/sessions', patientController.getPatientSessions);
+router.get('/patients/:id', patientController.getPatient);
+router.get('/patients/:id/profile', patientController.getPatientProfile);
 
 // --- Profile Routes ---
 router.get('/profile', profileController.getProfile);

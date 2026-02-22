@@ -742,14 +742,10 @@
                 });
             }
 
-            // --- Select Patient → Recorder ---
+            // --- Select Patient → Details Page ---
             function selectPatient(patient) {
-                localStorage.setItem('echoscribe_active_patient', JSON.stringify({
-                    id: patient.id,
-                    name: patient.name,
-                }));
-                showToast(`Selected: ${patient.name}`);
-                setTimeout(() => { window.location.href = '/'; }, 300);
+                // Navigate to Patient Details page instead of recorder directly
+                window.location.href = `/patient.html?id=${patient.id}`;
             }
 
             // --- Modal: Open Add ---

@@ -147,6 +147,19 @@ async function getPatientSessions(token, patientId, userId) {
     return data;
 }
 
+async function getPatientById(token, patientId, userId) {
+    const client = getAuthClient(token);
+    const { data, error } = await client
+        .from('patients')
+        .select('*')
+        .eq('id', patientId)
+        .eq('user_id', userId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
 module.exports = {
     initSupabase,
     getSupabase,
@@ -160,5 +173,6 @@ module.exports = {
     updatePatient,
     deletePatient,
     getPatientSessions,
+    getPatientById
 };
 
