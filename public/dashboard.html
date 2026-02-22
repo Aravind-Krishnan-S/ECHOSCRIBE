@@ -593,6 +593,16 @@
                         </select>
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="patient-email">Email</label>
+                        <input type="email" id="patient-email" placeholder="patient@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label for="patient-phone">Phone</label>
+                        <input type="text" id="patient-phone" placeholder="+1 234 567 8900" />
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="patient-notes">Notes</label>
                     <textarea id="patient-notes" placeholder="Optional clinical notes, diagnosis, etc."></textarea>
@@ -780,6 +790,7 @@
                     const metaParts = [];
                     if (p.age) metaParts.push(`${p.age} yrs`);
                     if (p.gender) metaParts.push(p.gender);
+                    if (p.email || p.phone) metaParts.push('Contact info saved');
 
                     card.innerHTML = `
                         <div class="patient-actions">
@@ -847,6 +858,8 @@
                 const metaParts = [];
                 if (patient.age) metaParts.push(`${patient.age} yrs`);
                 if (patient.gender) metaParts.push(patient.gender);
+                if (patient.email) metaParts.push(`📧 ${patient.email}`);
+                if (patient.phone) metaParts.push(`📱 ${patient.phone}`);
                 document.getElementById('profile-meta').textContent = metaParts.join(' • ');
 
                 const notesContainer = document.getElementById('profile-notes-container');
@@ -898,6 +911,8 @@
                 document.getElementById('patient-name').value = '';
                 document.getElementById('patient-age').value = '';
                 document.getElementById('patient-gender').value = '';
+                document.getElementById('patient-email').value = '';
+                document.getElementById('patient-phone').value = '';
                 document.getElementById('patient-notes').value = '';
                 modalTitle.textContent = 'Add New Patient';
                 modalSubmit.textContent = 'Add Patient';
@@ -912,6 +927,8 @@
                 document.getElementById('patient-name').value = p.name || '';
                 document.getElementById('patient-age').value = p.age || '';
                 document.getElementById('patient-gender').value = p.gender || '';
+                document.getElementById('patient-email').value = p.email || '';
+                document.getElementById('patient-phone').value = p.phone || '';
                 document.getElementById('patient-notes').value = p.notes || '';
                 modalTitle.textContent = 'Edit Patient';
                 modalSubmit.textContent = 'Save Changes';
@@ -931,6 +948,8 @@
                 const name = document.getElementById('patient-name').value.trim();
                 const ageVal = document.getElementById('patient-age').value;
                 const gender = document.getElementById('patient-gender').value;
+                const email = document.getElementById('patient-email').value.trim();
+                const phone = document.getElementById('patient-phone').value.trim();
                 const notes = document.getElementById('patient-notes').value.trim();
 
                 if (!name) {
@@ -941,6 +960,8 @@
                 const body = { name, notes };
                 if (ageVal) body.age = parseInt(ageVal, 10);
                 if (gender) body.gender = gender;
+                if (email) body.email = email;
+                if (phone) body.phone = phone;
 
                 modalSubmit.disabled = true;
                 modalSubmit.textContent = id ? 'Saving...' : 'Adding...';

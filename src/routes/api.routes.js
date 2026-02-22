@@ -9,6 +9,7 @@ const profileController = require('../controllers/profile.controller');
 const exportController = require('../controllers/export.controller');
 const patientController = require('../controllers/patient.controller');
 const transcribeController = require('../controllers/transcribe.controller');
+const commsController = require('../controllers/communications.controller');
 
 const router = express.Router();
 
@@ -53,6 +54,8 @@ const createPatientSchema = z.object({
     age: z.number().int().min(0).max(150).optional().nullable(),
     gender: z.string().max(50).optional().nullable(),
     notes: z.string().max(5000).optional().default(''),
+    email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
+    phone: z.string().max(30).optional().nullable().or(z.literal('')),
 });
 
 const updatePatientSchema = z.object({
@@ -60,6 +63,8 @@ const updatePatientSchema = z.object({
     age: z.number().int().min(0).max(150).optional().nullable(),
     gender: z.string().max(50).optional().nullable(),
     notes: z.string().max(5000).optional(),
+    email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
+    phone: z.string().max(30).optional().nullable().or(z.literal('')),
 });
 
 // --- Session Routes ---
@@ -88,6 +93,9 @@ router.get('/profile', profileController.getProfile);
 router.get('/export/pdf/:sessionId', exportController.exportPdf);
 router.get('/export/csv', exportController.exportCsv);
 router.get('/export/record', exportController.exportFullRecord);
+
+// --- Communications Routes ---
+router.post('/communications/send', commsController.sendCommunication);
 
 module.exports = router;
 

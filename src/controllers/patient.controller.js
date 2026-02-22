@@ -9,7 +9,7 @@ const listPatients = asyncHandler(async (req, res) => {
 
 // POST /api/patients
 const createPatient = asyncHandler(async (req, res) => {
-    const { name, age, gender, notes } = req.body;
+    const { name, age, gender, notes, email, phone } = req.body;
 
     let data;
     try {
@@ -19,6 +19,8 @@ const createPatient = asyncHandler(async (req, res) => {
             age: age !== undefined ? age : null,
             gender: gender || null,
             notes: notes || '',
+            email: email || null,
+            phone: phone || null,
         });
     } catch (err) {
         console.error('[Patient] Create failed:', err.message || err);
@@ -35,13 +37,15 @@ const createPatient = asyncHandler(async (req, res) => {
 // PUT /api/patients/:id
 const updatePatient = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, age, gender, notes } = req.body;
+    const { name, age, gender, notes, email, phone } = req.body;
 
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (age !== undefined) updates.age = age;
     if (gender !== undefined) updates.gender = gender;
     if (notes !== undefined) updates.notes = notes;
+    if (email !== undefined) updates.email = email;
+    if (phone !== undefined) updates.phone = phone;
 
     const data = await dbService.updatePatient(req.supabaseToken, id, req.user.id, updates);
 
