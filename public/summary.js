@@ -767,11 +767,11 @@
                 body: JSON.stringify(body)
             });
 
-            if (res.ok) {
-                const result = await res.json();
+            const result = await res.json();
+            if (res.ok && result.success) {
                 showToast(`✅ ${result.message}`);
             } else {
-                throw new Error('Failed to send communication');
+                showToast(`❌ ${result.message || 'Failed to send communication'}`);
             }
         } catch (err) {
             showToast(`❌ Error: ${err.message}`);
