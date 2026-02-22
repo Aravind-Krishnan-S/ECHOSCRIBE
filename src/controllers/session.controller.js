@@ -4,13 +4,13 @@ const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // POST /api/summarize — analyze + auto-save
 const summarize = asyncHandler(async (req, res) => {
-    const { text, patientId } = req.body;
+    const { text, patientId, language } = req.body;
 
     if (!text || text.trim().length === 0) {
         throw new AppError('No transcript text provided.', 400);
     }
 
-    const result = await aiService.summarizeTranscript(text);
+    const result = await aiService.summarizeTranscript(text, language || 'en');
 
     // Auto-save the session to the database
     let sessionId = null;

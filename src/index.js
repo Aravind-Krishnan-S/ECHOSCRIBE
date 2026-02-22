@@ -68,8 +68,10 @@ app.use((req, res, next) => {
                 return requireAuth(req2, res2, next2);
             }, authRoutes);
 
+            const { complianceLogger } = require('./middleware/compliance');
+
             // Protected API routes
-            app.use('/api', requireAuth, (req2, res2, next2) => {
+            app.use('/api', requireAuth, complianceLogger, (req2, res2, next2) => {
                 if (req2.path === '/summarize' && req2.method === 'POST') {
                     return aiLimiter(req2, res2, next2);
                 }

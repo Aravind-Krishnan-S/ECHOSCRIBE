@@ -179,6 +179,38 @@
         progressList.innerHTML = '<li>No specific progress indicators noted.</li>';
     }
 
+    // --- Auto-Booking ---
+    const booking = data.auto_booking || {};
+    const bookingNeeded = document.getElementById('booking-needed');
+    if (bookingNeeded) {
+        bookingNeeded.textContent = booking.needs_follow_up ? 'Yes' : 'No';
+        bookingNeeded.style.background = booking.needs_follow_up ? 'rgba(237, 100, 166, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+        bookingNeeded.style.color = booking.needs_follow_up ? '#ed64a6' : '#fff';
+        document.getElementById('booking-timeframe').textContent = booking.suggested_timeframe || 'None';
+        document.getElementById('booking-reason').textContent = booking.reason || 'No follow-up discussed.';
+        if (booking.needs_follow_up) document.getElementById('btn-create-booking').style.display = 'block';
+    }
+
+    // --- Referral ---
+    const referral = data.referral_form || {};
+    const referralNeeded = document.getElementById('referral-needed');
+    if (referralNeeded) {
+        referralNeeded.textContent = referral.referral_needed ? 'Yes' : 'No';
+        referralNeeded.style.background = referral.referral_needed ? 'rgba(237, 100, 166, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+        referralNeeded.style.color = referral.referral_needed ? '#ed64a6' : '#fff';
+        document.getElementById('referral-specialty').textContent = referral.specialty_or_service || 'None';
+        document.getElementById('referral-reason').textContent = referral.reason || 'No referral necessary.';
+        if (referral.referral_needed) document.getElementById('btn-create-referral').style.display = 'block';
+    }
+
+    // --- Patient Communication ---
+    const comm = data.patient_communication || {};
+    const commEnglish = document.getElementById('comm-english');
+    if (commEnglish) {
+        commEnglish.textContent = comm.instructions_english || 'None generated.';
+        document.getElementById('comm-translated').textContent = comm.instructions_translated || 'None generated.';
+    }
+
     // --- Emotional Tone & Stats ---
     const tone = data.emotional_tone || data.sentiment || 'neutral';
     const toneConfig = {

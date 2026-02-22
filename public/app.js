@@ -685,9 +685,14 @@
             summarizeLabel.textContent = 'Analyzing...';
             showToast('✨ Generating clinical SOAP note...');
 
+            const selectedLanguage = document.getElementById('lang-select').value;
             const response = await EchoAuth.authFetch('/api/summarize', {
                 method: 'POST',
-                body: JSON.stringify({ text: labeledTranscript, patientId: activePatient.id }),
+                body: JSON.stringify({
+                    text: labeledTranscript,
+                    patientId: activePatient ? activePatient.id : undefined,
+                    language: selectedLanguage
+                }),
             });
 
             if (!response.ok) {
