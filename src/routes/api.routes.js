@@ -12,9 +12,23 @@ const transcribeController = require('../controllers/transcribe.controller');
 
 const router = express.Router();
 
-// Multer config for audio uploads (store in OS temp dir)
+// Multer config for audio uploads — preserve file extension for Groq Whisper
+const uploadDir = path.join(os.tmpdir(), 'echoscribe-uploads');
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const fs = require('fs');
+        fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        // Preserve original extension so Groq recognizes the file type
+        const ext = path.extname(file.originalname) || '.webm';
+        const uniqueName = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+        cb(null, uniqueName);
+    },
+});
 const upload = multer({
-    dest: path.join(os.tmpdir(), 'echoscribe-uploads'),
+    storage,
     limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
 });
 
