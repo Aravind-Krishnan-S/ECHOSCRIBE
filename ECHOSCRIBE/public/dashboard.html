@@ -5,14 +5,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EchoScribe — Dashboard</title>
-    <meta name="description" content="Patient management dashboard for EchoScribe clinical documentation." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="description" content="EchoScribe patient dashboard — manage patients, view sessions." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="card.css" />
+
     <style>
         .dashboard-header {
             display: flex;
@@ -26,30 +27,130 @@
 
         .dashboard-title {
             font-size: 1.6rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #6c63ff, #a78bfa, #f472b6);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            color: #e2e8f0;
         }
 
-        /* Patient Grid */
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        /* ─── Toolbar ─── */
+        .dashboard-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+        }
+
+        .toolbar-right {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .toolbar-select {
+            padding: 0.45rem 0.75rem;
+            border-radius: 10px;
+            border: 1px solid rgba(108, 99, 255, 0.18);
+            background: rgba(15, 20, 40, 0.7);
+            color: #c9d1d9;
+            font-size: 0.82rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .toolbar-select:focus {
+            border-color: #6c63ff;
+        }
+
+        .toolbar-search {
+            padding: 0.45rem 0.85rem;
+            border-radius: 10px;
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            background: rgba(15, 20, 40, 0.7);
+            color: #e2e8f0;
+            font-size: 0.82rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            min-width: 180px;
+            transition: border-color 0.2s;
+        }
+
+        .toolbar-search:focus {
+            border-color: #6c63ff;
+        }
+
+        .toolbar-search::placeholder {
+            color: #5a6079;
+        }
+
+        .view-toggle {
+            display: flex;
+            background: rgba(15, 20, 40, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(108, 99, 255, 0.12);
+            overflow: hidden;
+        }
+
+        .view-toggle-btn {
+            padding: 0.42rem 0.75rem;
+            border: none;
+            background: transparent;
+            color: #8892b0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .view-toggle-btn.active {
+            background: rgba(108, 99, 255, 0.18);
+            color: #a78bfa;
+        }
+
+        .view-toggle-btn:hover:not(.active) {
+            background: rgba(108, 99, 255, 0.07);
+        }
+
+        /* ─── Grid View (Cards) ─── */
         .patients-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 1rem;
             width: 100%;
             margin-bottom: 2rem;
         }
 
         .patient-card {
-            background: rgba(15, 20, 40, 0.7);
-            border: 1px solid rgba(108, 99, 255, 0.12);
+            position: relative;
+            background: rgba(15, 20, 40, 0.5);
+            border: 1px solid rgba(108, 99, 255, 0.1);
             border-radius: 16px;
             padding: 1.25rem;
             cursor: pointer;
-            transition: all 0.25s ease;
-            position: relative;
+            transition: all 0.25s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 0.5rem;
             backdrop-filter: blur(12px);
         }
 
@@ -68,21 +169,19 @@
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #6c63ff, #a78bfa);
+            background: linear-gradient(135deg, rgba(108, 99, 255, 0.2), rgba(167, 139, 250, 0.2));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
             font-weight: 700;
-            color: white;
-            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: #a78bfa;
         }
 
         .patient-name {
-            font-size: 1.05rem;
             font-weight: 600;
+            font-size: 0.95rem;
             color: #e2e8f0;
-            margin-bottom: 0.3rem;
         }
 
         .patient-meta {
@@ -138,6 +237,91 @@
             border-color: #ff4d6a;
         }
 
+        /* ─── List View ─── */
+        .patients-list {
+            width: 100%;
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .patients-list.active {
+            display: block;
+        }
+
+        .patients-grid.active {
+            display: grid;
+        }
+
+        .patients-grid:not(.active) {
+            display: none;
+        }
+
+        .patient-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.85rem 1.1rem;
+            background: rgba(15, 20, 40, 0.5);
+            border: 1px solid rgba(108, 99, 255, 0.08);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(12px);
+        }
+
+        .patient-row:hover {
+            background: rgba(108, 99, 255, 0.06);
+            border-color: rgba(108, 99, 255, 0.25);
+            transform: translateX(3px);
+        }
+
+        .patient-row .patient-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 0.78rem;
+            flex-shrink: 0;
+        }
+
+        .patient-row-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .patient-row-name {
+            font-weight: 600;
+            font-size: 0.92rem;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .patient-row-meta {
+            font-size: 0.75rem;
+            color: #8892b0;
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.15rem;
+        }
+
+        .patient-row-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .patient-row:hover .patient-row-actions {
+            opacity: 1;
+        }
+
+        .patient-row-actions .patient-action-btn {
+            width: 30px;
+            height: 30px;
+        }
+
         /* Add Patient Card */
         .add-patient-card {
             background: rgba(15, 20, 40, 0.4);
@@ -159,6 +343,27 @@
             background: rgba(108, 99, 255, 0.05);
         }
 
+        .add-patient-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.1rem;
+            background: rgba(15, 20, 40, 0.3);
+            border: 2px dashed rgba(108, 99, 255, 0.15);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #8892b0;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .add-patient-row:hover {
+            border-color: #6c63ff;
+            background: rgba(108, 99, 255, 0.05);
+        }
+
         .add-icon {
             width: 44px;
             height: 44px;
@@ -168,6 +373,18 @@
             align-items: center;
             justify-content: center;
             font-size: 1.5rem;
+            color: #a78bfa;
+        }
+
+        .add-icon-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(108, 99, 255, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
             color: #a78bfa;
         }
 
@@ -379,17 +596,14 @@
 
         /* KPI grid (secondary) */
         .kpi-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.75rem;
             width: 100%;
             margin-bottom: 1.5rem;
-            justify-content: center;
         }
 
         .kpi-card {
-            flex: 1 1 130px;
-            max-width: 200px;
             background: rgba(15, 20, 40, 0.5);
             border: 1px solid rgba(108, 99, 255, 0.08);
             border-radius: 12px;
@@ -411,15 +625,28 @@
             margin-top: 0.2rem;
         }
 
+        .patient-count-badge {
+            font-size: 0.8rem;
+            color: #8892b0;
+            font-weight: 500;
+            padding: 0.2rem 0.65rem;
+            background: rgba(108, 99, 255, 0.08);
+            border-radius: 20px;
+            border: 1px solid rgba(108, 99, 255, 0.12);
+        }
+
         /* Light theme overrides */
         [data-theme="light"] .patient-card,
         [data-theme="light"] .kpi-card,
-        [data-theme="light"] .add-patient-card {
+        [data-theme="light"] .add-patient-card,
+        [data-theme="light"] .patient-row,
+        [data-theme="light"] .add-patient-row {
             background: rgba(255, 255, 255, 0.8);
             border-color: rgba(108, 99, 255, 0.1);
         }
 
         [data-theme="light"] .patient-name,
+        [data-theme="light"] .patient-row-name,
         [data-theme="light"] .kpi-value,
         [data-theme="light"] .section-title {
             color: #1a202c;
@@ -449,45 +676,20 @@
             border-color: #e2e8f0;
         }
 
-        /* Profile Modal Sessions */
-        .session-card {
-            background: rgba(15, 20, 40, 0.4);
-            border: 1px solid rgba(108, 99, 255, 0.15);
-            border-radius: 12px;
-            padding: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .session-card:hover {
-            border-color: #6c63ff;
-            background: rgba(108, 99, 255, 0.05);
-        }
-
-        .session-date {
-            font-size: 0.8rem;
-            color: #a78bfa;
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-        }
-
-        .session-summary {
-            color: #e2e8f0;
-            font-size: 0.9rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        [data-theme="light"] .session-card {
-            background: rgba(255, 255, 255, 0.8);
-            border-color: rgba(108, 99, 255, 0.1);
-        }
-
-        [data-theme="light"] .session-summary {
+        [data-theme="light"] .toolbar-select,
+        [data-theme="light"] .toolbar-search {
+            background: #f7f8fa;
             color: #1a202c;
+            border-color: #e2e8f0;
+        }
+
+        [data-theme="light"] .view-toggle {
+            background: #f0f1f5;
+            border-color: #e2e8f0;
+        }
+
+        [data-theme="light"] .view-toggle-btn.active {
+            background: rgba(108, 99, 255, 0.12);
         }
 
         @media (max-width: 600px) {
@@ -497,6 +699,15 @@
 
             .form-row {
                 grid-template-columns: 1fr;
+            }
+
+            .toolbar-search {
+                min-width: 120px;
+            }
+
+            .dashboard-toolbar {
+                flex-direction: column;
+                align-items: stretch;
             }
         }
     </style>
@@ -521,8 +732,28 @@
             </div>
         </div>
 
+        <!-- Toolbar: Search, Sort, View Toggle -->
+        <div class="dashboard-toolbar">
+            <div class="toolbar-left">
+                <input type="text" class="toolbar-search" id="patient-search" placeholder="🔍 Search patients..." />
+                <select class="toolbar-select" id="sort-select" title="Sort patients">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="name-az">Name A → Z</option>
+                    <option value="name-za">Name Z → A</option>
+                </select>
+                <span class="patient-count-badge" id="patient-count">0 patients</span>
+            </div>
+            <div class="toolbar-right">
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" id="view-grid-btn" title="Grid view">▦ Grid</button>
+                    <button class="view-toggle-btn" id="view-list-btn" title="List view">☰ List</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Patient Cards Grid -->
-        <div class="patients-grid" id="patients-grid">
+        <div class="patients-grid active" id="patients-grid">
             <!-- Add Patient Card (always first) -->
             <div class="add-patient-card" id="add-patient-btn" title="Add a new patient">
                 <div class="add-icon">＋</div>
@@ -532,6 +763,15 @@
             <div id="patients-loading" style="grid-column: 1/-1; text-align:center; padding:2rem; color:#8892b0;">
                 Loading patients...
             </div>
+        </div>
+
+        <!-- Patient List View -->
+        <div class="patients-list" id="patients-list">
+            <div class="add-patient-row" id="add-patient-btn-list" title="Add a new patient">
+                <div class="add-icon-sm">＋</div>
+                <span>Add New Patient</span>
+            </div>
+            <div id="patients-list-items"></div>
         </div>
 
         <!-- Overview Stats (secondary) -->
@@ -616,37 +856,6 @@
         </div>
     </div>
 
-    <!-- Patient Profile Modal -->
-    <div class="modal-overlay" id="profile-modal">
-        <div class="modal-box" style="max-width: 600px;">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1.5rem;">
-                <div>
-                    <h2 class="modal-title" id="profile-name" style="margin-bottom: 0.25rem;">Patient Name</h2>
-                    <p id="profile-meta" style="color:#8892b0; font-size: 0.85rem;"></p>
-                </div>
-                <button class="btn-cancel" id="profile-close" style="padding: 0.4rem 0.8rem;">✕</button>
-            </div>
-
-            <div class="form-group" id="profile-notes-container"
-                style="display: none; background: rgba(15, 20, 40, 0.5); padding: 1rem; border-radius: 10px; margin-bottom: 1.5rem;">
-                <label>Notes</label>
-                <p id="profile-notes"
-                    style="color: #e2e8f0; font-size: 0.9rem; margin-top: 0.25rem; white-space: pre-wrap;"></p>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="color:#e2e8f0; font-size:1.05rem; margin:0;">Past Records</h3>
-                <button class="btn-primary" id="btn-start-session" style="padding: 0.5rem 1rem; font-size: 0.85rem;">+
-                    Start New Session</button>
-            </div>
-
-            <div id="profile-sessions-list"
-                style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.5rem;">
-                <div style="text-align: center; color: #8892b0; padding: 2rem;">Loading records...</div>
-            </div>
-        </div>
-    </div>
-
     <script src="auth-guard.js"></script>
     <script>
         (function () {
@@ -682,10 +891,16 @@
             // --- State ---
             let patients = [];
             let deleteTargetId = null;
+            let currentView = localStorage.getItem('echoscribe_dash_view') || 'grid';
+            let currentSort = localStorage.getItem('echoscribe_dash_sort') || 'newest';
+            let searchTerm = '';
 
             // --- Elements ---
             const grid = document.getElementById('patients-grid');
+            const listContainer = document.getElementById('patients-list');
+            const listItems = document.getElementById('patients-list-items');
             const addBtn = document.getElementById('add-patient-btn');
+            const addBtnList = document.getElementById('add-patient-btn-list');
             const loadingEl = document.getElementById('patients-loading');
             const modal = document.getElementById('patient-modal');
             const modalTitle = document.getElementById('modal-title');
@@ -695,6 +910,15 @@
             const confirmOverlay = document.getElementById('confirm-delete');
             const confirmCancel = document.getElementById('confirm-cancel');
             const confirmYes = document.getElementById('confirm-yes');
+            const sortSelect = document.getElementById('sort-select');
+            const searchInput = document.getElementById('patient-search');
+            const viewGridBtn = document.getElementById('view-grid-btn');
+            const viewListBtn = document.getElementById('view-list-btn');
+            const patientCountEl = document.getElementById('patient-count');
+
+            // Restore saved preferences
+            sortSelect.value = currentSort;
+            setActiveView(currentView);
 
             // --- Toast ---
             let toastTimeout;
@@ -712,6 +936,75 @@
                 }, 2500);
             }
 
+            // --- View Toggle ---
+            function setActiveView(view) {
+                currentView = view;
+                localStorage.setItem('echoscribe_dash_view', view);
+                if (view === 'grid') {
+                    grid.classList.add('active');
+                    listContainer.classList.remove('active');
+                    viewGridBtn.classList.add('active');
+                    viewListBtn.classList.remove('active');
+                } else {
+                    grid.classList.remove('active');
+                    listContainer.classList.add('active');
+                    viewGridBtn.classList.remove('active');
+                    viewListBtn.classList.add('active');
+                }
+            }
+
+            viewGridBtn.addEventListener('click', () => {
+                setActiveView('grid');
+                renderPatients();
+            });
+            viewListBtn.addEventListener('click', () => {
+                setActiveView('list');
+                renderPatients();
+            });
+
+            // --- Sort ---
+            sortSelect.addEventListener('change', () => {
+                currentSort = sortSelect.value;
+                localStorage.setItem('echoscribe_dash_sort', currentSort);
+                renderPatients();
+            });
+
+            // --- Search ---
+            searchInput.addEventListener('input', () => {
+                searchTerm = searchInput.value.trim().toLowerCase();
+                renderPatients();
+            });
+
+            // --- Sort Function ---
+            function getSortedAndFiltered() {
+                let filtered = patients;
+                if (searchTerm) {
+                    filtered = patients.filter(p =>
+                        p.name.toLowerCase().includes(searchTerm) ||
+                        (p.notes && p.notes.toLowerCase().includes(searchTerm)) ||
+                        (p.gender && p.gender.toLowerCase().includes(searchTerm))
+                    );
+                }
+
+                const sorted = [...filtered];
+                switch (currentSort) {
+                    case 'name-az':
+                        sorted.sort((a, b) => a.name.localeCompare(b.name));
+                        break;
+                    case 'name-za':
+                        sorted.sort((a, b) => b.name.localeCompare(a.name));
+                        break;
+                    case 'oldest':
+                        sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                        break;
+                    case 'newest':
+                    default:
+                        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                        break;
+                }
+                return sorted;
+            }
+
             // --- Fetch Patients ---
             async function fetchPatients() {
                 try {
@@ -721,7 +1014,7 @@
                     fetchStats();
                 } catch (err) {
                     console.error('Error loading patients:', err);
-                    loadingEl.textContent = 'Failed to load patients.';
+                    if (loadingEl) loadingEl.textContent = 'Failed to load patients.';
                 }
             }
 
@@ -757,21 +1050,32 @@
 
             // --- Render Patient Cards ---
             function renderPatients() {
+                const displayPatients = getSortedAndFiltered();
+                patientCountEl.textContent = `${displayPatients.length} patient${displayPatients.length !== 1 ? 's' : ''}`;
+
+                if (currentView === 'grid') {
+                    renderGridView(displayPatients);
+                } else {
+                    renderListView(displayPatients);
+                }
+            }
+
+            function renderGridView(displayPatients) {
                 // Remove old cards (keep add button)
                 const oldCards = grid.querySelectorAll('.patient-card');
                 oldCards.forEach(c => c.remove());
                 if (loadingEl) loadingEl.remove();
 
-                if (patients.length === 0) {
+                if (displayPatients.length === 0) {
                     const emptyDiv = document.createElement('div');
                     emptyDiv.className = 'patient-card';
                     emptyDiv.style.cssText = 'pointer-events:none; text-align:center; padding:2rem; opacity:0.6;';
-                    emptyDiv.innerHTML = '<div class="empty-icon" style="font-size:2rem; margin-bottom:0.5rem;">📭</div><div style="color:#8892b0; font-size:0.85rem;">No patients yet.<br>Click ＋ to add your first patient.</div>';
+                    emptyDiv.innerHTML = '<div class="empty-icon" style="font-size:2rem; margin-bottom:0.5rem;">📭</div><div style="color:#8892b0; font-size:0.85rem;">No patients found.<br>Click ＋ to add your first patient.</div>';
                     grid.appendChild(emptyDiv);
                     return;
                 }
 
-                patients.forEach(p => {
+                displayPatients.forEach(p => {
                     const card = document.createElement('div');
                     card.className = 'patient-card';
                     card.dataset.id = p.id;
@@ -792,24 +1096,67 @@
                         <div class="patient-sessions-count">Click to start session →</div>
                     `;
 
-                    // Click card → select patient → go to recorder
                     card.addEventListener('click', (e) => {
-                        if (e.target.closest('.patient-action-btn')) return; // don't trigger on edit/delete
+                        if (e.target.closest('.patient-action-btn')) return;
                         selectPatient(p);
                     });
 
                     grid.appendChild(card);
                 });
 
-                // Bind edit/delete buttons
-                grid.querySelectorAll('.edit-btn').forEach(btn => {
+                bindCardActions(grid);
+            }
+
+            function renderListView(displayPatients) {
+                listItems.innerHTML = '';
+
+                if (displayPatients.length === 0) {
+                    listItems.innerHTML = '<div style="text-align:center; padding:2rem; color:#718096; font-size:0.85rem;">📭 No patients found.</div>';
+                    return;
+                }
+
+                displayPatients.forEach(p => {
+                    const row = document.createElement('div');
+                    row.className = 'patient-row';
+                    row.dataset.id = p.id;
+
+                    const initials = p.name.split(' ').map(n => n.charAt(0).toUpperCase()).slice(0, 2).join('');
+                    const metaParts = [];
+                    if (p.age) metaParts.push(`${p.age} yrs`);
+                    if (p.gender) metaParts.push(p.gender);
+                    if (p.created_at) metaParts.push(`Added ${new Date(p.created_at).toLocaleDateString()}`);
+
+                    row.innerHTML = `
+                        <div class="patient-avatar">${initials}</div>
+                        <div class="patient-row-info">
+                            <div class="patient-row-name">${escapeHtml(p.name)}</div>
+                            <div class="patient-row-meta">${metaParts.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>
+                        </div>
+                        <div class="patient-row-actions">
+                            <button class="patient-action-btn edit-btn" title="Edit" data-id="${p.id}">✏️</button>
+                            <button class="patient-action-btn delete patient-delete-btn" title="Delete" data-id="${p.id}">🗑️</button>
+                        </div>
+                    `;
+
+                    row.addEventListener('click', (e) => {
+                        if (e.target.closest('.patient-action-btn')) return;
+                        selectPatient(p);
+                    });
+
+                    listItems.appendChild(row);
+                });
+
+                bindCardActions(listItems);
+            }
+
+            function bindCardActions(container) {
+                container.querySelectorAll('.edit-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         openEditModal(btn.dataset.id);
                     });
                 });
-
-                grid.querySelectorAll('.patient-delete-btn').forEach(btn => {
+                container.querySelectorAll('.patient-delete-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         openDeleteConfirm(btn.dataset.id);
@@ -817,83 +1164,18 @@
                 });
             }
 
-            // --- Profile Modal Elements ---
-            const profileModal = document.getElementById('profile-modal');
-            const profileClose = document.getElementById('profile-close');
-            const btnStartSession = document.getElementById('btn-start-session');
-            const profileSessionsList = document.getElementById('profile-sessions-list');
-            let currentProfilePatient = null;
-
-            profileClose.addEventListener('click', () => profileModal.classList.remove('active'));
-            profileModal.addEventListener('click', (e) => {
-                if (e.target === profileModal) profileModal.classList.remove('active');
-            });
-
-            btnStartSession.addEventListener('click', () => {
-                if (!currentProfilePatient) return;
+            // --- Select Patient → Recorder ---
+            function selectPatient(patient) {
                 localStorage.setItem('echoscribe_active_patient', JSON.stringify({
-                    id: currentProfilePatient.id,
-                    name: currentProfilePatient.name,
+                    id: patient.id,
+                    name: patient.name,
                 }));
-                showToast(`Selected: ${currentProfilePatient.name}`);
+                showToast(`Selected: ${patient.name}`);
                 setTimeout(() => { window.location.href = '/'; }, 300);
-            });
-
-            // --- Select Patient → Open Profile ---
-            async function selectPatient(patient) {
-                currentProfilePatient = patient;
-                document.getElementById('profile-name').textContent = patient.name;
-
-                const metaParts = [];
-                if (patient.age) metaParts.push(`${patient.age} yrs`);
-                if (patient.gender) metaParts.push(patient.gender);
-                document.getElementById('profile-meta').textContent = metaParts.join(' • ');
-
-                const notesContainer = document.getElementById('profile-notes-container');
-                if (patient.notes && patient.notes.trim()) {
-                    document.getElementById('profile-notes').textContent = patient.notes;
-                    notesContainer.style.display = 'block';
-                } else {
-                    notesContainer.style.display = 'none';
-                }
-
-                profileSessionsList.innerHTML = '<div style="text-align: center; color: #8892b0; padding: 2rem;">Loading records...</div>';
-                profileModal.classList.add('active');
-
-                // Fetch sessions
-                try {
-                    const res = await EchoAuth.authFetch(`/api/patients/${patient.id}/sessions`);
-                    if (!res.ok) throw new Error('Failed to load sessions');
-                    const sessions = await res.json();
-
-                    profileSessionsList.innerHTML = '';
-                    if (sessions.length === 0) {
-                        profileSessionsList.innerHTML = '<div style="text-align: center; color: #718096; padding: 2rem;">No past records found.</div>';
-                    } else {
-                        sessions.forEach(s => {
-                            const dateObj = new Date(s.created_at);
-                            const t = document.createElement('div');
-                            t.className = 'session-card';
-                            t.innerHTML = `
-                                <div class="session-date">📅 ${dateObj.toLocaleDateString()} at ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                <div class="session-summary">${escapeHtml(s.summary || 'No summary available.')}</div>
-                            `;
-                            t.addEventListener('click', () => {
-                                // optional: view session detail, maybe redirect to summary.html with that session
-                                localStorage.setItem('echoscribe_summary', JSON.stringify(s.analysis_json || {}));
-                                localStorage.setItem('echoscribe_session_id', s.id);
-                                window.location.href = '/summary';
-                            });
-                            profileSessionsList.appendChild(t);
-                        });
-                    }
-                } catch (err) {
-                    profileSessionsList.innerHTML = '<div style="text-align: center; color: #ff4d6a; padding: 2rem;">Error loading records.</div>';
-                }
             }
 
             // --- Modal: Open Add ---
-            addBtn.addEventListener('click', () => {
+            function openAddModal() {
                 document.getElementById('patient-id').value = '';
                 document.getElementById('patient-name').value = '';
                 document.getElementById('patient-age').value = '';
@@ -902,7 +1184,10 @@
                 modalTitle.textContent = 'Add New Patient';
                 modalSubmit.textContent = 'Add Patient';
                 modal.classList.add('active');
-            });
+            }
+
+            addBtn.addEventListener('click', openAddModal);
+            addBtnList.addEventListener('click', openAddModal);
 
             // --- Modal: Open Edit ---
             function openEditModal(id) {
@@ -946,26 +1231,29 @@
                 modalSubmit.textContent = id ? 'Saving...' : 'Adding...';
 
                 try {
+                    let res;
                     if (id) {
-                        // Update
-                        const res = await EchoAuth.authFetch(`/api/patients/${id}`, {
+                        res = await EchoAuth.authFetch(`/api/patients/${id}`, {
                             method: 'PUT',
                             body: JSON.stringify(body),
                         });
-                        if (!res.ok) throw new Error('Failed to update patient');
-                        showToast('✅ Patient updated');
                     } else {
-                        // Create
-                        const res = await EchoAuth.authFetch('/api/patients', {
+                        res = await EchoAuth.authFetch('/api/patients', {
                             method: 'POST',
                             body: JSON.stringify(body),
                         });
-                        if (!res.ok) throw new Error('Failed to create patient');
-                        showToast('✅ Patient added');
                     }
+
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.error || errData.details || `Server error (${res.status})`);
+                    }
+
+                    showToast(id ? '✅ Patient updated' : '✅ Patient added');
                     modal.classList.remove('active');
                     fetchPatients();
                 } catch (err) {
+                    console.error('[Dashboard] Save patient error:', err);
                     showToast('⚠️ ' + err.message);
                 } finally {
                     modalSubmit.disabled = false;
@@ -995,7 +1283,6 @@
                     if (!res.ok) throw new Error('Failed to delete');
                     showToast('🗑️ Patient deleted');
                     confirmOverlay.classList.remove('active');
-                    // If deleted patient was selected, clear selection
                     try {
                         const active = JSON.parse(localStorage.getItem('echoscribe_active_patient') || '{}');
                         if (active.id === deleteTargetId) {

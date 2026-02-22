@@ -12,9 +12,23 @@ const transcribeController = require('../controllers/transcribe.controller');
 
 const router = express.Router();
 
-// Multer config for audio uploads (store in OS temp dir)
+// Multer config for audio uploads — preserve file extension for Groq Whisper
+const uploadDir = path.join(os.tmpdir(), 'echoscribe-uploads');
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const fs = require('fs');
+        fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        // Preserve original extension so Groq recognizes the file type
+        const ext = path.extname(file.originalname) || '.webm';
+        const uniqueName = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+        cb(null, uniqueName);
+    },
+});
 const upload = multer({
-    dest: path.join(os.tmpdir(), 'echoscribe-uploads'),
+    storage,
     limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
 });
 
@@ -52,8 +66,10 @@ router.post('/summarize', validate(summarizeSchema), sessionController.summarize
 router.post('/session', validate(saveSessionSchema), sessionController.saveSession);
 router.get('/history', sessionController.getHistory);
 
-// --- Transcription Route ---
+// --- Transcription Routes ---
 router.post('/transcribe-audio', upload.single('audio'), transcribeController.transcribe);
+router.post('/identify-speakers', transcribeController.identifySpeakers);
+router.post('/diarize-transcript', transcribeController.diarize);
 
 // --- Patient Routes ---
 router.get('/patients', patientController.listPatients);
@@ -61,6 +77,8 @@ router.post('/patients', validate(createPatientSchema), patientController.create
 router.put('/patients/:id', validate(updatePatientSchema), patientController.updatePatient);
 router.delete('/patients/:id', patientController.deletePatient);
 router.get('/patients/:id/sessions', patientController.getPatientSessions);
+router.get('/patients/:id', patientController.getPatient);
+router.get('/patients/:id/profile', patientController.getPatientProfile);
 
 // --- Profile Routes ---
 router.get('/profile', profileController.getProfile);

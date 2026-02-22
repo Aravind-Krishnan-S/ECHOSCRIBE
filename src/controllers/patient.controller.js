@@ -59,6 +59,17 @@ const deletePatient = asyncHandler(async (req, res) => {
     res.json({ success: true, message: 'Patient deleted.' });
 });
 
+// GET /api/patients/:id
+const getPatient = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const data = await dbService.getPatientById(req.supabaseToken, id, req.user.id);
+
+    if (!data) {
+        throw new AppError('Patient not found.', 404);
+    }
+    res.json(data);
+});
+
 // GET /api/patients/:id/sessions
 const getPatientSessions = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -66,4 +77,31 @@ const getPatientSessions = asyncHandler(async (req, res) => {
     res.json(data);
 });
 
-module.exports = { listPatients, createPatient, updatePatient, deletePatient, getPatientSessions };
+// GET /api/patients/:id/profile
+const getPatientProfile = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Fetch patient's sessions
+    const sessions = await dbService.getPatientSessions(req.supabaseToken, id, userId);
+
+    if (!sessions || sessions.length === 0) {
+        throw new AppError('No sessions found for this patient. Record some sessions to generate a profile.', 404);
+    }
+
+    // Call aiService with the patient's specific sessions
+    const aiService = require('../services/ai.service');
+    const profile = await aiService.generateProfile(sessions);
+
+    res.json(profile);
+});
+
+module.exports = {
+    listPatients,
+    createPatient,
+    updatePatient,
+    deletePatient,
+    getPatientSessions,
+    getPatient,
+    getPatientProfile
+};

@@ -1,5 +1,6 @@
 /* ============================================
-   EchoScribe — Speech Recognition Engine
+   EchoScribe — Groq Whisper Recording Engine
+   with Voice-Based Speaker Diarization
    ============================================ */
 
 (function () {
@@ -22,6 +23,7 @@
 
     // --- DOM Elements ---
     const btnRecord = document.getElementById('btn-record');
+    const btnUpload = document.getElementById('btn-upload');
     const btnClear = document.getElementById('btn-clear');
     const btnCopy = document.getElementById('btn-copy');
     const btnSummarize = document.getElementById('btn-summarize');
@@ -42,6 +44,10 @@
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     const userGreeting = document.getElementById('user-greeting');
+    const audioFileInput = document.getElementById('audio-file-input');
+    const uploadProgress = document.getElementById('upload-progress');
+    const uploadProgressBar = document.getElementById('upload-progress-bar');
+    const uploadProgressText = document.getElementById('upload-progress-text');
 
     // --- User Greeting ---
     const user = EchoAuth.getUser();
@@ -67,161 +73,537 @@
     initTheme();
 
     // --- State ---
-    let recognition = null;
+    let mediaRecorder = null;
+    let audioStream = null;
     let isRecording = false;
     let isSummarizing = false;
-    let finalTranscript = '';
+    let isUploading = false;
     let toastTimeout = null;
 
-    // --- Browser Compatibility Check ---
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // Speaker diarization state
+    let speakerSegments = [];      // { speaker: 1|2, text, start, end, avgPitch }
+    let chunkStartTime = 0;
+    let recordingStartTime = 0;
+    let chunkQueue = [];
+    let isProcessingChunk = false;
 
-    if (!SpeechRecognition) {
+    // Voice analysis state
+    let audioContext = null;
+    let analyserNode = null;
+    let pitchSamples = [];         // { time: seconds, pitch: Hz }
+    let pitchTrackingInterval = null;
+    let sourceNode = null;
+
+    // Speaker pitch profiles (built dynamically)
+    let speakerProfiles = {
+        speaker1: { pitches: [], avgPitch: 0 },
+        speaker2: { pitches: [], avgPitch: 0 },
+    };
+    let hasTwoSpeakers = false;
+
+    // Periodic recording state
+    let chunkInterval = null;
+    const CHUNK_DURATION_MS = 12000;
+
+    // --- Check MediaRecorder support ---
+    if (!window.MediaRecorder) {
         browserWarning.style.display = 'flex';
+        browserWarning.querySelector('span:last-child').innerHTML =
+            'Your browser does not support audio recording. Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong>.';
         btnRecord.disabled = true;
         btnRecord.style.opacity = '0.4';
         btnRecord.style.cursor = 'not-allowed';
         return;
     }
 
-    // --- Initialize Speech Recognition ---
-    function createRecognition() {
-        const rec = new SpeechRecognition();
-        rec.continuous = true;
-        rec.interimResults = true;
-        rec.lang = langSelect.value;
-        rec.maxAlternatives = 1;
+    // =============================================
+    //  VOICE PITCH ANALYSIS (Web Audio API)
+    // =============================================
 
-        rec.onstart = function () {
-            console.log('[EchoScribe] Recognition started');
-        };
+    function setupVoiceAnalysis(stream) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        sourceNode = audioContext.createMediaStreamSource(stream);
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 2048;
+        sourceNode.connect(analyserNode);
+        // Don't connect to destination (no feedback)
 
-        rec.onresult = function (event) {
-            let interimTranscript = '';
+        pitchSamples = [];
 
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    finalTranscript += transcript + ' ';
-                } else {
-                    interimTranscript += transcript;
-                }
+        // Sample pitch every 200ms
+        pitchTrackingInterval = setInterval(() => {
+            const pitch = detectPitch();
+            if (pitch > 0) {
+                const elapsed = (Date.now() - recordingStartTime) / 1000;
+                pitchSamples.push({ time: elapsed, pitch });
             }
-
-            updateTranscriptDisplay(finalTranscript, interimTranscript);
-            updateWordCount(finalTranscript + interimTranscript);
-            updateSummarizeButton();
-        };
-
-        rec.onerror = function (event) {
-            console.error('[EchoScribe] Error:', event.error);
-
-            switch (event.error) {
-                case 'not-allowed':
-                    showToast('🚫 Microphone permission denied. Please allow access.');
-                    stopRecording();
-                    break;
-                case 'no-speech':
-                    console.log('[EchoScribe] No speech detected, will auto-restart...');
-                    break;
-                case 'audio-capture':
-                    showToast('🎤 No microphone found. Please connect a microphone.');
-                    stopRecording();
-                    break;
-                case 'network':
-                    showToast('🌐 Network error. Speech recognition requires an internet connection in some browsers.');
-                    stopRecording();
-                    break;
-                case 'aborted':
-                    break;
-                default:
-                    showToast('⚠️ Error: ' + event.error);
-                    break;
-            }
-        };
-
-        rec.onend = function () {
-            console.log('[EchoScribe] Recognition ended');
-            if (isRecording) {
-                try {
-                    rec.start();
-                    console.log('[EchoScribe] Auto-restarted');
-                } catch (e) {
-                    console.error('[EchoScribe] Auto-restart failed:', e);
-                    stopRecording();
-                }
-            }
-        };
-
-        return rec;
+        }, 200);
     }
 
-    // --- Start Recording ---
-    function startRecording() {
-        finalTranscript = '';
-        recognition = createRecognition();
+    function teardownVoiceAnalysis() {
+        if (pitchTrackingInterval) {
+            clearInterval(pitchTrackingInterval);
+            pitchTrackingInterval = null;
+        }
+        if (sourceNode) {
+            sourceNode.disconnect();
+            sourceNode = null;
+        }
+        if (audioContext && audioContext.state !== 'closed') {
+            audioContext.close().catch(() => { });
+            audioContext = null;
+        }
+        analyserNode = null;
+    }
 
-        try {
-            recognition.start();
-            isRecording = true;
-            updateUI(true);
-            updateSummarizeButton();
-            showToast('🎤 Recording started');
-        } catch (e) {
-            console.error('[EchoScribe] Start failed:', e);
-            showToast('⚠️ Could not start recording. Please try again.');
+    // Autocorrelation-based pitch detection
+    function detectPitch() {
+        if (!analyserNode) return 0;
+
+        const bufferLength = analyserNode.fftSize;
+        const buffer = new Float32Array(bufferLength);
+        analyserNode.getFloatTimeDomainData(buffer);
+
+        // Check if there's enough signal (not silence)
+        let rms = 0;
+        for (let i = 0; i < bufferLength; i++) {
+            rms += buffer[i] * buffer[i];
+        }
+        rms = Math.sqrt(rms / bufferLength);
+        if (rms < 0.01) return 0; // Too quiet, likely silence
+
+        // Autocorrelation to find fundamental frequency
+        const sampleRate = audioContext.sampleRate;
+        const minPeriod = Math.floor(sampleRate / 500); // Max 500Hz (high voice)
+        const maxPeriod = Math.floor(sampleRate / 60);  // Min 60Hz (low voice)
+
+        let bestCorrelation = 0;
+        let bestPeriod = 0;
+
+        for (let period = minPeriod; period < maxPeriod && period < bufferLength / 2; period++) {
+            let correlation = 0;
+            for (let i = 0; i < bufferLength - period; i++) {
+                correlation += buffer[i] * buffer[i + period];
+            }
+            correlation = correlation / (bufferLength - period);
+
+            if (correlation > bestCorrelation) {
+                bestCorrelation = correlation;
+                bestPeriod = period;
+            }
+        }
+
+        if (bestPeriod === 0 || bestCorrelation < 0.01) return 0;
+
+        return sampleRate / bestPeriod;
+    }
+
+    // Get average pitch for a time range
+    function getAvgPitchForRange(startTime, endTime) {
+        const relevant = pitchSamples.filter(s => s.time >= startTime && s.time <= endTime && s.pitch > 0);
+        if (relevant.length === 0) return 0;
+        const sum = relevant.reduce((acc, s) => acc + s.pitch, 0);
+        return sum / relevant.length;
+    }
+
+    // Assign a segment to a speaker based on pitch similarity
+    function assignSpeaker(avgPitch) {
+        if (avgPitch === 0) {
+            // No pitch data — assign to last speaker or speaker 1
+            return speakerSegments.length > 0 ? speakerSegments[speakerSegments.length - 1].speaker : 1;
+        }
+
+        const sp = speakerProfiles;
+
+        // First segment — assign to speaker 1
+        if (sp.speaker1.pitches.length === 0) {
+            sp.speaker1.pitches.push(avgPitch);
+            sp.speaker1.avgPitch = avgPitch;
+            return 1;
+        }
+
+        // Calculate distance to each speaker's avg pitch
+        const dist1 = Math.abs(avgPitch - sp.speaker1.avgPitch);
+        const dist2 = sp.speaker2.pitches.length > 0 ? Math.abs(avgPitch - sp.speaker2.avgPitch) : Infinity;
+
+        // Threshold for "same speaker" — within 30Hz is likely same person
+        const SAME_SPEAKER_THRESHOLD = 30;
+
+        if (dist1 <= SAME_SPEAKER_THRESHOLD) {
+            // Matches speaker 1
+            sp.speaker1.pitches.push(avgPitch);
+            sp.speaker1.avgPitch = sp.speaker1.pitches.reduce((a, b) => a + b, 0) / sp.speaker1.pitches.length;
+            return 1;
+        }
+
+        if (sp.speaker2.pitches.length === 0) {
+            // New speaker detected! This is speaker 2
+            sp.speaker2.pitches.push(avgPitch);
+            sp.speaker2.avgPitch = avgPitch;
+            hasTwoSpeakers = true;
+            return 2;
+        }
+
+        if (dist2 <= SAME_SPEAKER_THRESHOLD) {
+            // Matches speaker 2
+            sp.speaker2.pitches.push(avgPitch);
+            sp.speaker2.avgPitch = sp.speaker2.pitches.reduce((a, b) => a + b, 0) / sp.speaker2.pitches.length;
+            return 2;
+        }
+
+        // Doesn't clearly match either — assign to closest
+        if (dist1 <= dist2) {
+            sp.speaker1.pitches.push(avgPitch);
+            sp.speaker1.avgPitch = sp.speaker1.pitches.reduce((a, b) => a + b, 0) / sp.speaker1.pitches.length;
+            return 1;
+        } else {
+            sp.speaker2.pitches.push(avgPitch);
+            sp.speaker2.avgPitch = sp.speaker2.pitches.reduce((a, b) => a + b, 0) / sp.speaker2.pitches.length;
+            hasTwoSpeakers = true;
+            return 2;
         }
     }
 
-    // --- Stop Recording ---
+    // =============================================
+    //  RECORDING
+    // =============================================
+
+    async function startRecording() {
+        try {
+            audioStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    sampleRate: 16000,
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                }
+            });
+        } catch (err) {
+            console.error('[EchoScribe] Mic access error:', err);
+            if (err.name === 'NotAllowedError') {
+                showToast('🚫 Microphone permission denied. Please allow access.');
+            } else {
+                showToast('🎤 No microphone found. Please connect a microphone.');
+            }
+            return;
+        }
+
+        // Reset state
+        speakerSegments = [];
+        chunkStartTime = 0;
+        recordingStartTime = Date.now();
+        chunkQueue = [];
+        isProcessingChunk = false;
+        pitchSamples = [];
+        speakerProfiles = {
+            speaker1: { pitches: [], avgPitch: 0 },
+            speaker2: { pitches: [], avgPitch: 0 },
+        };
+        hasTwoSpeakers = false;
+
+        // Start voice pitch analysis
+        setupVoiceAnalysis(audioStream);
+
+        // Determine best MIME type
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm')
+                ? 'audio/webm'
+                : 'audio/mp4';
+
+        let audioChunks = [];
+
+        function createRecorder() {
+            const recorder = new MediaRecorder(audioStream, { mimeType });
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            recorder.onstop = () => {
+                if (audioChunks.length > 0) {
+                    const blob = new Blob(audioChunks, { type: mimeType });
+                    const elapsed = (Date.now() - recordingStartTime) / 1000;
+                    queueChunkForTranscription(blob, chunkStartTime, elapsed);
+                    chunkStartTime = elapsed;
+                    audioChunks = [];
+                }
+            };
+
+            return recorder;
+        }
+
+        mediaRecorder = createRecorder();
+        mediaRecorder.start();
+        isRecording = true;
+        updateUI(true);
+        updateSummarizeButton();
+        showToast('🎤 Recording — voice analysis active');
+
+        // Periodically restart recorder to send chunks
+        chunkInterval = setInterval(() => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                audioChunks = [];
+                setTimeout(() => {
+                    if (isRecording && audioStream && audioStream.active) {
+                        mediaRecorder = createRecorder();
+                        mediaRecorder.start();
+                    }
+                }, 100);
+            }
+        }, CHUNK_DURATION_MS);
+    }
+
     function stopRecording() {
         isRecording = false;
 
-        if (recognition) {
-            try {
-                recognition.stop();
-            } catch (e) {
-                // Ignore
-            }
-            recognition = null;
+        if (chunkInterval) {
+            clearInterval(chunkInterval);
+            chunkInterval = null;
         }
+
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+
+        if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+            audioStream = null;
+        }
+
+        teardownVoiceAnalysis();
 
         updateUI(false);
         updateSummarizeButton();
-        showToast('⏹️ Recording stopped');
+
+        if (hasTwoSpeakers) {
+            showToast('⏹️ Stopped — 2 distinct voices detected');
+        } else {
+            showToast('⏹️ Stopped — single voice detected');
+        }
     }
 
-    // --- Update Transcript Display ---
-    function updateTranscriptDisplay(finalText, interimText) {
-        placeholder.style.display = 'none';
+    // =============================================
+    //  CHUNK PROCESSING & TRANSCRIPTION
+    // =============================================
 
-        let html = '';
+    function queueChunkForTranscription(blob, startOffset, endOffset) {
+        chunkQueue.push({ blob, startOffset, endOffset });
+        processNextChunk();
+    }
 
-        if (finalText) {
-            html += escapeHtml(finalText);
+    async function processNextChunk() {
+        if (isProcessingChunk || chunkQueue.length === 0) return;
+        isProcessingChunk = true;
+
+        const { blob, startOffset } = chunkQueue.shift();
+
+        try {
+            await sendChunkForTranscription(blob, startOffset);
+        } catch (err) {
+            console.error('[EchoScribe] Chunk transcription error:', err);
         }
 
-        if (interimText) {
-            html += '<span class="interim-text">' + escapeHtml(interimText) + '</span>';
+        isProcessingChunk = false;
+        if (chunkQueue.length > 0) {
+            processNextChunk();
+        } else {
+            updateSummarizeButton();
         }
+    }
 
-        if (!finalText && !interimText) {
+    async function sendChunkForTranscription(blob, startOffset) {
+        const formData = new FormData();
+        const ext = blob.type.includes('webm') ? 'webm' : 'mp4';
+        formData.append('audio', blob, `chunk.${ext}`);
+
+        const fullLang = langSelect.value;
+        const lang = fullLang.split('-')[0];
+        formData.append('language', lang);
+
+        statusText.textContent = 'Transcribing...';
+
+        try {
+            const response = await EchoAuth.authFetch('/api/transcribe-audio', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                let errMsg = 'Transcription failed';
+                try {
+                    const err = await response.json();
+                    errMsg = err.error || errMsg;
+                } catch (_) {
+                    errMsg = `Server error (${response.status})`;
+                }
+                throw new Error(errMsg);
+            }
+
+            const data = await response.json();
+
+            if (data.segments && data.segments.length > 0) {
+                data.segments.forEach(seg => {
+                    const adjustedStart = seg.start + startOffset;
+                    const adjustedEnd = seg.end + startOffset;
+
+                    // Get pitch for this segment's time range
+                    const avgPitch = getAvgPitchForRange(adjustedStart, adjustedEnd);
+                    const speaker = assignSpeaker(avgPitch);
+
+                    speakerSegments.push({
+                        speaker,
+                        text: seg.text,
+                        start: adjustedStart,
+                        end: adjustedEnd,
+                        avgPitch,
+                    });
+                });
+            } else if (data.text && data.text.trim()) {
+                const adjustedStart = startOffset;
+                const adjustedEnd = (Date.now() - recordingStartTime) / 1000;
+
+                const avgPitch = getAvgPitchForRange(adjustedStart, adjustedEnd);
+                const speaker = assignSpeaker(avgPitch);
+
+                speakerSegments.push({
+                    speaker,
+                    text: data.text.trim(),
+                    start: adjustedStart,
+                    end: adjustedEnd,
+                    avgPitch,
+                });
+            }
+
+            renderTranscript();
+            updateWordCount(getFullTranscriptText());
+
+            statusText.textContent = isRecording ? 'Recording' : 'Ready';
+        } catch (err) {
+            console.error('[EchoScribe] Transcription error:', err);
+            showToast('⚠️ Transcription: ' + err.message);
+            statusText.textContent = isRecording ? 'Recording' : 'Ready';
+        }
+    }
+
+    // =============================================
+    //  TRANSCRIPT RENDERING
+    // =============================================
+
+    function getFullTranscriptText() {
+        return speakerSegments.map(seg =>
+            `Person ${seg.speaker}: ${seg.text}`
+        ).join('\n');
+    }
+
+    function getPlainText() {
+        return speakerSegments.map(seg => seg.text).join(' ');
+    }
+
+    function renderTranscript() {
+        if (speakerSegments.length === 0) {
             placeholder.style.display = 'inline';
+            transcriptBox.innerHTML = '';
+            transcriptBox.appendChild(placeholder);
             return;
         }
+
+        placeholder.style.display = 'none';
+
+        // Group consecutive segments by same speaker
+        const grouped = [];
+        let current = null;
+
+        speakerSegments.forEach(seg => {
+            if (current && current.speaker === seg.speaker) {
+                current.text += ' ' + seg.text;
+                current.end = seg.end;
+            } else {
+                if (current) grouped.push(current);
+                current = { ...seg };
+            }
+        });
+        if (current) grouped.push(current);
+
+        let html = '';
+        grouped.forEach(group => {
+            const speakerClass = group.speaker === 1 ? 'speaker-1' : 'speaker-2';
+            const label = group.identifiedRole || `Person ${group.speaker}`;
+            const roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : '👤';
+            const timestamp = formatTime(group.start);
+
+            html += `<div class="speaker-block ${speakerClass}">`;
+            html += `<div class="speaker-header">`;
+            html += `<span class="speaker-label">${roleIcon} ${escapeHtml(label)}</span>`;
+            html += `<span class="speaker-time">${timestamp}</span>`;
+            html += `</div>`;
+            html += `<div class="speaker-text">${escapeHtml(group.text)}</div>`;
+            html += `</div>`;
+        });
 
         transcriptBox.innerHTML = html;
         transcriptBox.scrollTop = transcriptBox.scrollHeight;
     }
 
-    // --- Update Word Count ---
+    function renderTranscriptWithRoles() {
+        if (speakerSegments.length === 0) return;
+
+        placeholder.style.display = 'none';
+
+        const grouped = [];
+        let current = null;
+
+        speakerSegments.forEach(seg => {
+            if (current && current.speaker === seg.speaker) {
+                current.text += ' ' + seg.text;
+                current.end = seg.end;
+                current.identifiedRole = seg.identifiedRole || current.identifiedRole;
+            } else {
+                if (current) grouped.push(current);
+                current = { ...seg };
+            }
+        });
+        if (current) grouped.push(current);
+
+        let html = '';
+        grouped.forEach(group => {
+            const speakerClass = group.speaker === 1 ? 'speaker-1' : 'speaker-2';
+            const label = group.identifiedRole || `Person ${group.speaker}`;
+            const roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : '👤';
+            const timestamp = formatTime(group.start);
+
+            html += `<div class="speaker-block ${speakerClass}">`;
+            html += `<div class="speaker-header">`;
+            html += `<span class="speaker-label">${roleIcon} ${escapeHtml(label)}</span>`;
+            html += `<span class="speaker-time">${timestamp}</span>`;
+            html += `</div>`;
+            html += `<div class="speaker-text">${escapeHtml(group.text)}</div>`;
+            html += `</div>`;
+        });
+
+        transcriptBox.innerHTML = html;
+        transcriptBox.scrollTop = transcriptBox.scrollHeight;
+    }
+
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    // =============================================
+    //  UI HELPERS
+    // =============================================
+
     function updateWordCount(text) {
         const trimmed = text.trim();
         const count = trimmed ? trimmed.split(/\s+/).length : 0;
         wordCount.textContent = count + (count === 1 ? ' word' : ' words');
     }
 
-    // --- Update UI State ---
     function updateUI(recording) {
         if (recording) {
             btnRecord.classList.add('recording');
@@ -240,17 +622,19 @@
         }
     }
 
-    // --- Update Summarize Button State ---
     function updateSummarizeButton() {
-        const hasText = finalTranscript.trim().length > 0;
+        const hasText = speakerSegments.length > 0;
         const canSummarize = hasText && !isRecording && !isSummarizing;
         btnSummarize.disabled = !canSummarize;
     }
 
-    // --- Summarize with AI ---
+    // =============================================
+    //  SUMMARIZE + SPEAKER IDENTIFICATION
+    // =============================================
+
     async function summarizeTranscript() {
-        const text = finalTranscript.trim();
-        if (!text) {
+        const rawTranscript = getFullTranscriptText();
+        if (!rawTranscript.trim()) {
             showToast('📝 No transcript to analyze');
             return;
         }
@@ -263,16 +647,47 @@
         isSummarizing = true;
         updateSummarizeButton();
 
-        // Show loading state
         summarizeIcon.style.display = 'none';
         summarizeSpinner.style.display = 'inline-block';
-        summarizeLabel.textContent = 'Analyzing...';
-        showToast('✨ Generating clinical SOAP note with AI...');
+        summarizeLabel.textContent = 'Identifying speakers...';
+        showToast('🔍 Identifying Counsellor & Patient from voice + content...');
 
         try {
+            // Step 1: LLM identifies Counsellor/Patient from content
+            let labeledTranscript = rawTranscript;
+            try {
+                const idResponse = await EchoAuth.authFetch('/api/identify-speakers', {
+                    method: 'POST',
+                    body: JSON.stringify({ transcript: rawTranscript }),
+                });
+
+                if (idResponse.ok) {
+                    const roles = await idResponse.json();
+                    const p1Label = roles.person1_role || 'Person 1';
+                    const p2Label = roles.person2_role || 'Person 2';
+
+                    labeledTranscript = rawTranscript
+                        .replace(/^Person 1:/gm, `${p1Label}:`)
+                        .replace(/^Person 2:/gm, `${p2Label}:`);
+
+                    speakerSegments.forEach(seg => {
+                        seg.identifiedRole = seg.speaker === 1 ? p1Label : p2Label;
+                    });
+                    renderTranscriptWithRoles();
+
+                    showToast(`✅ Person 1 → ${p1Label}, Person 2 → ${p2Label}`);
+                }
+            } catch (idErr) {
+                console.warn('[EchoScribe] Speaker ID failed, using Person labels:', idErr);
+            }
+
+            // Step 2: SOAP analysis
+            summarizeLabel.textContent = 'Analyzing...';
+            showToast('✨ Generating clinical SOAP note...');
+
             const response = await EchoAuth.authFetch('/api/summarize', {
                 method: 'POST',
-                body: JSON.stringify({ text: text, patientId: activePatient.id }),
+                body: JSON.stringify({ text: labeledTranscript, patientId: activePatient.id }),
             });
 
             if (!response.ok) {
@@ -282,7 +697,7 @@
 
             const data = await response.json();
 
-            // Store in localStorage and navigate
+            data.diarizedTranscript = labeledTranscript;
             localStorage.setItem('echoscribe_summary', JSON.stringify(data));
             if (data.sessionId) {
                 localStorage.setItem('echoscribe_session_id', data.sessionId);
@@ -304,7 +719,10 @@
         }
     }
 
-    // --- Show Toast ---
+    // =============================================
+    //  UTILITIES
+    // =============================================
+
     function showToast(message) {
         toastMessage.textContent = message;
         toast.style.display = 'block';
@@ -321,9 +739,14 @@
         }, 2500);
     }
 
-    // --- Clear Transcript ---
     function clearTranscript() {
-        finalTranscript = '';
+        speakerSegments = [];
+        pitchSamples = [];
+        speakerProfiles = {
+            speaker1: { pitches: [], avgPitch: 0 },
+            speaker2: { pitches: [], avgPitch: 0 },
+        };
+        hasTwoSpeakers = false;
         transcriptBox.innerHTML = '';
         placeholder.style.display = 'inline';
         transcriptBox.appendChild(placeholder);
@@ -332,9 +755,8 @@
         showToast('🗑️ Transcript cleared');
     }
 
-    // --- Copy to Clipboard ---
     function copyTranscript() {
-        const text = finalTranscript.trim();
+        const text = getFullTranscriptText();
         if (!text) {
             showToast('📋 Nothing to copy');
             return;
@@ -359,11 +781,129 @@
         });
     }
 
-    // --- Escape HTML ---
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // =============================================
+    //  FILE UPLOAD HANDLER
+    // =============================================
+
+    function triggerUpload() {
+        if (isRecording || isUploading) {
+            showToast('⚠️ Stop recording first or wait for upload to finish');
+            return;
+        }
+        audioFileInput.click();
+    }
+
+    async function handleFileUpload(file) {
+        if (!file) return;
+
+        // Validate file size (4.5MB max — Vercel serverless limit)
+        if (file.size > 4.5 * 1024 * 1024) {
+            showToast('⚠️ File too large. Max 4.5MB for cloud deployment. Try a shorter clip.');
+            return;
+        }
+
+        isUploading = true;
+        btnUpload.disabled = true;
+        btnRecord.disabled = true;
+        uploadProgress.style.display = 'block';
+        uploadProgressBar.style.width = '10%';
+        uploadProgressText.textContent = `Uploading ${file.name}...`;
+        showToast(`📁 Uploading ${file.name}...`);
+
+        // Clear existing transcript
+        speakerSegments = [];
+        speakerProfiles = { speaker1: { pitches: [], avgPitch: 0 }, speaker2: { pitches: [], avgPitch: 0 } };
+        hasTwoSpeakers = false;
+
+        const formData = new FormData();
+        formData.append('audio', file);
+
+        const fullLang = langSelect.value;
+        const lang = fullLang.split('-')[0];
+        formData.append('language', lang);
+
+        uploadProgressBar.style.width = '30%';
+        uploadProgressText.textContent = 'Sending to Groq Whisper...';
+
+        try {
+            const response = await EchoAuth.authFetch('/api/transcribe-audio', {
+                method: 'POST',
+                body: formData,
+            });
+
+            uploadProgressBar.style.width = '70%';
+            uploadProgressText.textContent = 'Processing transcription...';
+
+            if (!response.ok) {
+                let errMsg = 'Transcription failed';
+                try {
+                    const err = await response.json();
+                    errMsg = err.error || errMsg;
+                } catch (_) {
+                    if (response.status === 413) {
+                        errMsg = 'File too large for server. Try a shorter/smaller audio file.';
+                    } else {
+                        errMsg = `Server error (${response.status})`;
+                    }
+                }
+                throw new Error(errMsg);
+            }
+
+            const data = await response.json();
+
+            uploadProgressBar.style.width = '90%';
+            uploadProgressText.textContent = 'Processing speaker segments...';
+
+            const rawText = data.text || '';
+            if (!rawText.trim()) {
+                throw new Error('No speech detected in the audio file.');
+            }
+
+            // Since we switched to Deepgram, the backend returns accurately diarized 'turns' automatically!
+            if (data.turns && data.turns.length > 0) {
+                hasTwoSpeakers = data.turns.some(t => t.speaker === 2);
+                data.turns.forEach(turn => {
+                    speakerSegments.push({
+                        speaker: turn.speaker,
+                        text: turn.text,
+                        start: turn.start || 0,
+                        end: turn.end || 0,
+                        avgPitch: turn.avgPitch || 0,
+                    });
+                });
+            } else {
+                // Fallback — single block
+                speakerSegments.push({ speaker: 1, text: rawText, start: 0, end: 0, avgPitch: 0 });
+            }
+
+            uploadProgressBar.style.width = '100%';
+            uploadProgressText.textContent = 'Done!';
+
+            renderTranscript();
+            updateWordCount(getFullTranscriptText());
+            updateSummarizeButton();
+
+            showToast(`✅ Transcribed ${file.name} — ${speakerSegments.length} segments`);
+
+        } catch (err) {
+            console.error('[EchoScribe] Upload error:', err);
+            showToast('⚠️ Upload: ' + err.message);
+        } finally {
+            isUploading = false;
+            btnUpload.disabled = false;
+            btnRecord.disabled = false;
+            setTimeout(() => {
+                uploadProgress.style.display = 'none';
+                uploadProgressBar.style.width = '0%';
+            }, 1500);
+            updateSummarizeButton();
+        }
     }
 
     // --- Event Listeners ---
@@ -375,21 +915,19 @@
         }
     });
 
+    if (btnUpload) btnUpload.addEventListener('click', triggerUpload);
+    if (audioFileInput) audioFileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            handleFileUpload(e.target.files[0]);
+            e.target.value = ''; // Reset so same file can be re-selected
+        }
+    });
+
     btnClear.addEventListener('click', clearTranscript);
     btnCopy.addEventListener('click', copyTranscript);
     btnSummarize.addEventListener('click', summarizeTranscript);
     if (btnLogout) btnLogout.addEventListener('click', () => EchoAuth.logout());
     if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
-
-    langSelect.addEventListener('change', function () {
-        if (isRecording) {
-            stopRecording();
-            setTimeout(function () {
-                startRecording();
-            }, 300);
-            showToast('🌐 Language changed to ' + langSelect.options[langSelect.selectedIndex].text);
-        }
-    });
 
     document.addEventListener('keydown', function (e) {
         if (e.code === 'Space' && e.target === document.body) {
