@@ -10,13 +10,13 @@
 
 | Feature | Description |
 |---|---|
-| 🎙️ **Groq Whisper Transcription** | Real-time speech-to-text powered by Groq Whisper Large V3 with timestamp segments |
-| 🗣️ **Speaker Diarization** | Voice-based pitch analysis (live) + LLM-based conversation analysis (uploaded files) to differentiate Counsellor & Patient |
+| 🎙️ **Speech Transcription** | Real-time speech-to-text powered by Groq Whisper Large V3. Audio uploads use Deepgram Nova-2 |
+| 🗣️ **Speaker Diarization** | Live: Voice-based pitch analysis. Uploaded: Native Deepgram Speaker Diarization API to differentiate Counsellor & Patient |
 | 📁 **Audio File Upload** | Upload pre-recorded audio files (MP3, WAV, WEBM, OGG, FLAC, M4A) for transcription & analysis |
 | 🌐 **Multilingual Support** | English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
 | 📋 **Clinical SOAP Notes** | AI generates Subjective, Objective, Assessment, and Plan sections |
 | ⚠️ **Risk Assessment** | Automatic suicidal ideation and self-harm risk detection |
-| 📊 **Analytics Dashboard** | KPI cards, emotional tone charts, session activity graphs |
+| 📊 **Analytics Dashboard** | KPI cards, longitudinal Topic Distribution and Emotional Tone charts |
 | 👤 **Patient Management** | Create, edit, and track patients with linked session histories |
 | 🧠 **Client Profiling** | Longitudinal analysis across 20+ sessions — recurring themes, emotional trends, treatment effectiveness |
 | 📄 **PDF/CSV/JSON Export** | Professional clinical documentation export |
@@ -36,8 +36,8 @@ EchoScribe uses a **hybrid approach** to differentiate speakers:
 3. Transcript segments are labeled as **Person 1** / **Person 2** during recording
 
 ### Uploaded Audio Files
-1. **Groq Whisper** transcribes the full audio with timestamps
-2. **LLM analysis** (Llama 3.3 70B) identifies speaker turns from conversation flow — Q&A patterns, topic shifts, response cues
+1. **Deepgram API** (Nova-2 model) transcribes the full audio
+2. **Deepgram Speaker Diarization** automatically identifies accurate speaker turns and word timestamps
 3. Segments are labeled as **Person 1** / **Person 2**
 
 ### Role Identification
@@ -50,8 +50,8 @@ After recording/upload, clicking **Analyze (SOAP)** triggers:
 ## 🛠️ Tech Stack
 
 - **Backend:** Node.js, Express, Helmet, CORS, Rate Limiting
-- **AI — Transcription:** Groq Whisper Large V3 (multilingual speech-to-text)
-- **AI — Analysis:** Groq SDK (Llama 3.3 70B) for SOAP notes, speaker identification, diarization
+- **AI — Transcription & Diarization:** Deepgram SDK (Uploaded audio), Groq Whisper Large V3 (Live audio)
+- **AI — Analysis:** Groq SDK (Llama 3.3 70B) for SOAP notes, speaker identification, and patient profiling
 - **Database:** Supabase (PostgreSQL) with Row-Level Security
 - **Auth:** Supabase Auth (email/password, JWT)
 - **Audio Processing:** Web Audio API (pitch detection), MediaRecorder API
