@@ -192,9 +192,9 @@ async function identifySpeakers(diarizedTranscript) {
         messages: [
             {
                 role: 'system',
-                content: `You are an expert at analyzing counseling session transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the Counsellor and which is the Patient.
+                content: `You are an expert at analyzing counseling session transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the Therapist and which is the Patient.
 
-Clues to identify the Counsellor:
+Clues to identify the Therapist:
 - Asks open-ended questions ("How does that make you feel?", "Tell me more about...")
 - Uses therapeutic language ("I hear you", "Let's explore that")
 - Guides the conversation, summarizes, reflects
@@ -210,7 +210,7 @@ You MUST respond with valid JSON only.`
             },
             {
                 role: 'user',
-                content: `Analyze this counseling transcript and identify which person is the Counsellor and which is the Patient.
+                content: `Analyze this counseling transcript and identify which person is the Therapist and which is the Patient.
 
 TRANSCRIPT:
 """
@@ -219,8 +219,8 @@ ${diarizedTranscript}
 
 Return ONLY valid JSON:
 {
-  "person1_role": "Counsellor" or "Patient",
-  "person2_role": "Counsellor" or "Patient",
+  "person1_role": "Therapist" or "Patient",
+  "person2_role": "Therapist" or "Patient",
   "confidence": 0.0 to 1.0,
   "reasoning": "Brief explanation of why"
 }`
