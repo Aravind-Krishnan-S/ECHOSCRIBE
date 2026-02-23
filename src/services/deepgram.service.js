@@ -5,10 +5,15 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { AppError } = require('../middleware/errorHandler');
 
-const env = validateEnv();
+let deepgram = null;
 
-// Initialize Deepgram SDK
-const deepgram = createClient(env.DEEPGRAM_API_KEY);
+function getDeepgramClient() {
+    if (!deepgram) {
+        const env = validateEnv();
+        deepgram = createClient(env.DEEPGRAM_API_KEY);
+    }
+    return deepgram;
+}
 
 /**
  * Maps standard ISO codes to Deepgram specific tags if needed.
@@ -63,7 +68,8 @@ async function extractPitch(filePath, turns) {
  * @returns {object} { text, segments, turns }
  */
 async function transcribeAndDiarizeWithDeepgram(filePath, lang = 'en') {
-    if (!deepgram) throw new AppError('Deepgram service not initialized', 500);
+    const deepgramCli = getDeepgramClient();
+    if (!deepgramCli) throw new AppError('Deepgram service failed to initialize', 500);
 
     const dgLang = langMap[lang] || 'en';
 
@@ -81,7 +87,7 @@ async function transcribeAndDiarizeWithDeepgram(filePath, lang = 'en') {
             utterances: true, // Auto-groups words into speaker utterances
         };
 
-        const { result, error } = await deepgram.listen.prerecorded.transcribeFile(
+        const { result, error } = await deepgramCli.listen.prerecorded.transcribeFile(
             audioBuffer,
             options
         );
