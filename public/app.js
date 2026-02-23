@@ -646,8 +646,15 @@
 
                 if (idResponse.ok) {
                     const roles = await idResponse.json();
-                    const p1Label = roles.person1_role || 'Person 1';
-                    const p2Label = roles.person2_role || 'Person 2';
+                    let p1Label = roles.person1_role || 'Person 1';
+                    let p2Label = roles.person2_role || 'Person 2';
+
+                    // Replace generic 'Patient' with actual patient profile name
+                    if (activePatient && activePatient.name) {
+                        const preciseName = activePatient.name;
+                        if (p1Label === 'Patient') p1Label = preciseName;
+                        if (p2Label === 'Patient') p2Label = preciseName;
+                    }
 
                     labeledTranscript = finalRawTranscript
                         .replace(/^Person 1:/gm, `${p1Label}:`)
