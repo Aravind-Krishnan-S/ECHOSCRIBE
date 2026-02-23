@@ -47,12 +47,12 @@ const transcribe = asyncHandler(async (req, res) => {
 
 // POST /api/identify-speakers
 const identifySpeakersHandler = asyncHandler(async (req, res) => {
-    const { transcript } = req.body;
+    const { transcript, pitchMetadata } = req.body;
     if (!transcript || !transcript.trim()) {
         throw new AppError('Transcript is required.', 400);
     }
 
-    const result = await identifySpeakers(transcript);
+    const result = await identifySpeakers(transcript, pitchMetadata);
     res.json(result);
 });
 

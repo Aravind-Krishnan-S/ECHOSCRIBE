@@ -1,6 +1,8 @@
 const { createClient } = require('@deepgram/sdk');
 const { validateEnv } = require('../config/env');
 const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
 const { AppError } = require('../middleware/errorHandler');
 
 const env = validateEnv();
@@ -17,6 +19,42 @@ const langMap = {
     'es': 'es', 'fr': 'fr', 'de': 'de', 'ja': 'ja',
     'ko': 'ko', 'zh': 'zh', 'pt': 'pt', 'ar': 'ar',
 };
+
+/**
+ * Runs a standalone Python child process to calculate Average Fundamental Frequency (F0/Pitch)
+ * for each speaker using Librosa, since Deepgram API doesn't return pitch.
+ */
+async function extractPitch(filePath, turns) {
+    return new Promise((resolve) => {
+        const pythonProcess = spawn('python', [
+            path.join(__dirname, '../python/pitch_extract.py'),
+            filePath,
+            JSON.stringify(turns)
+        ]);
+
+        let dataString = '';
+        let errString = '';
+
+        pythonProcess.stdout.on('data', (data) => { dataString += data.toString(); });
+        pythonProcess.stderr.on('data', (data) => { errString += data.toString(); });
+
+        pythonProcess.on('close', (code) => {
+            try {
+                const jsonMatch = dataString.match(/\{.*\}/);
+                if (jsonMatch) {
+                    const result = JSON.parse(jsonMatch[0]);
+                    if (result.success) return resolve(result.pitches);
+                    console.error('[Pitch Extraction] Script error:', result.error);
+                } else {
+                    console.error('[Pitch Extraction] Invalid output:', errString);
+                }
+            } catch (e) {
+                console.error('[Pitch Extraction] Parse error:', e);
+            }
+            resolve({}); // Safe fallback
+        });
+    });
+}
 
 /**
  * Transcribes audio and performs speaker diarization using Deepgram
@@ -73,13 +111,24 @@ async function transcribeAndDiarizeWithDeepgram(filePath, lang = 'en') {
                     text: u.transcript,
                     start: u.start,
                     end: u.end,
-                    avgPitch: 0 // Deepgram doesn't return pitch, placeholder for compat
+                    avgPitch: 0 // Will be assigned shortly by Python
                 };
 
                 // Add to standard segments list (same format frontend expects)
                 segments.push(turnObj);
                 turns.push(turnObj);
             });
+
+            // Extract true F0 pitch using librosa microservice
+            try {
+                console.log('[Deepgram] Extracting valid vocal frequencies...');
+                const pitchData = await extractPitch(filePath, turns);
+                turns.forEach(t => {
+                    t.avgPitch = pitchData[t.speaker] || 0;
+                });
+            } catch (pitchErr) {
+                console.warn('[Deepgram] Pitch extraction failed, defaulting to 0:', pitchErr.message);
+            }
         }
 
         return {

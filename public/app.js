@@ -617,13 +617,31 @@
             // Generate the newly structured transcript text (Person 1/2) for analysis
             let finalRawTranscript = speakerSegments.map(seg => `Person ${seg.speaker}: ${seg.text}`).join('\n');
 
+            // Calculate Average Pitch per speaker
+            let p1Voice = { totalPitch: 0, count: 0 };
+            let p2Voice = { totalPitch: 0, count: 0 };
+
+            speakerSegments.forEach(seg => {
+                if (seg.speaker === 1 && seg.avgPitch) {
+                    p1Voice.totalPitch += seg.avgPitch;
+                    p1Voice.count++;
+                } else if (seg.speaker === 2 && seg.avgPitch) {
+                    p2Voice.totalPitch += seg.avgPitch;
+                    p2Voice.count++;
+                }
+            });
+
+            let p1Avg = p1Voice.count > 0 ? (p1Voice.totalPitch / p1Voice.count).toFixed(1) : 0;
+            let p2Avg = p2Voice.count > 0 ? (p2Voice.totalPitch / p2Voice.count).toFixed(1) : 0;
+            const pitchMetadata = (p1Avg > 0 && p2Avg > 0) ? `Person 1 Avg Pitch: ${p1Avg}Hz\nPerson 2 Avg Pitch: ${p2Avg}Hz` : '';
+
             // Step 2: LLM identifies Therapist/Patient from content
             showToast('🔍 Identifying Therapist & Patient from voice + content...');
             let labeledTranscript = finalRawTranscript;
             try {
                 const idResponse = await EchoAuth.authFetch('/api/identify-speakers', {
                     method: 'POST',
-                    body: JSON.stringify({ transcript: finalRawTranscript }),
+                    body: JSON.stringify({ transcript: finalRawTranscript, pitchMetadata }),
                 });
 
                 if (idResponse.ok) {
