@@ -865,6 +865,10 @@
         }
     });
 
+    function triggerUpload() {
+        if (audioFileInput) audioFileInput.click();
+    }
+
     if (btnUpload) btnUpload.addEventListener('click', triggerUpload);
     if (audioFileInput) audioFileInput.addEventListener('change', (e) => {
         if (e.target.files[0]) {
