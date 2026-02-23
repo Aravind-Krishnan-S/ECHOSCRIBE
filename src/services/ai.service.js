@@ -10,36 +10,15 @@ function initGroq(apiKey) {
 
 // --- Clinical SOAP Summarization ---
 
-async function summarizeTranscript(text, lang = 'en', retries = 2) {
+async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', retries = 2) {
     if (!groq) throw new AppError('AI service not initialized', 500);
 
     const wordCount = text.trim().split(/\s+/).length;
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const chatCompletion = await groq.chat.completions.create({
-                messages: [
-                    {
-                        role: 'system',
-                        content: `You are an expert clinical documentation specialist trained in SOAP note formatting for mental health counseling sessions. 
-You analyze speech transcripts from counseling sessions and produce structured clinical documentation.
-The transcript may contain speaker labels like "Counsellor:" and "Patient:" (or "Person 1:" / "Person 2:"). Use these to understand the dialogue flow.
-You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
-Be thorough but clinically precise. Do not fabricate information not present in the transcript.
-If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.
-You must also generate a patient-facing communication summary translated into the locale: ${lang}.`
-                    },
-                    {
-                        role: 'user',
-                        content: `Analyze the following counseling session transcript and return a STRICT clinical SOAP note in JSON format.
-
-TRANSCRIPT:
-"""
-${text.trim()}
-"""
-
-Return ONLY valid JSON with this exact structure:
-{
+    const modeConfig = {
+        'Therapy': {
+            role: "expert clinical documentation specialist trained in SOAP note formatting for mental health counseling sessions",
+            structure: `
   "soap": {
     "subjective": "Client's reported symptoms, feelings, concerns, and history as stated in their own words. Include chief complaint and relevant history.",
     "objective": "Observable behaviors, affect, appearance cues noted from speech patterns. Include speech rate, coherence, emotional expression.",
@@ -50,7 +29,62 @@ Return ONLY valid JSON with this exact structure:
     "suicidal_ideation": false,
     "self_harm_risk": "low",
     "notes": "Brief risk assessment notes based on transcript content"
+  }`,
+            specialTracking: `
+  "diagnostic_impressions": ["Possible diagnostic considerations based on presentation"],
+  "interventions_used": ["Therapeutic interventions or techniques evident in the session"],
+  "medication_changes": ["Any medication-related discussions or changes mentioned"],
+  "progress_indicators": ["Signs of progress, improvement, or regression noted"],`
+        },
+        'Mentoring': {
+            role: "higher-education mentoring professional trained in GROW coaching models for university students",
+            structure: `
+  "grow": {
+    "goal": "What the mentee wants to achieve (Goal)",
+    "reality": "Current academic/personal situation (Reality)",
+    "options": "Brainstormed pathways and alternatives (Options)",
+    "way_forward": "Actionable next steps committed to by the mentee (Way Forward)"
   },
+  "risk_assessment": {
+    "academic_burnout": false,
+    "severe_distress_risk": "low",
+    "notes": "Brief risk assessment notes based on mentoring context and student well-being"
+  }`,
+            specialTracking: `
+  "skill_progression": ["Skills advancing or needing work"],
+  "goal_completion_rate": "Percentage or descriptive rate of past goals achieved",
+  "motivational_state": "Mentee's current drive and motivation level",
+  "action_items": ["Specific tasks the mentee agreed to do"],`
+        }
+    };
+
+    const config = modeConfig[mode] || modeConfig['Therapy'];
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [
+                    {
+                        role: 'system',
+                        content: `You are an ${config.role}. 
+You analyze speech transcripts from sessions and produce structured documentation.
+The transcript may contain speaker labels like "Counsellor:", "Patient:", "Mentor:", or "Mentee:". Use these to understand the dialogue flow.
+You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
+Be thorough but precise. Do not fabricate information not present in the transcript.
+If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.
+You must also generate a client-facing communication summary translated into the locale: ${lang}.`
+                    },
+                    {
+                        role: 'user',
+                        content: `Analyze the following session transcript and return a STRICT structured note in JSON format.
+
+TRANSCRIPT:
+"""
+${text.trim()}
+"""
+
+Return ONLY valid JSON with this exact structure:
+{${config.structure}
   "auto_booking": {
     "needs_follow_up": false,
     "suggested_timeframe": "string (e.g., '2 weeks', 'next Tuesday' or 'None')",
@@ -62,21 +96,17 @@ Return ONLY valid JSON with this exact structure:
     "reason": "string"
   },
   "patient_communication": {
-    "instructions_english": "A warm, patient-friendly summary and instructions for the patient to take home, in English.",
-    "instructions_translated": "The exact same patient-friendly summary and instructions, translated to language code: ${lang}."
-  },
-  "diagnostic_impressions": ["Possible diagnostic considerations based on presentation"],
-  "interventions_used": ["Therapeutic interventions or techniques evident in the session"],
-  "medication_changes": ["Any medication-related discussions or changes mentioned"],
-  "progress_indicators": ["Signs of progress, improvement, or regression noted"],
+    "instructions_english": "A warm, supportive summary and instructions for the individual to take home, in English.",
+    "instructions_translated": "The exact same supportive summary and instructions, translated to language code: ${lang}."
+  },${config.specialTracking}
   "emotional_tone": "Primary emotional tone of the session",
   "topics": ["Key topics discussed in the session"],
   "confidence_score": 0.85,
   "counselingStats": {
-    "name": "Client name if mentioned, otherwise Unknown",
-    "age": "Client age if mentioned, otherwise Unknown",
+    "name": "Individual name if mentioned, otherwise Unknown",
+    "age": "Individual age if mentioned, otherwise Unknown",
     "presentingProblem": "The main issue described",
-    "reasonForCounseling": "Why the client is seeking help",
+    "reasonForCounseling": "Why the individual is seeking help/mentorship",
     "lastMajorProgress": "Any recent positive developments",
     "currentEmotionalState": "One-word emotion descriptor"
   },
@@ -110,16 +140,27 @@ Return ONLY valid JSON with this exact structure:
             parsedData.wordCount = parsedData.wordCount || wordCount;
             parsedData.originalText = text.trim();
 
-            // Normalize missing fields
-            parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
-            parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
+            // Normalize missing fields based on mode
+            if (mode === 'Therapy') {
+                parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
+                parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
+                parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
+                parsedData.interventions_used = parsedData.interventions_used || [];
+                parsedData.medication_changes = parsedData.medication_changes || [];
+                parsedData.progress_indicators = parsedData.progress_indicators || [];
+            } else {
+                parsedData.grow = parsedData.grow || { goal: '', reality: '', options: '', way_forward: '' };
+                parsedData.risk_assessment = parsedData.risk_assessment || { academic_burnout: false, severe_distress_risk: 'low', notes: '' };
+                parsedData.skill_progression = parsedData.skill_progression || [];
+                parsedData.action_items = parsedData.action_items || [];
+                parsedData.goal_completion_rate = parsedData.goal_completion_rate || 'Unknown';
+                parsedData.motivational_state = parsedData.motivational_state || 'Unknown';
+            }
+
             parsedData.auto_booking = parsedData.auto_booking || { needs_follow_up: false, suggested_timeframe: 'None', reason: '' };
             parsedData.referral_form = parsedData.referral_form || { referral_needed: false, specialty_or_service: 'None', reason: '' };
             parsedData.patient_communication = parsedData.patient_communication || { instructions_english: 'No instructions generated.', instructions_translated: 'No translated instructions generated.' };
-            parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
-            parsedData.interventions_used = parsedData.interventions_used || [];
-            parsedData.medication_changes = parsedData.medication_changes || [];
-            parsedData.progress_indicators = parsedData.progress_indicators || [];
+
             parsedData.emotional_tone = parsedData.emotional_tone || 'neutral';
             parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
             parsedData.confidence_score = parsedData.confidence_score || 0.0;
@@ -185,19 +226,15 @@ async function transcribeAudio(filePath, lang = 'en') {
 
 // --- Speaker Identification via LLM ---
 
-async function identifySpeakers(diarizedTranscript, pitchMetadata = '') {
+async function identifySpeakers(diarizedTranscript, pitchMetadata = '', mode = 'Therapy') {
     if (!groq) throw new AppError('AI service not initialized', 500);
 
-    const pitchPromptInstructions = pitchMetadata ? `\n\nAUDIO FREQUENCY METADATA:\n${pitchMetadata}\nThis is the true acoustic pitch of the speakers. Typical male adult fundamental frequency is around 100-140 Hz, while female adult frequency is around 180-240 Hz. If it is clear that one relies on pitch context, use this as a strong heuristic to determine the Therapist and Patient, taking into consideration any contextual clues.` : '';
+    const role1 = mode === 'Therapy' ? 'Therapist' : 'Mentor';
+    const role2 = mode === 'Therapy' ? 'Patient' : 'Mentee';
 
-    const chatCompletion = await groq.chat.completions.create({
-        messages: [
-            {
-                role: 'system',
-                content: `You are an expert at analyzing counseling session transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the Therapist and which is the Patient.
+    const pitchPromptInstructions = pitchMetadata ? `\n\nAUDIO FREQUENCY METADATA:\n${pitchMetadata}\nThis is the true acoustic pitch of the speakers. Typical male adult fundamental frequency is around 100-140 Hz, while female adult frequency is around 180-240 Hz. If it is clear that one relies on pitch context, use this as a strong heuristic to determine the ${role1} and ${role2}, taking into consideration any contextual clues.` : '';
 
-CRITICAL INSTRUCTION: There are exactly two people. Exactly ONE person is the "Therapist" and exactly ONE person is the "Patient". They CANNOT both be the Therapist, and they CANNOT both be the Patient. You MUST assign mutually exclusive roles.
-
+    const contextClues = mode === 'Therapy' ? `
 Clues to identify the Therapist:
 - Asks open-ended questions ("How does that make you feel?", "Tell me more about...")
 - Uses therapeutic language ("I hear you", "Let's explore that")
@@ -208,13 +245,32 @@ Clues to identify the Patient:
 - Describes personal experiences, feelings, problems
 - Responds to questions rather than asking clinical ones
 - Shares emotional content, concerns, symptoms
-- Seeks advice or help${pitchPromptInstructions}
+- Seeks advice or help` : `
+Clues to identify the Mentor:
+- Asks guiding questions to help the mentee find their own solutions
+- Offers academic or professional advice
+- Helps set goals and reviews progress
+- Often holds a position of authority or experience
+
+Clues to identify the Mentee:
+- Describes academic struggles, career questions, or project updates
+- Seeks guidance, feedback, or approval
+- Discusses their personal goals and challenges in a university context`;
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: `You are an expert at analyzing conversation transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the ${role1} and which is the ${role2}.
+
+CRITICAL INSTRUCTION: There are exactly two people. Exactly ONE person is the "${role1}" and exactly ONE person is the "${role2}". They CANNOT both be the ${role1}, and they CANNOT both be the ${role2}. You MUST assign mutually exclusive roles.
+${contextClues}${pitchPromptInstructions}
 
 You MUST respond with valid JSON only.`
             },
             {
                 role: 'user',
-                content: `Analyze this counseling transcript and identify which person is the Therapist and which is the Patient.
+                content: `Analyze this transcript and identify which person is the ${role1} and which is the ${role2}.
 
 TRANSCRIPT:
 """
@@ -223,8 +279,8 @@ ${diarizedTranscript}
 
 Return ONLY valid JSON:
 {
-  "person1_role": "Therapist" or "Patient",
-  "person2_role": "Therapist" or "Patient",
+  "person1_role": "${role1}" or "${role2}",
+  "person2_role": "${role1}" or "${role2}",
   "confidence": 0.0 to 1.0,
   "reasoning": "Brief explanation of why"
 }`
@@ -249,13 +305,34 @@ Return ONLY valid JSON:
 async function generateProfile(sessions) {
     if (!groq) throw new AppError('AI service not initialized', 500);
 
+    let therapyCount = 0;
+    let mentoringCount = 0;
+
     const sessionSummaries = sessions.map((s, i) => {
         const analysis = s.analysis_json || {};
         const stats = analysis.counselingStats || {};
         const soap = analysis.soap || {};
+        const grow = analysis.grow || {};
         const risk = analysis.risk_assessment || {};
+        const isMentoring = s.session_mode === 'Mentoring';
 
-        return `Session ${i + 1} (${new Date(s.created_at).toLocaleDateString()}):
+        if (isMentoring) {
+            mentoringCount++;
+            return `Session ${i + 1} (${new Date(s.created_at).toLocaleDateString()}) - Mentoring:
+- Goal: ${grow.goal || 'N/A'}
+- Reality: ${grow.reality || 'N/A'}
+- Problem/Focus: ${stats.presentingProblem || 'N/A'}
+- Progress: ${stats.lastMajorProgress || 'N/A'}
+- Emotion: ${stats.currentEmotionalState || 'N/A'}
+- Motivational State: ${analysis.motivational_state || 'N/A'}
+- Burnout Risk: ${risk.academic_burnout ? 'High' : 'Low'}
+- Topics: ${(analysis.topics || []).join(', ') || 'N/A'}
+- Skills Working On: ${(analysis.skill_progression || []).join(', ') || 'N/A'}
+- Action Items: ${(analysis.action_items || []).join(', ') || 'N/A'}
+- Notes: ${risk.notes || 'N/A'}`;
+        } else {
+            therapyCount++;
+            return `Session ${i + 1} (${new Date(s.created_at).toLocaleDateString()}) - Therapy:
 - Subjective: ${soap.subjective || 'N/A'}
 - Assessment: ${soap.assessment || 'N/A'}
 - Problem: ${stats.presentingProblem || 'N/A'}
@@ -265,24 +342,23 @@ async function generateProfile(sessions) {
 - Risk Level: ${risk.self_harm_risk || 'N/A'}
 - Topics: ${(analysis.topics || []).join(', ') || 'N/A'}
 - Medications: ${(analysis.medication_changes || []).join(', ') || 'None'}
-- Interventions: ${(analysis.interventions_used || []).join(', ') || 'N/A'}`;
+- Interventions: ${(analysis.interventions_used || []).join(', ') || 'N/A'}
+- Notes: ${risk.notes || 'N/A'}`;
+        }
     }).join('\n\n');
 
-    const chatCompletion = await groq.chat.completions.create({
-        messages: [
-            {
-                role: 'system',
-                content: `You are an expert clinical supervisor analyzing longitudinal counseling data. You identify patterns, assess progress, and provide evidence-based recommendations. Respond with valid JSON only.`
-            },
-            {
-                role: 'user',
-                content: `Analyze the following chronological history of counseling sessions and generate a comprehensive longitudinal client profile.
+    const dominantMode = mentoringCount > therapyCount ? 'Mentoring' : 'Therapy';
 
-SESSION HISTORY:
-${sessionSummaries}
+    const systemMsg = dominantMode === 'Therapy'
+        ? `You are an expert clinical supervisor analyzing longitudinal counseling data. You identify patterns, assess progress, and provide evidence-based recommendations. Respond with valid JSON only.`
+        : `You are an expert higher-education mentor advising on longitudinal student progression. You identify academic patterns, assess skill mastery, evaluate burnout risks, and provide strategic action-oriented recommendations. Respond with valid JSON only.`;
 
-Return ONLY valid JSON:
-{
+    const userMsgFocus = dominantMode === 'Therapy'
+        ? `Analyze the following chronological history of counseling sessions and generate a comprehensive longitudinal client profile.`
+        : `Analyze the following chronological history of mentoring sessions and generate a comprehensive longitudinal student profile.`;
+
+    const jsonSchema = dominantMode === 'Therapy'
+        ? `{
   "journey_summary": "Comprehensive narrative of the client's therapeutic journey across all sessions.",
   "recurring_themes": ["Theme 1", "Theme 2"],
   "emotional_trend": "improving|stable|declining",
@@ -295,6 +371,35 @@ Return ONLY valid JSON:
   "treatment_effectiveness_score": 65,
   "psychological_profile": "Brief behavioral/psychological profile of the client"
 }`
+        : `{
+  "journey_summary": "Comprehensive narrative of the student's academic and personal progression.",
+  "recurring_themes": ["Theme 1", "Theme 2"],
+  "emotional_trend": "improving|stable|declining",
+  "emotional_trend_data": [{"session": 1, "score": 5, "label": "Stressed"}, ...],
+  "risk_trend": "Description of burnout or distress risk over time",
+  "risk_trend_data": [{"session": 1, "level": "low"}, ...],
+  "topic_frequency": [{"topic": "time management", "count": 5}, ...],
+  "persistent_challenges": "Academic or personal issues that keep recurring",
+  "recommended_focus": ["Specific actionable recommendations for skill building"],
+  "treatment_effectiveness_score": 65,
+  "psychological_profile": "Brief profile of the student's motivational and behavioral state"
+}`;
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: 'system',
+                content: systemMsg
+            },
+            {
+                role: 'user',
+                content: `${userMsgFocus}
+
+SESSION HISTORY:
+${sessionSummaries}
+
+Return ONLY valid JSON:
+${jsonSchema}`
             }
         ],
         model: 'llama-3.3-70b-versatile',

@@ -636,12 +636,13 @@
             const pitchMetadata = (p1Avg > 0 && p2Avg > 0) ? `Person 1 Avg Pitch: ${p1Avg}Hz\nPerson 2 Avg Pitch: ${p2Avg}Hz` : '';
 
             // Step 2: LLM identifies Therapist/Patient from content
-            showToast('🔍 Identifying Therapist & Patient from voice + content...');
+            showToast('🔍 Identifying speaker roles...');
             let labeledTranscript = finalRawTranscript;
+            const selectedMode = document.getElementById('mode-select').value;
             try {
                 const idResponse = await EchoAuth.authFetch('/api/identify-speakers', {
                     method: 'POST',
-                    body: JSON.stringify({ transcript: finalRawTranscript, pitchMetadata }),
+                    body: JSON.stringify({ transcript: finalRawTranscript, pitchMetadata, mode: selectedMode }),
                 });
 
                 if (idResponse.ok) {
@@ -671,9 +672,9 @@
                 console.warn('[EchoScribe] Speaker ID failed, using Person labels:', idErr);
             }
 
-            // Step 2: SOAP analysis
+            // Step 2: AI analysis
             summarizeLabel.textContent = 'Analyzing...';
-            showToast('✨ Generating clinical SOAP note...');
+            showToast(`✨ Generating ${selectedMode === 'Therapy' ? 'clinical SOAP' : 'mentoring GROW'} note...`);
 
             const selectedLanguage = document.getElementById('lang-select').value;
 
@@ -681,6 +682,7 @@
             const formData = new FormData();
             formData.append('text', labeledTranscript);
             formData.append('language', selectedLanguage);
+            formData.append('mode', selectedMode);
             if (activePatient) {
                 formData.append('patientId', activePatient.id);
             }

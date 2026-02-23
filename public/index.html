@@ -98,29 +98,42 @@
       </button>
     </div>
 
-    <!-- Language Selector -->
-    <div class="settings">
-      <label for="lang-select" class="settings-label">Language</label>
-      <select id="lang-select" class="lang-select">
-        <option value="en-US">English (US)</option>
-        <option value="en-GB">English (UK)</option>
-        <option value="en-IN">English (India)</option>
-        <option value="hi-IN">Hindi</option>
-        <option value="ta-IN">Tamil</option>
-        <option value="ml-IN">Malayalam</option>
-        <option value="te-IN">Telugu</option>
-        <option value="bn-IN">Bengali</option>
-        <option value="mr-IN">Marathi</option>
-        <option value="kn-IN">Kannada</option>
-        <option value="es-ES">Spanish</option>
-        <option value="fr-FR">French</option>
-        <option value="de-DE">German</option>
-        <option value="ja-JP">Japanese</option>
-        <option value="ko-KR">Korean</option>
-        <option value="zh-CN">Chinese (Mandarin)</option>
-        <option value="pt-BR">Portuguese (Brazil)</option>
-        <option value="ar-SA">Arabic</option>
-      </select>
+    <!-- Settings Group -->
+    <div class="settings-group"
+      style="display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap;">
+      <!-- Language Selector -->
+      <div class="settings">
+        <label for="lang-select" class="settings-label">Language</label>
+        <select id="lang-select" class="lang-select">
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="en-IN">English (India)</option>
+          <option value="hi-IN">Hindi</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="ml-IN">Malayalam</option>
+          <option value="te-IN">Telugu</option>
+          <option value="bn-IN">Bengali</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="kn-IN">Kannada</option>
+          <option value="es-ES">Spanish</option>
+          <option value="fr-FR">French</option>
+          <option value="de-DE">German</option>
+          <option value="ja-JP">Japanese</option>
+          <option value="ko-KR">Korean</option>
+          <option value="zh-CN">Chinese (Mandarin)</option>
+          <option value="pt-BR">Portuguese (Brazil)</option>
+          <option value="ar-SA">Arabic</option>
+        </select>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="settings">
+        <label for="mode-select" class="settings-label">Session Mode</label>
+        <select id="mode-select" class="lang-select">
+          <option value="Therapy" selected>Therapy (Clinical SOAP)</option>
+          <option value="Mentoring">Mentoring (Academic GROW)</option>
+        </select>
+      </div>
     </div>
 
     <!-- Toast Notification -->

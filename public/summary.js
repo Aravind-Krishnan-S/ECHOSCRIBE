@@ -26,10 +26,17 @@
     initTheme();
 
     // --- DOM Refs ---
+    const soapGrid = document.getElementById('soap-grid');
     const soapSubjective = document.getElementById('soap-subjective');
     const soapObjective = document.getElementById('soap-objective');
     const soapAssessment = document.getElementById('soap-assessment');
     const soapPlan = document.getElementById('soap-plan');
+
+    const growGrid = document.getElementById('grow-grid');
+    const growGoal = document.getElementById('grow-goal');
+    const growReality = document.getElementById('grow-reality');
+    const growOptions = document.getElementById('grow-options');
+    const growWayForward = document.getElementById('grow-way-forward');
     const riskBanner = document.getElementById('risk-banner');
     const riskIcon = document.getElementById('risk-icon');
     const riskText = document.getElementById('risk-text');
@@ -123,15 +130,35 @@
     }
     fetchFullPatientData();
 
-    // --- Render SOAP ---
-    const soap = data.soap || {};
-    soapSubjective.textContent = soap.subjective || 'Not documented';
-    soapObjective.textContent = soap.objective || 'Not documented';
-    soapAssessment.textContent = soap.assessment || 'Not documented';
-    soapPlan.textContent = soap.plan || 'Not documented';
+    // --- Render Formats (SOAP vs GROW) ---
+    const isMentoring = !!data.grow || data.sessionMode === 'Mentoring';
+
+    if (isMentoring) {
+        if (growGrid) growGrid.style.display = 'grid';
+        if (soapGrid) soapGrid.style.display = 'none';
+
+        const grow = data.grow || {};
+        growGoal.textContent = grow.goal || 'Not documented';
+        growReality.textContent = grow.reality || 'Not documented';
+        growOptions.textContent = grow.options || 'Not documented';
+        growWayForward.textContent = grow.way_forward || 'Not documented';
+
+        document.querySelector('.summary-page-title').textContent = 'Academic GROW Note';
+    } else {
+        if (growGrid) growGrid.style.display = 'none';
+        if (soapGrid) soapGrid.style.display = 'grid';
+
+        const soap = data.soap || {};
+        soapSubjective.textContent = soap.subjective || 'Not documented';
+        soapObjective.textContent = soap.objective || 'Not documented';
+        soapAssessment.textContent = soap.assessment || 'Not documented';
+        soapPlan.textContent = soap.plan || 'Not documented';
+
+        document.querySelector('.summary-page-title').textContent = 'Clinical SOAP Note';
+    }
 
     // --- Backward compatibility: legacy summary format ---
-    if (!data.soap && data.summary) {
+    if (!isMentoring && !data.soap && data.summary) {
         soapSubjective.textContent = data.summary;
         soapObjective.textContent = data.analysis || 'N/A';
         soapAssessment.textContent = data.sentimentExplanation || 'N/A';
@@ -140,13 +167,13 @@
 
     // --- Risk Assessment ---
     const risk = data.risk_assessment || {};
-    const riskLevel = (risk.self_harm_risk || 'low').toLowerCase();
+    const riskLevel = (risk.self_harm_risk || risk.severe_distress_risk || 'low').toLowerCase();
 
-    if (riskLevel === 'high' || risk.suicidal_ideation) {
+    if (riskLevel === 'high' || risk.suicidal_ideation || risk.academic_burnout) {
         riskBanner.style.display = 'flex';
         riskBanner.className = 'risk-banner risk-high';
         riskIcon.textContent = '🚨';
-        riskText.textContent = 'HIGH RISK — Immediate attention recommended';
+        riskText.textContent = isMentoring ? 'HIGH RISK — Immediate student support recommended' : 'HIGH RISK — Immediate attention recommended';
     } else if (riskLevel === 'moderate') {
         riskBanner.style.display = 'flex';
         riskBanner.className = 'risk-banner risk-moderate';
@@ -154,8 +181,12 @@
         riskText.textContent = 'MODERATE RISK — Monitor closely';
     }
 
-    riskSI.textContent = risk.suicidal_ideation ? 'YES' : 'No';
-    riskSI.className = 'risk-badge ' + (risk.suicidal_ideation ? 'risk-badge-high' : 'risk-badge-low');
+    const primaryRisk = isMentoring ? risk.academic_burnout : risk.suicidal_ideation;
+    if (riskSI.previousElementSibling) riskSI.previousElementSibling.textContent = isMentoring ? 'Academic Burnout:' : 'Suicidal Ideation:';
+    riskSI.textContent = primaryRisk ? 'YES' : 'No';
+    riskSI.className = 'risk-badge ' + (primaryRisk ? 'risk-badge-high' : 'risk-badge-low');
+
+    if (riskSHLevel.previousElementSibling) riskSHLevel.previousElementSibling.textContent = isMentoring ? 'Severe Distress Risk:' : 'Self-Harm Risk:';
     riskSHLevel.textContent = riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1);
     riskSHLevel.className = 'risk-badge risk-badge-' + riskLevel;
     riskNotes.textContent = risk.notes || 'No additional notes.';
@@ -344,25 +375,41 @@
     if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
     if (btnLogout) btnLogout.addEventListener('click', () => EchoAuth.logout());
 
-    // Copy SOAP Note
+    // Copy Configured Note
     btnCopySummary.addEventListener('click', function () {
-        const currentSubjective = soapSubjective.innerText || '';
-        const currentObjective = soapObjective.innerText || '';
-        const currentAssessment = soapAssessment.innerText || '';
-        const currentPlan = soapPlan.innerText || '';
+        let copyText = '';
+        if (isMentoring) {
+            const currentGoal = growGoal.innerText || '';
+            const currentReality = growReality.innerText || '';
+            const currentOptions = growOptions.innerText || '';
+            const currentWayForward = growWayForward.innerText || '';
 
-        let copyText = '🩺 ECHOSCRIBE — CLINICAL SOAP NOTE\n';
-        copyText += '='.repeat(40) + '\n\n';
-        copyText += '📋 SUBJECTIVE:\n' + currentSubjective + '\n\n';
-        copyText += '🔍 OBJECTIVE:\n' + currentObjective + '\n\n';
-        copyText += '📊 ASSESSMENT:\n' + currentAssessment + '\n\n';
-        copyText += '📝 PLAN:\n' + currentPlan + '\n\n';
-        copyText += '🛡️ RISK: Self-harm=' + riskLevel + ', SI=' + (risk.suicidal_ideation ? 'YES' : 'No') + '\n';
+            copyText = '🎓 ECHOSCRIBE — ACADEMIC GROW NOTE\n';
+            copyText += '='.repeat(40) + '\n\n';
+            copyText += '🎯 GOAL:\n' + currentGoal + '\n\n';
+            copyText += '🌍 REALITY:\n' + currentReality + '\n\n';
+            copyText += '💡 OPTIONS:\n' + currentOptions + '\n\n';
+            copyText += '🚀 WAY FORWARD:\n' + currentWayForward + '\n\n';
+        } else {
+            const currentSubjective = soapSubjective.innerText || '';
+            const currentObjective = soapObjective.innerText || '';
+            const currentAssessment = soapAssessment.innerText || '';
+            const currentPlan = soapPlan.innerText || '';
+
+            copyText = '🩺 ECHOSCRIBE — CLINICAL SOAP NOTE\n';
+            copyText += '='.repeat(40) + '\n\n';
+            copyText += '📋 SUBJECTIVE:\n' + currentSubjective + '\n\n';
+            copyText += '🔍 OBJECTIVE:\n' + currentObjective + '\n\n';
+            copyText += '📊 ASSESSMENT:\n' + currentAssessment + '\n\n';
+            copyText += '📝 PLAN:\n' + currentPlan + '\n\n';
+        }
+
+        copyText += '🛡️ RISK: ' + (isMentoring ? 'Burnout' : 'Self-harm') + '=' + riskLevel + ', ' + (isMentoring ? 'High Distress' : 'SI') + '=' + (primaryRisk ? 'YES' : 'No') + '\n';
         copyText += '💭 Emotional Tone: ' + tone + '\n';
         copyText += '📊 Words: ' + wc + ' | Confidence: ' + confidence + '%\n';
 
         navigator.clipboard.writeText(copyText).then(function () {
-            showToast('✅ SOAP note copied to clipboard!');
+            showToast('✅ Note copied to clipboard!');
         }).catch(function () {
             showToast('⚠️ Failed to copy');
         });
@@ -374,19 +421,30 @@
         btnSave.innerHTML = '<span class="btn-icon">⏳</span> Saving...';
 
         // Update data object with potential edits
-        if (!data.soap) data.soap = {};
-        data.soap.subjective = soapSubjective.innerText || '';
-        data.soap.objective = soapObjective.innerText || '';
-        data.soap.assessment = soapAssessment.innerText || '';
-        data.soap.plan = soapPlan.innerText || '';
+        if (isMentoring) {
+            if (!data.grow) data.grow = {};
+            data.grow.goal = growGoal.innerText || '';
+            data.grow.reality = growReality.innerText || '';
+            data.grow.options = growOptions.innerText || '';
+            data.grow.way_forward = growWayForward.innerText || '';
+            data.sessionMode = 'Mentoring';
+        } else {
+            if (!data.soap) data.soap = {};
+            data.soap.subjective = soapSubjective.innerText || '';
+            data.soap.objective = soapObjective.innerText || '';
+            data.soap.assessment = soapAssessment.innerText || '';
+            data.soap.plan = soapPlan.innerText || '';
+            data.sessionMode = 'Therapy';
+        }
 
         try {
             const response = await EchoAuth.authFetch('/api/session', {
                 method: 'POST',
                 body: JSON.stringify({
                     transcript: data.originalText,
-                    summary: data.soap.subjective || data.summary || '',
+                    summary: isMentoring ? (data.grow.goal || '') : (data.soap.subjective || data.summary || ''),
                     analysisJson: data,
+                    mode: data.sessionMode
                 }),
             });
 

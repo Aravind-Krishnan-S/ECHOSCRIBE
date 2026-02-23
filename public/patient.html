@@ -319,6 +319,19 @@
                 </button>
             </div>
 
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
+                <div
+                    style="background: rgba(15, 20, 40, 0.7); padding: 0.5rem; border-radius: 12px; border: 1px solid rgba(136, 146, 176, 0.2); display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="color: #8892b0; font-size: 0.9rem; padding-left: 0.5rem;">View Mode:</span>
+                    <select id="mode-filter"
+                        style="padding: 0.4rem 1rem; border-radius: 6px; background: transparent; color: #a78bfa; border: none; font-weight: 600; outline: none; cursor: pointer;">
+                        <option value="All">All Sessions</option>
+                        <option value="Therapy">Therapy (Clinical)</option>
+                        <option value="Mentoring">Mentoring (Academic)</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- AI Patient Story -->
             <div class="profile-section">
                 <h2 class="section-title">🧠 Longitudinal Profile & Story</h2>
@@ -421,11 +434,18 @@
 
             let currentPatient = null;
             let currentSessions = [];
+            let currentFilter = 'All';
 
             // Execute on load
             document.addEventListener('DOMContentLoaded', () => {
                 initTheme();
                 loadPatientData();
+
+                document.getElementById('mode-filter').addEventListener('change', (e) => {
+                    currentFilter = e.target.value;
+                    renderSessions();
+                    renderCharts();
+                });
             });
 
             function initTheme() {
@@ -486,12 +506,16 @@
                 const empty = document.getElementById('sessions-empty');
                 list.innerHTML = '';
 
-                if (currentSessions.length === 0) {
+                const filteredSessions = currentSessions.filter(s => currentFilter === 'All' || s.session_mode === currentFilter);
+
+                if (filteredSessions.length === 0) {
                     empty.style.display = 'block';
                     return;
+                } else {
+                    empty.style.display = 'none';
                 }
 
-                currentSessions.forEach((s, index) => {
+                filteredSessions.forEach((s, index) => {
                     const analysis = s.analysis_json || {};
                     const risk = analysis.risk_assessment || {};
                     const topics = analysis.topics || analysis.topicsDetected || [];
@@ -577,7 +601,14 @@
             }
 
             function renderCharts() {
-                if (currentSessions.length === 0) return;
+                const filteredSessions = currentSessions.filter(s => currentFilter === 'All' || s.session_mode === currentFilter);
+
+                if (filteredSessions.length === 0) {
+                    document.getElementById('visual-insights').style.display = 'none';
+                    return;
+                }
+
+                document.getElementById('visual-insights').style.display = 'block';
 
                 // Aggregated Data structures
                 const topicCounts = {};
@@ -590,7 +621,7 @@
                 const confidenceScores = [];
 
                 // currentSessions is newest first, so reverse for trend charts
-                const chronoSessions = [...currentSessions].reverse();
+                const chronoSessions = [...filteredSessions].reverse();
 
                 chronoSessions.forEach((s, i) => {
                     const analysis = s.analysis_json || {};
@@ -632,6 +663,11 @@
                 // Chart setup
                 Chart.defaults.color = '#8892b0';
                 Chart.defaults.font.family = "'Inter', sans-serif";
+
+                // Destroy old charts to prevent overlap
+                Chart.helpers.each(Chart.instances, function (instance) {
+                    instance.destroy();
+                });
 
                 // 1. Topics - Polar Area
                 const ctxTopics = document.getElementById('topicsChart');
@@ -678,29 +714,64 @@
                     });
                 }
 
-                // 3. Session Activity - Bar Graph
+                // 3. Conditional Bar Graph (Activity vs Goal Progression)
                 const ctxActivity = document.getElementById('activityChart');
-                if (ctxActivity && wordCounts.length > 0) {
-                    new Chart(ctxActivity, {
-                        type: 'bar',
-                        data: {
-                            labels: sessionLabels,
-                            datasets: [{
-                                label: 'Word Count',
-                                data: wordCounts,
-                                backgroundColor: 'rgba(108, 99, 255, 0.7)',
-                                borderRadius: 4
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
-                                x: { grid: { display: false } }
-                            },
-                            plugins: { legend: { display: false } },
-                            maintainAspectRatio: false
-                        }
+                const activityTitle = ctxActivity.parentElement.previousElementSibling;
+
+                if (currentFilter === 'Mentoring') {
+                    activityTitle.textContent = 'Goal Progression Scope';
+                    // Arbitrary heuristic: word count of the way_forward block denotes progression scope
+                    const goalScores = chronoSessions.map(s => {
+                        const w = s.analysis_json?.grow?.way_forward || '';
+                        return w.split(' ').length;
                     });
+
+                    if (ctxActivity && goalScores.length > 0) {
+                        new Chart(ctxActivity, {
+                            type: 'bar',
+                            data: {
+                                labels: sessionLabels,
+                                datasets: [{
+                                    label: 'Action Items (Words)',
+                                    data: goalScores,
+                                    backgroundColor: 'rgba(79, 209, 197, 0.7)',
+                                    borderRadius: 4
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                    x: { grid: { display: false } }
+                                },
+                                plugins: { legend: { display: false } },
+                                maintainAspectRatio: false
+                            }
+                        });
+                    }
+                } else {
+                    activityTitle.textContent = 'Session Activity (Words)';
+                    if (ctxActivity && wordCounts.length > 0) {
+                        new Chart(ctxActivity, {
+                            type: 'bar',
+                            data: {
+                                labels: sessionLabels,
+                                datasets: [{
+                                    label: 'Word Count',
+                                    data: wordCounts,
+                                    backgroundColor: 'rgba(108, 99, 255, 0.7)',
+                                    borderRadius: 4
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                                    x: { grid: { display: false } }
+                                },
+                                plugins: { legend: { display: false } },
+                                maintainAspectRatio: false
+                            }
+                        });
+                    }
                 }
 
                 // 4. Overall Emotion - Pie Chart
