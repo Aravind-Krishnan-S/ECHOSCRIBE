@@ -196,6 +196,8 @@ async function identifySpeakers(diarizedTranscript, pitchMetadata = '') {
                 role: 'system',
                 content: `You are an expert at analyzing counseling session transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the Therapist and which is the Patient.
 
+CRITICAL INSTRUCTION: There are exactly two people. Exactly ONE person is the "Therapist" and exactly ONE person is the "Patient". They CANNOT both be the Therapist, and they CANNOT both be the Patient. You MUST assign mutually exclusive roles.
+
 Clues to identify the Therapist:
 - Asks open-ended questions ("How does that make you feel?", "Tell me more about...")
 - Uses therapeutic language ("I hear you", "Let's explore that")
