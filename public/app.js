@@ -53,6 +53,9 @@
     const uploadProgressBar = document.getElementById('upload-progress-bar');
     const uploadProgressText = document.getElementById('upload-progress-text');
 
+    // --- State Variables ---
+    let currentAudioFile = null;
+
     // --- User Greeting ---
     const user = EchoAuth.getUser();
     if (user && userGreeting) {
@@ -691,6 +694,7 @@
             speaker2: { pitches: [], avgPitch: 0 },
         };
         hasTwoSpeakers = false;
+        currentAudioFile = null; // Clear lingering audio files
         transcriptBox.innerHTML = '';
         placeholder.style.display = 'inline';
         transcriptBox.appendChild(placeholder);
