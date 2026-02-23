@@ -15,9 +15,9 @@ const exportPdf = asyncHandler(async (req, res) => {
     }
 
     const analysis = session.analysis_json || {};
-    const soap = analysis.soap || {};
     const risk = analysis.risk_assessment || {};
     const stats = analysis.counselingStats || {};
+    const isMentoring = session.session_mode === 'Mentoring';
 
     const doc = new PDFDocument({ margin: 50 });
 
@@ -26,7 +26,8 @@ const exportPdf = asyncHandler(async (req, res) => {
     doc.pipe(res);
 
     // ─── Header ───
-    doc.fontSize(20).font('Helvetica-Bold').text('EchoScribe — Clinical Session Note', { align: 'center' });
+    const noteTypeHeader = isMentoring ? 'Academic Mentoring GROW Note' : 'Clinical Session SOAP Note';
+    doc.fontSize(20).font('Helvetica-Bold').text('EchoScribe — ' + noteTypeHeader, { align: 'center' });
     doc.moveDown(0.3);
     doc.fontSize(10).font('Helvetica').fillColor('#666')
         .text(`Date: ${new Date(session.created_at).toLocaleString()}  |  Client: ${stats.name || 'Unknown'}  |  Confidence: ${((analysis.confidence_score || 0) * 100).toFixed(0)}%`, { align: 'center' });
@@ -34,15 +35,27 @@ const exportPdf = asyncHandler(async (req, res) => {
     doc.strokeColor('#ccc').lineWidth(0.5).moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
     doc.moveDown(0.8);
 
-    // ─── SOAP Sections ───
-    const soapSections = [
-        { title: 'S — Subjective', content: soap.subjective },
-        { title: 'O — Objective', content: soap.objective },
-        { title: 'A — Assessment', content: soap.assessment },
-        { title: 'P — Plan', content: soap.plan },
-    ];
+    // ─── Notes Sections (SOAP vs GROW) ───
+    let sections = [];
+    if (isMentoring) {
+        const grow = analysis.grow || {};
+        sections = [
+            { title: 'G — Goal', content: grow.goal },
+            { title: 'R — Reality', content: grow.reality },
+            { title: 'O — Options', content: grow.options },
+            { title: 'W — Way Forward', content: grow.way_forward },
+        ];
+    } else {
+        const soap = analysis.soap || {};
+        sections = [
+            { title: 'S — Subjective', content: soap.subjective },
+            { title: 'O — Objective', content: soap.objective },
+            { title: 'A — Assessment', content: soap.assessment },
+            { title: 'P — Plan', content: soap.plan },
+        ];
+    }
 
-    soapSections.forEach(({ title, content }) => {
+    sections.forEach(({ title, content }) => {
         doc.fontSize(13).font('Helvetica-Bold').fillColor('#1a202c').text(title);
         doc.moveDown(0.2);
         doc.fontSize(10).font('Helvetica').fillColor('#333').text(content || 'Not documented', { lineGap: 3 });
@@ -55,8 +68,13 @@ const exportPdf = asyncHandler(async (req, res) => {
     doc.fontSize(13).font('Helvetica-Bold').fillColor('#c53030').text('Risk Assessment');
     doc.moveDown(0.2);
     doc.fontSize(10).font('Helvetica').fillColor('#333');
-    doc.text(`Suicidal Ideation: ${risk.suicidal_ideation ? 'YES — FLAGGED' : 'No'}`);
-    doc.text(`Self-Harm Risk: ${(risk.self_harm_risk || 'low').toUpperCase()}`);
+    if (isMentoring) {
+        doc.text(`Academic Burnout: ${risk.academic_burnout ? 'YES — FLAGGED' : 'No'}`);
+        doc.text(`Severe Distress Risk: ${(risk.severe_distress_risk || 'low').toUpperCase()}`);
+    } else {
+        doc.text(`Suicidal Ideation: ${risk.suicidal_ideation ? 'YES — FLAGGED' : 'No'}`);
+        doc.text(`Self-Harm Risk: ${(risk.self_harm_risk || 'low').toUpperCase()}`);
+    }
     doc.text(`Notes: ${risk.notes || 'None'}`);
     doc.moveDown(0.6);
 
@@ -110,18 +128,21 @@ const exportCsv = asyncHandler(async (req, res) => {
     const rows = sessions.map((s) => {
         const a = s.analysis_json || {};
         const soap = a.soap || {};
+        const grow = a.grow || {};
         const stats = a.counselingStats || {};
         const risk = a.risk_assessment || {};
+        const isM = s.session_mode === 'Mentoring';
 
         return {
             date: new Date(s.created_at).toISOString(),
+            mode: s.session_mode || 'Therapy',
             client_name: stats.name || 'Unknown',
-            subjective: soap.subjective || '',
-            objective: soap.objective || '',
-            assessment: soap.assessment || '',
-            plan: soap.plan || '',
+            subjective_or_goal: isM ? (grow.goal || '') : (soap.subjective || ''),
+            objective_or_reality: isM ? (grow.reality || '') : (soap.objective || ''),
+            assessment_or_options: isM ? (grow.options || '') : (soap.assessment || ''),
+            plan_or_way_forward: isM ? (grow.way_forward || '') : (soap.plan || ''),
             emotional_tone: a.emotional_tone || '',
-            risk_level: risk.self_harm_risk || 'low',
+            risk_level: isM ? (risk.severe_distress_risk || 'low') : (risk.self_harm_risk || 'low'),
             topics: (a.topics || []).join('; '),
             word_count: a.wordCount || 0,
             confidence: a.confidence_score || 0,

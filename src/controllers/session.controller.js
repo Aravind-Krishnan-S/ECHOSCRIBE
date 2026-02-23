@@ -5,15 +5,16 @@ const fs = require('fs');
 
 // POST /api/summarize — analyze + auto-save
 const summarize = asyncHandler(async (req, res) => {
-    // text and patientId now come from req.body (form-data)
-    const { text, patientId, language } = req.body;
+    // text, patientId, and mode now come from req.body (form-data)
+    const { text, patientId, language, mode } = req.body;
+    const sessionMode = mode || 'Therapy';
 
     if (!text || text.trim().length === 0) {
         if (req.file) fs.unlink(req.file.path, () => { });
         throw new AppError('No transcript text provided.', 400);
     }
 
-    const result = await aiService.summarizeTranscript(text, language || 'en');
+    const result = await aiService.summarizeTranscript(text, language || 'en', sessionMode);
 
     // 1. Upload audio if present
     let audioUrl = null;
@@ -40,10 +41,11 @@ const summarize = asyncHandler(async (req, res) => {
         const saved = await dbService.saveSession(req.supabaseToken, {
             userId: req.user.id,
             transcript: text,
-            summary: result.soap ? result.soap.subjective : '',
+            summary: result.soap ? result.soap.subjective : (result.grow ? result.grow.goal : ''),
             analysisJson: result,
             patientId: patientId || null,
-            audioUrl: audioUrl
+            audioUrl: audioUrl,
+            sessionMode: sessionMode
         });
         if (saved && saved.length > 0) {
             sessionId = saved[0].id;
@@ -58,7 +60,8 @@ const summarize = asyncHandler(async (req, res) => {
 
 // POST /api/session
 const saveSession = asyncHandler(async (req, res) => {
-    const { transcript, summary, analysisJson, patientId } = req.body;
+    const { transcript, summary, analysisJson, patientId, mode } = req.body;
+    const sessionMode = mode || 'Therapy';
     const userId = req.user.id;
 
     let parsedAnalysis = {};
@@ -92,7 +95,8 @@ const saveSession = asyncHandler(async (req, res) => {
         summary,
         analysisJson: parsedAnalysis,
         patientId: patientId || null,
-        audioUrl: audioUrl
+        audioUrl: audioUrl,
+        sessionMode: sessionMode
     });
 
     res.json({ success: true, data });

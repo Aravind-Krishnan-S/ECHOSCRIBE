@@ -40,6 +40,7 @@ const summarizeSchema = z.object({
     text: z.string().min(1, 'Transcript text is required').max(50000, 'Transcript too long'),
     patientId: z.string().uuid().optional(),
     language: z.string().optional().default('en'),
+    mode: z.enum(['Therapy', 'Mentoring']).optional().default('Therapy'),
 });
 
 const saveSessionSchema = z.object({
@@ -47,6 +48,7 @@ const saveSessionSchema = z.object({
     summary: z.string().optional().default(''),
     analysisJson: z.object({}).passthrough(),
     patientId: z.string().uuid().optional(),
+    mode: z.enum(['Therapy', 'Mentoring']).optional().default('Therapy'),
 });
 
 const createPatientSchema = z.object({

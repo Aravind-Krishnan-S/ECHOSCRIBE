@@ -56,7 +56,7 @@ async function uploadAudioToStorage(token, userId, audioBuffer, filename) {
 
 // --- Session Operations ---
 
-async function saveSession(token, { userId, transcript, summary, analysisJson, patientId, audioUrl }) {
+async function saveSession(token, { userId, transcript, summary, analysisJson, patientId, audioUrl, sessionMode }) {
     const client = getAuthClient(token);
     const row = {
         user_id: userId,
@@ -66,6 +66,7 @@ async function saveSession(token, { userId, transcript, summary, analysisJson, p
     };
     if (patientId) row.patient_id = patientId;
     if (audioUrl) row.audio_url = audioUrl;
+    if (sessionMode) row.session_mode = sessionMode;
 
     const { data, error } = await client
         .from('sessions')
