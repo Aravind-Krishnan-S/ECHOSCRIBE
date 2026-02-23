@@ -584,15 +584,46 @@
         summarizeIcon.style.display = 'none';
         summarizeSpinner.style.display = 'inline-block';
         summarizeLabel.textContent = 'Identifying speakers...';
-        showToast('🔍 Identifying Therapist & Patient from voice + content...');
 
         try {
-            // Step 1: LLM identifies Therapist/Patient from content
-            let labeledTranscript = rawTranscript;
+            // Step 1: LLM Fallback Diarization (if Deepgram missed the speaker split)
+            let currentSegments = speakerSegments;
+            if (!hasTwoSpeakers) {
+                showToast('🧠 Audio split failed. Applying AI Conversational Logic...');
+                try {
+                    const diarizeResponse = await EchoAuth.authFetch('/api/diarize-transcript', {
+                        method: 'POST',
+                        body: JSON.stringify({ text: rawTranscript }),
+                    });
+                    if (diarizeResponse.ok) {
+                        const diarizedData = await diarizeResponse.json();
+                        if (diarizedData.turns && diarizedData.turns.length > 0) {
+                            currentSegments = diarizedData.turns.map(t => ({
+                                speaker: t.speaker,
+                                text: t.text,
+                                start: t.start || 0,
+                                end: t.end || 0
+                            }));
+                            speakerSegments = currentSegments;
+                            hasTwoSpeakers = true;
+                            renderTranscript(); // Update UI with logic splits
+                        }
+                    }
+                } catch (diarizeErr) {
+                    console.warn('[EchoScribe] LLM Diarization fallback failed:', diarizeErr);
+                }
+            }
+
+            // Generate the newly structured transcript text (Person 1/2) for analysis
+            let finalRawTranscript = speakerSegments.map(seg => `Person ${seg.speaker}: ${seg.text}`).join('\n');
+
+            // Step 2: LLM identifies Therapist/Patient from content
+            showToast('🔍 Identifying Therapist & Patient from voice + content...');
+            let labeledTranscript = finalRawTranscript;
             try {
                 const idResponse = await EchoAuth.authFetch('/api/identify-speakers', {
                     method: 'POST',
-                    body: JSON.stringify({ transcript: rawTranscript }),
+                    body: JSON.stringify({ transcript: finalRawTranscript }),
                 });
 
                 if (idResponse.ok) {
@@ -600,7 +631,7 @@
                     const p1Label = roles.person1_role || 'Person 1';
                     const p2Label = roles.person2_role || 'Person 2';
 
-                    labeledTranscript = rawTranscript
+                    labeledTranscript = finalRawTranscript
                         .replace(/^Person 1:/gm, `${p1Label}:`)
                         .replace(/^Person 2:/gm, `${p2Label}:`);
 
