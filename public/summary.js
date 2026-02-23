@@ -93,10 +93,10 @@
 
     // --- Load Data ---
     const raw = localStorage.getItem('echoscribe_summary');
-    if (!raw) { window.location.href = '/'; return; }
+    if (!raw) { window.location.href = '/record'; return; }
 
     let data;
-    try { data = JSON.parse(raw); } catch (e) { window.location.href = '/'; return; }
+    try { data = JSON.parse(raw); } catch (e) { window.location.href = '/record'; return; }
 
     const activePatientRaw = localStorage.getItem('echoscribe_active_patient');
     const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;

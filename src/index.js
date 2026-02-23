@@ -79,7 +79,8 @@ app.use((req, res, next) => {
             }, apiRoutes);
 
             // Page routes
-            app.get('/', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
+            app.get('/', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
+            app.get('/record', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'record.html')));
             app.get('/login', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
             app.get('/signup', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'signup.html')));
             app.get('/dashboard', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
