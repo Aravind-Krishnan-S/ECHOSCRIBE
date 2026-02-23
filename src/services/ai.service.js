@@ -185,8 +185,10 @@ async function transcribeAudio(filePath, lang = 'en') {
 
 // --- Speaker Identification via LLM ---
 
-async function identifySpeakers(diarizedTranscript) {
+async function identifySpeakers(diarizedTranscript, pitchMetadata = '') {
     if (!groq) throw new AppError('AI service not initialized', 500);
+
+    const pitchPromptInstructions = pitchMetadata ? `\n\nAUDIO FREQUENCY METADATA:\n${pitchMetadata}\nThis is the true acoustic pitch of the speakers. Typical male adult fundamental frequency is around 100-140 Hz, while female adult frequency is around 180-240 Hz. If it is clear that one relies on pitch context, use this as a strong heuristic to determine the Therapist and Patient, taking into consideration any contextual clues.` : '';
 
     const chatCompletion = await groq.chat.completions.create({
         messages: [
@@ -204,7 +206,7 @@ Clues to identify the Patient:
 - Describes personal experiences, feelings, problems
 - Responds to questions rather than asking clinical ones
 - Shares emotional content, concerns, symptoms
-- Seeks advice or help
+- Seeks advice or help${pitchPromptInstructions}
 
 You MUST respond with valid JSON only.`
             },
