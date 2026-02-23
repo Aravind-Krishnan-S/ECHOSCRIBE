@@ -12,7 +12,7 @@
 |---|---|
 | 🎙️ **Dual-Architecture Transcription** | Live speech-to-text via Groq Whisper with instant visual feedback, backed by pristine Deepgram Nova-2 diarization for the final transcript |
 | 🗣️ **Native Speaker Diarization** | Deepgram AI instantly differentiates between Counsellor & Patient (via audio + LLM role identification) |
-| 🗄️ **Integrated Audio Storage** | Recorded and uploaded sessions are auto-saved to secure Supabase Storage buckets, enabling playback directly on the Session Summary |
+| 🗄️ **Integrated Audio Storage** | Recorded and uploaded sessions are auto-saved to secure Supabase Storage buckets for permanent secure archiving |
 | 📁 **File Uploads** | Batch-upload pre-recorded clinical MP3, WAV, WEBM, OGG, FLAC, M4A files for instant bulk analysis |
 | 🌐 **Multilingual Core** | Full support for English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
 | 📋 **Clinical SOAP Notes** | AI-generated Subjective, Objective, Assessment, and Plan summaries |

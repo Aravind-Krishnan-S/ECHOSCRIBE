@@ -91,14 +91,6 @@
     let data;
     try { data = JSON.parse(raw); } catch (e) { window.location.href = '/'; return; }
 
-    // --- Audio Playback ---
-    const audioContainer = document.getElementById('audio-player-container');
-    const audioPlayer = document.getElementById('session-audio-player');
-    if (data.audioUrl || data.audio_url) {
-        audioPlayer.src = data.audioUrl || data.audio_url;
-        audioContainer.style.display = 'block';
-    }
-
     const activePatientRaw = localStorage.getItem('echoscribe_active_patient');
     const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;
 
