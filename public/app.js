@@ -584,10 +584,10 @@
         summarizeIcon.style.display = 'none';
         summarizeSpinner.style.display = 'inline-block';
         summarizeLabel.textContent = 'Identifying speakers...';
-        showToast('🔍 Identifying Counsellor & Patient from voice + content...');
+        showToast('🔍 Identifying Therapist & Patient from voice + content...');
 
         try {
-            // Step 1: LLM identifies Counsellor/Patient from content
+            // Step 1: LLM identifies Therapist/Patient from content
             let labeledTranscript = rawTranscript;
             try {
                 const idResponse = await EchoAuth.authFetch('/api/identify-speakers', {

@@ -11,7 +11,7 @@
 | Feature | Description |
 |---|---|
 | 🎙️ **Dual-Architecture Transcription** | Live speech-to-text via Groq Whisper with instant visual feedback, backed by pristine Deepgram Nova-2 diarization for the final transcript |
-| 🗣️ **Native Speaker Diarization** | Deepgram AI instantly differentiates between Counsellor & Patient (via audio + LLM role identification) |
+| 🗣️ **Native Speaker Diarization** | Deepgram AI instantly differentiates between Therapist & Patient (via audio + LLM role identification) |
 | 🗄️ **Integrated Audio Storage** | Recorded and uploaded sessions are auto-saved to secure Supabase Storage buckets for permanent secure archiving |
 | 📁 **File Uploads** | Batch-upload pre-recorded clinical MP3, WAV, WEBM, OGG, FLAC, M4A files for instant bulk analysis |
 | 🌐 **Multilingual Core** | Full support for English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
@@ -32,7 +32,7 @@ EchoScribe completely bypasses generic LLM hallucinating by natively using **Dee
 
 1. **Dual-Recorder Streaming**: During a live session, the frontend streams micro-chunks to Groq Whisper for instant visual feedback on-screen. Concurrently, a perfect contiguous WebM blob is maintained silently in the background.
 2. **Post-Processing**: Upon clicking *Analyze*, the full blob is piped directly to Deepgram's `nova-2` endpoint alongside local file uploads.
-3. **Turn Identification**: Deepgram maps the raw dialogue into timestamps and generic identities. Finally, an LLM pass intelligently tags exactly which speaker is the **Counsellor** and which is the **Patient** based on clinical context structure.
+3. **Turn Identification**: Deepgram maps the raw dialogue into timestamps and generic identities. Finally, an LLM pass intelligently tags exactly which speaker is the **Therapist** and which is the **Patient** based on clinical context structure.
 
 ---
 
