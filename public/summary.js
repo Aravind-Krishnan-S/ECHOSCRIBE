@@ -324,7 +324,13 @@
     renderCharts(data);
 
     // --- Original Transcript ---
-    originalTranscript.textContent = data.originalText || 'No original text available.';
+    let originalText = data.originalText || 'No original text available.';
+    const savedActivePatient = JSON.parse(localStorage.getItem('echoscribe_active_patient') || '{}');
+    if (savedActivePatient && savedActivePatient.name) {
+        // Find and replace generic Patient role with actual name
+        originalText = originalText.replace(/\bPatient:/g, `${savedActivePatient.name}:`);
+    }
+    originalTranscript.textContent = originalText;
 
     // --- History ---
     fetchHistory();
