@@ -1,8 +1,17 @@
 const { Resend } = require('resend');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
-// Redeploy trigger: 2026-02-22T21:44:00
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendInstance = null;
+function getResendClient() {
+    if (!resendInstance) {
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('[Communications] RESEND_API_KEY is missing. Email features will fail.');
+            return null;
+        }
+        resendInstance = new Resend(process.env.RESEND_API_KEY);
+    }
+    return resendInstance;
+}
 
 // POST /api/communications/send
 const sendCommunication = asyncHandler(async (req, res) => {
@@ -22,6 +31,9 @@ const sendCommunication = asyncHandler(async (req, res) => {
     // Send Real Email via Resend
     if (patientEmail) {
         try {
+            const resend = getResendClient();
+            if (!resend) throw new Error('Resend client not configured.');
+
             const { data, error } = await resend.emails.send({
                 from: 'onboarding@resend.dev',
                 to: [patientEmail],
