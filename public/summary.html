@@ -1,449 +1,215 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EchoScribe — Clinical SOAP Summary</title>
-    <meta name="description" content="AI-generated clinical SOAP note and analysis." />
+    <title>EchoScribe — AI Summary Readout</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="card.css" />
-    <link rel="stylesheet" href="modal.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Global Mode Script -->
+    <script src="mode.js"></script>
+    <style>
+        .summary-header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .summary-meta {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        /* SOAP / GROW Layout */
+        .soap-grid,
+        .grow-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        [data-mode="mentoring"] .soap-grid {
+            display: none;
+        }
+
+        [data-mode="therapy"] .grow-grid {
+            display: none;
+        }
+
+        .soap-item {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            transition: all var(--transition-medium);
+        }
+
+        .soap-item:hover {
+            border-color: var(--border-strong);
+            transform: translateY(-2px);
+        }
+
+        .soap-label {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            color: var(--mode-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .soap-content {
+            font-family: var(--font-reading);
+            color: var(--text-primary);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        /* Warning Banner */
+        .risk-banner {
+            display: none;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        .risk-banner.active {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        /* Actions Container */
+        .action-container {
+            display: flex;
+            gap: 1rem;
+            margin-top: 3rem;
+            justify-content: flex-end;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+    </style>
 </head>
 
-<body>
+<body data-mode="therapy">
     <div class="bg-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
         <div class="blob blob-3"></div>
     </div>
 
-    <main class="container summary-container">
-        <!-- Navigation -->
-        <div class="summary-nav">
-            <a href="/record" class="back-link" id="back-link">
-                <span>←</span>
-                <span>Back to Recorder</span>
-            </a>
-            <div class="header-actions">
-                <button id="theme-toggle" class="btn btn-icon-only" title="Toggle Theme">🌙</button>
-                <a href="/dashboard" class="btn btn-secondary btn-sm">📊 Dashboard</a>
-                <a id="btn-insights" href="#" class="btn btn-secondary btn-sm" title="View Patient Insights"
-                    style="display:none;">📊 Insights</a>
-                <button id="btn-logout" class="btn btn-secondary btn-sm">🚪 Logout</button>
-            </div>
-        </div>
-
+    <main class="container" style="max-width: 900px;">
         <header class="summary-header">
-            <span class="summary-page-icon">🩺</span>
-            <h1 class="summary-page-title">Clinical SOAP Note</h1>
-            <p class="summary-page-subtitle">AI-powered analysis by EchoScribe</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h1 style="font-family: var(--font-serif); font-size: 2.5rem; font-style: italic; color: var(--text-primary); margin: 0 0 0.5rem 0;"
+                        id="page-title">Session Readout</h1>
+                    <div class="summary-meta">
+                        <span id="meta-date">Date: ...</span>
+                        <span id="meta-patient" data-mode-text="patient">Patient: ...</span>
+                        <span id="meta-words">Words: ...</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-back" class="btn btn-secondary btn-sm">← Back</button>
+                    <button id="btn-export" class="btn btn-secondary btn-sm" title="Export as PDF">📥 PDF</button>
+                    <button id="btn-save" class="btn btn-primary btn-sm" title="Save to Database">💾 Save
+                        Session</button>
+                </div>
+            </div>
         </header>
 
-        <!-- Risk Badge -->
-        <div class="risk-banner" id="risk-banner" style="display: none;">
-            <span class="risk-icon" id="risk-icon">⚠️</span>
-            <span class="risk-text" id="risk-text">Risk assessment pending</span>
-        </div>
-
-        <!-- Confidence Score -->
-        <div class="confidence-bar" id="confidence-bar">
-            <span class="confidence-label">AI Confidence:</span>
-            <div class="confidence-track">
-                <div class="confidence-fill" id="confidence-fill" style="width: 0%"></div>
-            </div>
-            <span class="confidence-value" id="confidence-value">—%</span>
-        </div>
-
-        <!-- Counseling Card Section -->
-        <div class="counseling-card-container">
-            <div class="counseling-card">
-                <div class="card-header">
-                    <span class="card-name" id="card-name">Unknown</span>
-                    <span class="card-hp">LVL <span id="card-lvl">1</span></span>
-                </div>
-                <div class="card-image-frame">
-                    <span class="card-avatar" id="card-avatar">👤</span>
-                </div>
-                <div class="card-stats">
-                    <div class="stat-row">
-                        <span class="stat-label">Problem</span>
-                        <span class="stat-text" id="card-problem">Analyzing...</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Goal/Reason</span>
-                        <span class="stat-text" id="card-reason">Analyzing...</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Progress</span>
-                        <span class="stat-text" id="card-progress">Analyzing...</span>
-                    </div>
-                    <div class="stat-row" style="margin-top: 5px;">
-                        <span class="stat-label">Mood</span>
-                        <span class="emotion-pill" id="card-mood">Neutral</span>
-                    </div>
-                </div>
-                <div class="card-footer">"Every step forward is a victory."</div>
+        <div id="risk-banner" class="risk-banner">
+            <span style="font-size: 1.5rem; line-height: 1; color: var(--danger);">⚠️</span>
+            <div>
+                <h3 style="margin: 0 0 0.25rem 0; font-family: var(--font-ui); color: var(--danger);">Clinical Alerts
+                    Flagged</h3>
+                <p id="risk-text" style="margin: 0; font-family: var(--font-reading);">Review recommended immediately.
+                </p>
             </div>
         </div>
 
-        <!-- Stats Bar -->
-        <div class="stats-bar" id="stats-bar">
-            <div class="stat-item">
-                <span class="stat-value" id="stat-words">—</span>
-                <span class="stat-label">Words</span>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <span class="stat-value" id="stat-duration">—</span>
-                <span class="stat-label">Est. Duration</span>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <span class="stat-value" id="stat-topics">—</span>
-                <span class="stat-label">Topics</span>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <span class="stat-badge" id="stat-sentiment">—</span>
-                <span class="stat-label">Tone</span>
-            </div>
-        </div>
-
-        <!-- SOAP Sections -->
+        <!-- THERAPY MODE (SOAP) -->
+        <h2 class="section-title">Clinical Notes (SOAP)</h2>
         <div class="soap-grid" id="soap-grid">
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent accent-soap-s"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter">S</span> Subjective <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="soap-subjective" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(108,99,255,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>💡</span> Subjective</div>
+                <div class="soap-content" id="soap-s">Patient's chief complaint and history...</div>
             </div>
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent accent-soap-o"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter">O</span> Objective <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="soap-objective" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(108,99,255,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>📊</span> Objective</div>
+                <div class="soap-content" id="soap-o">Observable metrics and behavior...</div>
             </div>
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent accent-soap-a"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter">A</span> Assessment <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="soap-assessment" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(108,99,255,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>🧠</span> Assessment</div>
+                <div class="soap-content" id="soap-a">Clinical synthesis and impressions...</div>
             </div>
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent accent-soap-p"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter">P</span> Plan <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="soap-plan" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(108,99,255,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>📋</span> Plan</div>
+                <div class="soap-content" id="soap-p">Next steps and interventions...</div>
             </div>
         </div>
 
-        <!-- GROW Sections (Mentoring Mode) -->
-        <div class="soap-grid" id="grow-grid" style="display: none;">
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent" style="background:#4fd1c5;"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter"
-                            style="background:rgba(79,209,197,0.2); color:#4fd1c5;">G</span> Goal <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="grow-goal" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(79,209,197,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+        <!-- MENTORING MODE (GROW) -->
+        <h2 class="section-title">Academic Notes (GROW)</h2>
+        <div class="grow-grid" id="grow-grid">
+            <div class="soap-item">
+                <div class="soap-label"><span>🎯</span> Goal</div>
+                <div class="soap-content" id="grow-g">What does the mentee want to achieve?</div>
             </div>
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent" style="background:#63b3ed;"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter"
-                            style="background:rgba(99,179,237,0.2); color:#63b3ed;">R</span> Reality <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="grow-reality" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(99,179,237,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>🌍</span> Reality</div>
+                <div class="soap-content" id="grow-r">What is the current situation?</div>
             </div>
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent" style="background:#f6ad55;"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter"
-                            style="background:rgba(246,173,85,0.2); color:#f6ad55;">O</span> Options <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="grow-options" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(246,173,85,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>🛤️</span> Options</div>
+                <div class="soap-content" id="grow-o">What could they do?</div>
             </div>
-            <div class="summary-card soap-card">
-                <div class="summary-card-accent" style="background:#f687b3;"></div>
-                <div class="summary-card-content">
-                    <h2 class="summary-card-title"><span class="card-icon soap-letter"
-                            style="background:rgba(246,135,179,0.2); color:#f687b3;">W</span> Way Forward <span
-                            style="font-size:0.8rem; font-weight:normal; color:#8892b0; margin-left:auto;">✏️
-                            Edit</span></h2>
-                    <div class="summary-text editable" id="grow-way-forward" contenteditable="true"
-                        style="outline:none; padding: 0.5rem; background: rgba(0,0,0,0.15); border: 1px dashed rgba(246,135,179,0.2); border-radius: 8px; min-height: 50px;">
-                        Loading...</div>
-                </div>
+            <div class="soap-item">
+                <div class="soap-label"><span>🚀</span> Way Forward</div>
+                <div class="soap-content" id="grow-w">What will they do?</div>
             </div>
         </div>
 
-        <!-- Risk Assessment Card -->
-        <div class="summary-card" id="risk-card">
-            <div class="summary-card-accent accent-pink"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">🛡️</span> Risk Assessment</h2>
-                <div class="risk-details">
-                    <div class="risk-row">
-                        <span>Suicidal Ideation:</span>
-                        <span class="risk-badge" id="risk-si">No</span>
-                    </div>
-                    <div class="risk-row">
-                        <span>Self-Harm Risk:</span>
-                        <span class="risk-badge" id="risk-sh-level">Low</span>
-                    </div>
-                    <p class="risk-notes" id="risk-notes">No risk factors identified.</p>
-                </div>
+        <!-- Full Transcript -->
+        <h2 class="section-title">Original Transcript</h2>
+        <div class="card" style="padding: 1.5rem;">
+            <div id="full-transcript"
+                style="font-family: var(--font-reading); color: var(--text-secondary); line-height: 1.8; white-space: pre-wrap; font-size: 0.95rem;">
+                No transcript available.
             </div>
         </div>
 
-        <!-- Auto-Booking Card -->
-        <div class="summary-card" id="booking-card">
-            <div class="summary-card-accent" style="background: linear-gradient(to bottom, #805ad5, #553c9a);"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">📅</span> Auto-Booking Follow-Up</h2>
-                <div class="risk-details">
-                    <div class="risk-row">
-                        <span>Follow-up Needed:</span>
-                        <span class="risk-badge" id="booking-needed">No</span>
-                    </div>
-                    <div class="risk-row">
-                        <span>Suggested Timeframe:</span>
-                        <span style="color:#e0e6ed; font-weight:500;" id="booking-timeframe">None</span>
-                    </div>
-                    <p class="risk-notes" id="booking-reason">No follow-up discussed.</p>
-                </div>
-                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-direction: column;">
-                    <button class="btn btn-sm" id="btn-create-booking"
-                        style="background:#805ad5; color:#fff; width:100%; border-radius:6px; display:none;">Schedule
-                        It</button>
-                    <button class="btn btn-sm" id="btn-reschedule-booking"
-                        style="background:rgba(255,255,255,0.1); color:#fff; width:100%; border-radius:6px; display:none;">Reschedule
-                        / Manage Appointment</button>
-                </div>
-            </div>
+        <div class="action-container">
+            <button id="btn-bottom-save" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1.1rem;">💾 Save
+                Session to Database</button>
         </div>
 
-        <!-- Referral Card -->
-        <div class="summary-card" id="referral-card">
-            <div class="summary-card-accent" style="background: linear-gradient(to bottom, #ed64a6, #b83280);"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">🤝</span> Referral</h2>
-                <div class="risk-details">
-                    <div class="risk-row">
-                        <span>Referral Needed:</span>
-                        <span class="risk-badge" id="referral-needed">No</span>
-                    </div>
-                    <div class="risk-row">
-                        <span>Specialty:</span>
-                        <span style="color:#e0e6ed; font-weight:500;" id="referral-specialty">None</span>
-                    </div>
-                    <p class="risk-notes" id="referral-reason">No referral necessary.</p>
-                </div>
-                <div style="margin-top: 1rem;">
-                    <button class="btn btn-sm" id="btn-create-referral"
-                        style="background:#ed64a6; color:#fff; width:100%; border-radius:6px; display:none;">Generate
-                        Referral
-                        Form</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Diagnostic Impressions -->
-        <div class="summary-card" id="diagnostic-card">
-            <div class="summary-card-accent accent-blue"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">🔬</span> Diagnostic Impressions</h2>
-                <ul class="key-points-list" id="diagnostic-list">
-                    <li>Loading...</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Interventions Used -->
-        <div class="summary-card" id="interventions-card">
-            <div class="summary-card-accent accent-green"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">🧰</span> Interventions Used</h2>
-                <div class="topics-pills" id="interventions-pills"></div>
-            </div>
-        </div>
-
-        <!-- Medication Changes -->
-        <div class="summary-card" id="medication-card">
-            <div class="summary-card-accent" style="background: linear-gradient(to bottom, #f6ad55, #ed8936);"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">💊</span> Medication Changes</h2>
-                <ul class="key-points-list" id="medication-list">
-                    <li>None recorded</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Progress Indicators -->
-        <div class="summary-card" id="progress-card">
-            <div class="summary-card-accent" style="background: linear-gradient(to bottom, #4fd1c5, #38b2ac);"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">📈</span> Progress Indicators</h2>
-                <ul class="key-points-list" id="progress-list">
-                    <li>Loading...</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Visual Insights (Charts) -->
-        <div class="charts-grid">
-            <div class="chart-container">
-                <h3 style="color:#e0e6ed; margin-bottom:1rem; font-size:1rem;">Topic Distribution</h3>
-                <canvas id="topicsChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h3 style="color:#e0e6ed; margin-bottom:1rem; font-size:1rem;">Session Composition</h3>
-                <canvas id="sentimentChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Patient Communication Card -->
-        <div class="summary-card" style="grid-column: 1 / -1; margin-top: 1.5rem; max-width: 100%;">
-            <div class="summary-card-accent" style="background: linear-gradient(to bottom, #4299e1, #2b6cb0);"></div>
-            <div class="summary-card-content">
-                <h2 class="summary-card-title"><span class="card-icon">✉️</span> Multilingual Patient Instructions</h2>
-                <div style="display:flex; flex-direction:column; gap:1rem; margin-top: 1rem;">
-                    <div>
-                        <span
-                            style="font-size:0.8rem; color:#8892b0; text-transform:uppercase; letter-spacing:1px; font-weight:bold;">English</span>
-                        <p id="comm-english"
-                            style="color:#e0e6ed; padding: 0.75rem; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top:0.5rem;">
-                            None generated.</p>
-                    </div>
-                    <div>
-                        <span
-                            style="font-size:0.8rem; color:#8892b0; text-transform:uppercase; letter-spacing:1px; font-weight:bold;">Translated
-                            (Native Language)</span>
-                        <p id="comm-translated"
-                            style="color:#e0e6ed; padding: 0.75rem; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top:0.5rem;">
-                            None generated.</p>
-                    </div>
-                    <button class="btn btn-sm" id="btn-send-patient-instructions"
-                        style="align-self: flex-start; background: #2b6cb0; color: #fff;">Send to Patient</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Topics -->
-        <div class="topics-section" id="topics-section" style="display: none;">
-            <h2 class="summary-card-title">
-                <span class="card-icon">🏷️</span> Topics Detected
-            </h2>
-            <div class="topics-pills" id="topics-pills"></div>
-        </div>
-
-        <!-- Original Transcript (collapsible) -->
-        <details class="original-transcript-details">
-            <summary class="original-transcript-toggle">
-                <span class="card-icon">📄</span> View Original Transcript
-            </summary>
-            <div class="original-transcript-box" id="original-transcript">Loading...</div>
-        </details>
-
-        <!-- Actions -->
-        <div class="summary-actions">
-            <button id="btn-save" class="btn btn-save" title="Save Session" style="background: #2b6cb0;">
-                <span class="btn-icon">💾</span>
-                <span>Save Session</span>
-            </button>
-            <button id="btn-export-pdf" class="btn" title="Export PDF" style="background: #c53030;">
-                <span class="btn-icon">📄</span>
-                <span>Export PDF</span>
-            </button>
-            <button id="btn-copy-summary" class="btn btn-summarize" title="Copy SOAP Note">
-                <span class="btn-icon">📋</span>
-                <span>Copy SOAP</span>
-            </button>
-            <a href="/" class="btn btn-record" title="New Recording" style="text-decoration:none;">
-                <span class="btn-icon">🎤</span>
-                <span>New Recording</span>
-            </a>
-        </div>
-
-        <!-- History & Profile Section -->
-        <div class="history-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                <h2 class="summary-card-title" style="margin:0;">📜 Session History</h2>
-                <div style="display:flex; gap:0.5rem;">
-                    <button id="btn-export-csv" class="btn"
-                        style="font-size:0.8rem; padding:0.4rem 0.8rem; background:#38a169; color:#fff;">
-                        Export CSV
-                    </button>
-                    <button id="btn-analyze-profile" class="btn"
-                        style="font-size:0.8rem; padding:0.4rem 0.8rem; background:#4fd1c5; color:#1a202c;">
-                        Analyze Profile
-                    </button>
-                </div>
-            </div>
-            <div id="history-list">
-                <p style="color:#718096; font-style:italic;">No history loaded.</p>
-            </div>
-        </div>
-
-        <!-- Profile Modal -->
-        <div class="modal-overlay" id="profile-modal">
-            <div class="modal">
-                <div class="modal-header">
-                    <span class="modal-title">📊 Client Intelligence Profile</span>
-                    <button class="modal-close" id="modal-close">✕</button>
-                </div>
-                <div id="modal-content">
-                    <p style="color:#718096;">Loading profile analysis...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Toast -->
-        <div id="toast" class="toast" style="display: none;">
+        <!-- Toast Notification -->
+        <div id="toast" class="toast">
             <span id="toast-message"></span>
         </div>
 
-        <footer class="footer">
-            <p>EchoScribe — AI-assisted clinical documentation. This is not a substitute for clinical judgment.</p>
+        <footer
+            style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-subtle); text-align: center; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 0.85rem;">
+            <p>EchoScribe — AI Summary Readout</p>
         </footer>
     </main>
 

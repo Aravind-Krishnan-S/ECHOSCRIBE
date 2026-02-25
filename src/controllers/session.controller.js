@@ -1,3 +1,4 @@
+/* src/controllers/session.controller.js */
 const aiService = require('../services/ai.service');
 const dbService = require('../services/db.service');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
@@ -5,16 +6,19 @@ const fs = require('fs');
 
 // POST /api/summarize — analyze + auto-save
 const summarize = asyncHandler(async (req, res) => {
-    // text, patientId, and mode now come from req.body (form-data)
     const { text, patientId, language, mode } = req.body;
-    const sessionMode = mode || 'Therapy';
+
+    if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
+        if (req.file) fs.unlink(req.file.path, () => { });
+        throw new AppError("Strict Data Isolation: 'mode' in form data is required and must be Therapy or Mentoring.", 400);
+    }
 
     if (!text || text.trim().length === 0) {
         if (req.file) fs.unlink(req.file.path, () => { });
         throw new AppError('No transcript text provided.', 400);
     }
 
-    const result = await aiService.summarizeTranscript(text, language || 'en', sessionMode);
+    const result = await aiService.summarizeTranscript(text, language || 'en', mode);
 
     // 1. Upload audio if present
     let audioUrl = null;
@@ -45,7 +49,7 @@ const summarize = asyncHandler(async (req, res) => {
             analysisJson: result,
             patientId: patientId || null,
             audioUrl: audioUrl,
-            sessionMode: sessionMode
+            sessionMode: mode
         });
         if (saved && saved.length > 0) {
             sessionId = saved[0].id;
@@ -61,8 +65,12 @@ const summarize = asyncHandler(async (req, res) => {
 // POST /api/session
 const saveSession = asyncHandler(async (req, res) => {
     const { transcript, summary, analysisJson, patientId, mode } = req.body;
-    const sessionMode = mode || 'Therapy';
     const userId = req.user.id;
+
+    if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
+        if (req.file) fs.unlink(req.file.path, () => { });
+        throw new AppError("Strict Data Isolation: 'mode' is required and must be Therapy or Mentoring.", 400);
+    }
 
     let parsedAnalysis = {};
     if (typeof analysisJson === 'string') {
@@ -96,7 +104,7 @@ const saveSession = asyncHandler(async (req, res) => {
         analysisJson: parsedAnalysis,
         patientId: patientId || null,
         audioUrl: audioUrl,
-        sessionMode: sessionMode
+        sessionMode: mode
     });
 
     res.json({ success: true, data });
@@ -105,7 +113,13 @@ const saveSession = asyncHandler(async (req, res) => {
 // GET /api/history
 const getHistory = asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const data = await dbService.getHistory(req.supabaseToken, userId);
+    const mode = req.query.mode;
+
+    if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
+        throw new AppError("Strict Data Isolation: 'mode' is required.", 400);
+    }
+
+    const data = await dbService.getHistory(req.supabaseToken, userId, mode);
     res.json(data);
 });
 

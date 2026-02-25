@@ -23,7 +23,12 @@ const EchoAuth = (function () {
 
     function getUser() {
         const raw = localStorage.getItem(USER_KEY);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw);
+        } catch (e) {
+            return null;
+        }
     }
 
     function saveSession(data) {
