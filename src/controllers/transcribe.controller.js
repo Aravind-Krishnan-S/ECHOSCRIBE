@@ -2,7 +2,6 @@ const { transcribeWithGemini, identifyRoles, diarizeTranscript } = require('../s
 const { transcribeAndDiarizeWithDeepgram } = require('../services/deepgram.service');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
-const mime = require('mime-types');
 
 // POST /api/transcribe-audio
 const transcribe = asyncHandler(async (req, res) => {
@@ -15,7 +14,7 @@ const transcribe = asyncHandler(async (req, res) => {
 
     try {
         const audioBuffer = fs.readFileSync(req.file.path);
-        const mimeType = mime.lookup(req.file.originalname) || 'audio/webm';
+        const mimeType = req.file.mimetype || 'audio/webm';
 
         let formattedTranscript = '';
         let finalizedTurns = [];
