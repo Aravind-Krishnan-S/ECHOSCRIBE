@@ -1,3 +1,4 @@
+/* src/services/db.service.js */
 const { createClient } = require('@supabase/supabase-js');
 
 let supabase = null;
@@ -57,16 +58,20 @@ async function uploadAudioToStorage(token, userId, audioBuffer, filename) {
 // --- Session Operations ---
 
 async function saveSession(token, { userId, transcript, summary, analysisJson, patientId, audioUrl, sessionMode }) {
+    if (!sessionMode || (sessionMode !== 'Therapy' && sessionMode !== 'Mentoring')) {
+        throw new Error("Strict Mode Isolation: 'sessionMode' must be explicitly 'Therapy' or 'Mentoring'.");
+    }
+
     const client = getAuthClient(token);
     const row = {
         user_id: userId,
         transcript,
         summary,
         analysis_json: analysisJson,
+        session_mode: sessionMode // strictly enforce this column insertion
     };
     if (patientId) row.patient_id = patientId;
     if (audioUrl) row.audio_url = audioUrl;
-    if (sessionMode) row.session_mode = sessionMode;
 
     const { data, error } = await client
         .from('sessions')
@@ -77,37 +82,43 @@ async function saveSession(token, { userId, transcript, summary, analysisJson, p
     return data;
 }
 
-async function getHistory(token, userId) {
+async function getHistory(token, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('sessions')
         .select('*')
         .eq('user_id', userId)
+        .eq('session_mode', mode) // strict boundary
         .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data;
 }
 
-async function getSessionById(token, sessionId, userId) {
+async function getSessionById(token, sessionId, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('sessions')
         .select('*')
         .eq('id', sessionId)
         .eq('user_id', userId)
+        .eq('session_mode', mode) // strict boundary
         .single();
 
     if (error) throw error;
     return data;
 }
 
-async function getRecentSessions(token, userId, limit = 20) {
+async function getRecentSessions(token, userId, mode, limit = 20) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('sessions')
         .select('analysis_json, created_at')
         .eq('user_id', userId)
+        .eq('session_mode', mode) // strict boundary
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -117,74 +128,104 @@ async function getRecentSessions(token, userId, limit = 20) {
 
 // --- Patient Operations ---
 
-async function getPatients(token, userId) {
+async function getPatients(token, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const entityType = mode === 'Therapy' ? 'Patient' : 'Mentee';
+
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('patients')
         .select('*')
         .eq('user_id', userId)
+        .eq('entity_type', entityType) // strict boundary
         .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data;
 }
 
-async function createPatient(token, { userId, name, age, gender, notes, email, phone }) {
+async function createPatient(token, { userId, name, age, gender, notes, email, phone, mode }) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const entityType = mode === 'Therapy' ? 'Patient' : 'Mentee';
+
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('patients')
-        .insert([{ user_id: userId, name, age, gender, notes, email, phone }])
+        .insert([{
+            user_id: userId,
+            name,
+            age,
+            gender,
+            notes,
+            email,
+            phone,
+            entity_type: entityType // strictly set based on mode parameter
+        }])
         .select();
 
     if (error) throw error;
     return data;
 }
 
-async function updatePatient(token, patientId, userId, updates) {
+async function updatePatient(token, patientId, userId, updates, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const entityType = mode === 'Therapy' ? 'Patient' : 'Mentee';
+
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('patients')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', patientId)
         .eq('user_id', userId)
+        .eq('entity_type', entityType) // strictly enforce mode checking for safety
         .select();
 
     if (error) throw error;
     return data;
 }
 
-async function deletePatient(token, patientId, userId) {
+async function deletePatient(token, patientId, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const entityType = mode === 'Therapy' ? 'Patient' : 'Mentee';
+
     const client = getAuthClient(token);
     const { error } = await client
         .from('patients')
         .delete()
         .eq('id', patientId)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('entity_type', entityType); // strictly enforce safety
 
     if (error) throw error;
     return true;
 }
 
-async function getPatientSessions(token, patientId, userId) {
+async function getPatientSessions(token, patientId, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('sessions')
         .select('*')
         .eq('patient_id', patientId)
         .eq('user_id', userId)
+        .eq('session_mode', mode) // strict boundary
         .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data;
 }
 
-async function getPatientById(token, patientId, userId) {
+async function getPatientById(token, patientId, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const entityType = mode === 'Therapy' ? 'Patient' : 'Mentee';
+
     const client = getAuthClient(token);
     const { data, error } = await client
         .from('patients')
         .select('*')
         .eq('id', patientId)
         .eq('user_id', userId)
+        .eq('entity_type', entityType) // strict boundary
         .single();
 
     if (error) throw error;
@@ -207,4 +248,3 @@ module.exports = {
     getPatientSessions,
     getPatientById
 };
-

@@ -15,7 +15,14 @@
         window.location.href = '/dashboard';
         return;
     }
-    const activePatient = JSON.parse(activePatientData);
+    let activePatient;
+    try {
+        activePatient = JSON.parse(activePatientData);
+    } catch (e) {
+        localStorage.removeItem('echoscribe_active_patient');
+        window.location.href = '/dashboard.html';
+        return;
+    }
     const patientBanner = document.getElementById('active-patient-banner');
     if (patientBanner) {
         patientBanner.textContent = `👤 Patient: ${activePatient.name}`;
@@ -285,10 +292,11 @@
             let foundTwoSpeakers = false;
 
             if (data.turns && data.turns.length > 0) {
-                foundTwoSpeakers = data.turns.some(t => t.speaker === 2);
+                foundTwoSpeakers = data.turns.some(t => t.role !== t.speaker); // simplistic check
                 data.turns.forEach(turn => {
                     speakerSegments.push({
                         speaker: turn.speaker,
+                        role: turn.role, // from backend
                         text: turn.text,
                         start: turn.start || 0,
                         end: turn.end || 0
@@ -487,10 +495,9 @@
         let current = null;
 
         speakerSegments.forEach(seg => {
-            if (current && current.speaker === seg.speaker) {
+            if (current && current.role === seg.role) {
                 current.text += ' ' + seg.text;
                 current.end = seg.end;
-                current.identifiedRole = seg.identifiedRole || current.identifiedRole;
             } else {
                 if (current) grouped.push(current);
                 current = { ...seg };
@@ -500,14 +507,15 @@
 
         let html = '';
         grouped.forEach(group => {
+            // Pick an alternating class based on raw speaker ID for tinting
             let speakerClass = group.speaker === 0 ? 'speaker-0' : (group.speaker === 1 ? 'speaker-1' : 'speaker-2');
-            let label = group.identifiedRole || (group.speaker === 0 ? 'Live Processing...' : `Person ${group.speaker}`);
-            let roleIcon = label === 'Counsellor' ? '🩺' : label === 'Patient' ? '🗣️' : (group.speaker === 0 ? '🎙️' : '👤');
+            let label = group.role || group.identifiedRole || `Person ${group.speaker}`;
+            let roleIcon = label.includes('Counsellor') || label.includes('Therapist') ? '🩺' :
+                label.includes('Patient') ? '🗣️' :
+                    label.includes('Mentor') ? '💡' :
+                        label.includes('Mentee') ? '🎓' : '👤';
 
-            // Re-map colors safely
-            if (group.speaker === 0) speakerClass = 'speaker-1'; // fallback visually for live text
-
-            const timestamp = formatTime(group.start);
+            const timestamp = formatTime(group.start || Math.random() * 10);
 
             html += `<div class="speaker-block ${speakerClass}">`;
             html += `<div class="speaker-header">`;
@@ -567,8 +575,14 @@
     // =============================================
 
     async function summarizeTranscript() {
-        const rawTranscript = getFullTranscriptText();
-        if (!rawTranscript.trim()) {
+        // We now just use the pre-formatted transcript from the backend (or live segments if live)
+        // Ensure we pass the fully role-mapped text
+        const finalRawTranscript = speakerSegments.map(seg => {
+            const roleName = seg.role || seg.identifiedRole || `Person ${seg.speaker}`;
+            return `${roleName}:\n    ${seg.text}`;
+        }).join('\n\n');
+
+        if (!finalRawTranscript.trim()) {
             showToast('📝 No transcript to analyze');
             return;
         }
@@ -583,104 +597,16 @@
 
         summarizeIcon.style.display = 'none';
         summarizeSpinner.style.display = 'inline-block';
-        summarizeLabel.textContent = 'Identifying speakers...';
+        summarizeLabel.textContent = 'Analyzing...';
+        const selectedMode = EchoMode.getMode() === 'mentoring' ? 'Mentoring' : 'Therapy';
+        showToast(`✨ Generating ${selectedMode === 'Therapy' ? 'clinical SOAP' : 'mentoring GROW'} note...`);
 
         try {
-            // Step 1: LLM Fallback Diarization (if Deepgram missed the speaker split)
-            let currentSegments = speakerSegments;
-            if (!hasTwoSpeakers) {
-                showToast('🧠 Audio split failed. Applying AI Conversational Logic...');
-                try {
-                    const diarizeResponse = await EchoAuth.authFetch('/api/diarize-transcript', {
-                        method: 'POST',
-                        body: JSON.stringify({ text: rawTranscript }),
-                    });
-                    if (diarizeResponse.ok) {
-                        const diarizedData = await diarizeResponse.json();
-                        if (diarizedData.turns && diarizedData.turns.length > 0) {
-                            currentSegments = diarizedData.turns.map(t => ({
-                                speaker: t.speaker,
-                                text: t.text,
-                                start: t.start || 0,
-                                end: t.end || 0
-                            }));
-                            speakerSegments = currentSegments;
-                            hasTwoSpeakers = true;
-                            renderTranscript(); // Update UI with logic splits
-                        }
-                    }
-                } catch (diarizeErr) {
-                    console.warn('[EchoScribe] LLM Diarization fallback failed:', diarizeErr);
-                }
-            }
-
-            // Generate the newly structured transcript text (Person 1/2) for analysis
-            let finalRawTranscript = speakerSegments.map(seg => `Person ${seg.speaker}: ${seg.text}`).join('\n');
-
-            // Calculate Average Pitch per speaker
-            let p1Voice = { totalPitch: 0, count: 0 };
-            let p2Voice = { totalPitch: 0, count: 0 };
-
-            speakerSegments.forEach(seg => {
-                if (seg.speaker === 1 && seg.avgPitch) {
-                    p1Voice.totalPitch += seg.avgPitch;
-                    p1Voice.count++;
-                } else if (seg.speaker === 2 && seg.avgPitch) {
-                    p2Voice.totalPitch += seg.avgPitch;
-                    p2Voice.count++;
-                }
-            });
-
-            let p1Avg = p1Voice.count > 0 ? (p1Voice.totalPitch / p1Voice.count).toFixed(1) : 0;
-            let p2Avg = p2Voice.count > 0 ? (p2Voice.totalPitch / p2Voice.count).toFixed(1) : 0;
-            const pitchMetadata = (p1Avg > 0 && p2Avg > 0) ? `Person 1 Avg Pitch: ${p1Avg}Hz\nPerson 2 Avg Pitch: ${p2Avg}Hz` : '';
-
-            // Step 2: LLM identifies Therapist/Patient from content
-            showToast('🔍 Identifying speaker roles...');
-            let labeledTranscript = finalRawTranscript;
-            const selectedMode = document.getElementById('mode-select').value;
-            try {
-                const idResponse = await EchoAuth.authFetch('/api/identify-speakers', {
-                    method: 'POST',
-                    body: JSON.stringify({ transcript: finalRawTranscript, pitchMetadata, mode: selectedMode }),
-                });
-
-                if (idResponse.ok) {
-                    const roles = await idResponse.json();
-                    let p1Label = roles.person1_role || 'Person 1';
-                    let p2Label = roles.person2_role || 'Person 2';
-
-                    // Replace generic 'Patient' with actual patient profile name
-                    if (activePatient && activePatient.name) {
-                        const preciseName = activePatient.name;
-                        if (p1Label === 'Patient') p1Label = preciseName;
-                        if (p2Label === 'Patient') p2Label = preciseName;
-                    }
-
-                    labeledTranscript = finalRawTranscript
-                        .replace(/^Person 1:/gm, `${p1Label}:`)
-                        .replace(/^Person 2:/gm, `${p2Label}:`);
-
-                    speakerSegments.forEach(seg => {
-                        seg.identifiedRole = seg.speaker === 1 ? p1Label : p2Label;
-                    });
-                    renderTranscriptWithRoles();
-
-                    showToast(`✅ Person 1 → ${p1Label}, Person 2 → ${p2Label}`);
-                }
-            } catch (idErr) {
-                console.warn('[EchoScribe] Speaker ID failed, using Person labels:', idErr);
-            }
-
-            // Step 2: AI analysis
-            summarizeLabel.textContent = 'Analyzing...';
-            showToast(`✨ Generating ${selectedMode === 'Therapy' ? 'clinical SOAP' : 'mentoring GROW'} note...`);
-
             const selectedLanguage = document.getElementById('lang-select').value;
 
-            // Build FormData instead of JSON so we can send the audio file text string
+            // Build FormData
             const formData = new FormData();
-            formData.append('text', labeledTranscript);
+            formData.append('text', finalRawTranscript);
             formData.append('language', selectedLanguage);
             formData.append('mode', selectedMode);
             if (activePatient) {
@@ -702,7 +628,7 @@
 
             const data = await response.json();
 
-            data.diarizedTranscript = labeledTranscript;
+            data.diarizedTranscript = finalRawTranscript;
             localStorage.setItem('echoscribe_summary', JSON.stringify(data));
             if (data.sessionId) {
                 localStorage.setItem('echoscribe_session_id', data.sessionId);
@@ -873,16 +799,16 @@
                 throw new Error('No speech detected in the audio file.');
             }
 
-            // Since we switched to Deepgram, the backend returns accurately diarized 'turns' automatically!
+            // Backend now perfectly resolves roles + texts
             if (data.turns && data.turns.length > 0) {
                 hasTwoSpeakers = data.turns.some(t => t.speaker === 2);
                 data.turns.forEach(turn => {
                     speakerSegments.push({
                         speaker: turn.speaker,
+                        role: turn.role,
                         text: turn.text,
                         start: turn.start || 0,
-                        end: turn.end || 0,
-                        avgPitch: turn.avgPitch || 0,
+                        end: turn.end || 0
                     });
                 });
             } else {
@@ -893,7 +819,7 @@
             uploadProgressBar.style.width = '100%';
             uploadProgressText.textContent = 'Done!';
 
-            renderTranscript();
+            renderTranscriptWithRoles();
             updateWordCount(getFullTranscriptText());
             updateSummarizeButton();
 

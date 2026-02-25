@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
@@ -9,142 +9,155 @@
   <meta name="description" content="AI-powered clinical documentation platform with real-time speech-to-text." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="mode.js"></script>
 </head>
 
-<body>
+<body data-mode="therapy">
   <div class="bg-blobs">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
   </div>
 
-  <main class="container">
-    <header class="header">
-      <div class="header-top">
-        <div class="logo">
-          <span class="logo-icon">🩺</span>
-          <h1>EchoScribe</h1>
+  <main class="container" style="max-width: 900px;">
+    <header class="header"
+      style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 2rem;">
+      <div class="header-top"
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="logo" style="display: flex; align-items: center; gap: 0.5rem;">
+          <h1
+            style="font-family: var(--font-serif); font-size: 2rem; font-style: italic; color: var(--text-primary); margin: 0;">
+            EchoScribe</h1>
         </div>
         <div class="header-actions">
-          <button id="theme-toggle" class="btn btn-icon-only" title="Toggle Theme">🌙</button>
-          <a href="/dashboard" class="btn btn-secondary btn-sm" title="Back to Patients">← Patients</a>
+          <a href="/dashboard.html" class="btn btn-secondary btn-sm" title="Back to Patients">← <span
+              data-mode-text="patients">Patients</span></a>
           <a id="btn-insights" href="#" class="btn btn-secondary btn-sm" title="View Patient Insights">📊 Insights</a>
           <button id="btn-logout" class="btn btn-secondary btn-sm" title="Logout">🚪 Logout</button>
         </div>
       </div>
-      <p class="subtitle">AI-Powered Clinical Documentation — Real-time Speech to Text</p>
-      <p id="active-patient-banner" style="color:#a78bfa; font-weight:600; font-size:0.9rem; margin-top:0.25rem;"></p>
-      <p class="user-greeting" id="user-greeting"></p>
+      <p class="subtitle" style="color: var(--text-secondary); font-family: var(--font-reading);">AI-Powered
+        Documentation & real-time insights.</p>
+      <p id="active-patient-banner"
+        style="color: var(--mode-primary); font-family: var(--font-mono); font-weight: 500; font-size: 0.9rem; margin-top: 0.5rem; text-transform: uppercase;; letter-spacing: 0.05em;">
+      </p>
+      <p class="user-greeting" id="user-greeting"
+        style="color: var(--text-tertiary); font-size: 0.85rem; margin-top: 0.5rem;"></p>
     </header>
 
     <!-- Browser Warning -->
-    <div id="browser-warning" class="warning-banner" style="display: none;">
-      <span class="warning-icon">⚠️</span>
-      <span>Your browser does not support audio recording. Please use <strong>Google Chrome</strong> or
-        <strong>Microsoft Edge</strong> for the best experience.</span>
+    <div id="browser-warning" class="warning-banner card"
+      style="display: none; background: rgba(239, 68, 68, 0.1); border-color: var(--danger); margin-bottom: 1.5rem;">
+      <span style="color: var(--danger); font-weight: bold;">⚠️</span>
+      <span style="color: var(--text-primary);">Your browser does not support audio recording. Please use <strong>Google
+          Chrome</strong> or <strong>Microsoft Edge</strong>.</span>
     </div>
 
     <!-- Transcript Area -->
-    <div class="transcript-card">
-      <div class="card-header">
-        <span class="card-title">Transcript</span>
-        <div id="status-indicator" class="status-badge status-idle">
-          <span class="status-dot"></span>
-          <span id="status-text">Ready</span>
+    <div class="card transcript-card"
+      style="margin-bottom: 1.5rem; display: flex; flex-direction: column; height: 400px;">
+      <div class="card-header"
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+        <span class="card-title"
+          style="font-family: var(--font-serif); font-size: 1.25rem; color: var(--text-primary);">Transcript</span>
+        <div id="status-indicator" class="status-badge status-idle"
+          style="display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.85rem; text-transform: uppercase;">
+          <span class="status-dot"
+            style="width: 8px; height: 8px; border-radius: 50%; background: var(--text-tertiary);"></span>
+          <span id="status-text" style="color: var(--text-secondary);">Ready</span>
         </div>
       </div>
-      <div id="transcript-box" class="transcript-box" contenteditable="false">
-        <span class="placeholder-text" id="placeholder">🎤 Click Record to start — speakers will be detected by
-          voice...</span>
+
+      <div id="transcript-box" class="transcript-box" contenteditable="false"
+        style="flex: 1; overflow-y: auto; padding-right: 1rem; font-family: var(--font-reading); font-size: 1.05rem; line-height: 1.8; color: var(--text-primary);">
+        <span class="placeholder-text" id="placeholder" style="color: var(--text-tertiary); font-style: italic;">🎤
+          Click Record to start — speakers will be detected by voice...</span>
       </div>
-      <div class="card-footer">
-        <span id="word-count" class="word-count">0 words</span>
+
+      <div class="card-footer"
+        style="padding-top: 1rem; border-top: 1px solid var(--border-subtle); margin-top: 1rem; text-align: right;">
+        <span id="word-count" class="stat-value" style="font-size: 0.85rem; color: var(--text-secondary);">0
+          words</span>
       </div>
     </div>
 
     <!-- Controls -->
-    <div class="controls">
-      <button id="btn-record" class="btn btn-record" title="Start Recording">
+    <div class="controls" style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem;">
+      <button id="btn-record" class="btn btn-primary btn-record" title="Start Recording"
+        style="flex: 1; max-width: 250px; font-size: 1.1rem; padding: 1rem;">
         <span class="btn-icon" id="record-icon">🎤</span>
         <span id="record-label">Start Recording</span>
       </button>
-      <button id="btn-upload" class="btn btn-upload" title="Upload Audio File">
+      <button id="btn-upload" class="btn btn-secondary btn-upload" title="Upload Audio File"
+        style="flex: 1; max-width: 200px;">
         <span class="btn-icon">📁</span>
         <span>Upload Audio</span>
       </button>
-      <button id="btn-summarize" class="btn btn-summarize" title="Analyze with AI" disabled>
+      <button id="btn-summarize" class="btn btn-secondary btn-summarize" title="Analyze with AI" disabled
+        style="flex: 1; max-width: 250px; position: relative;">
         <span class="btn-icon" id="summarize-icon">✨</span>
-        <span id="summarize-label">Analyze (SOAP)</span>
-        <span class="spinner" id="summarize-spinner" style="display: none;"></span>
+        <span id="summarize-label">Analyze Session</span>
+        <span class="spinner" id="summarize-spinner" style="display: none; position: absolute; right: 1rem;"></span>
       </button>
     </div>
+
     <input type="file" id="audio-file-input" accept=".mp3,.wav,.webm,.ogg,.flac,.m4a,.mp4,.mpeg,.mpga,.opus"
       style="display:none;">
-    <div id="upload-progress" class="upload-progress" style="display:none;">
-      <div class="upload-progress-bar" id="upload-progress-bar"></div>
-      <span class="upload-progress-text" id="upload-progress-text">Uploading...</span>
+
+    <div id="upload-progress" class="upload-progress card"
+      style="display:none; margin-bottom: 1.5rem; text-align: center; padding: 1rem;">
+      <div class="upload-progress-bar" id="upload-progress-bar"
+        style="height: 4px; background: var(--mode-primary); width: 0%; transition: width 0.3s; margin-bottom: 1rem; border-radius: 2px;">
+      </div>
+      <span class="upload-progress-text" id="upload-progress-text"
+        style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary);">Uploading...</span>
     </div>
 
-    <div class="controls controls-secondary">
-      <button id="btn-clear" class="btn btn-secondary" title="Clear Transcript">
+    <div class="controls controls-secondary"
+      style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem;">
+      <button id="btn-clear" class="btn btn-secondary btn-sm" title="Clear Transcript">
         <span class="btn-icon">🗑️</span>
         <span>Clear</span>
       </button>
-      <button id="btn-copy" class="btn btn-secondary" title="Copy to Clipboard">
+      <button id="btn-copy" class="btn btn-secondary btn-sm" title="Copy to Clipboard">
         <span class="btn-icon">📋</span>
         <span>Copy</span>
       </button>
     </div>
 
     <!-- Settings Group -->
-    <div class="settings-group"
-      style="display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap;">
-      <!-- Language Selector -->
-      <div class="settings">
-        <label for="lang-select" class="settings-label">Language</label>
-        <select id="lang-select" class="lang-select">
+    <div class="settings-group card"
+      style="display: flex; gap: 2rem; align-items: center; justify-content: center; flex-wrap: wrap; padding: 1.5rem;">
+      <div class="form-group" style="margin: 0; min-width: 250px;">
+        <label for="lang-select" class="settings-label"
+          style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-family: var(--font-ui); font-size: 0.85rem;">Transcription
+          Language</label>
+        <select id="lang-select" class="lang-select"
+          style="width: 100%; padding: 0.75rem; background: var(--surface-bg); border: 1px solid var(--border-strong); color: var(--text-primary); border-radius: 8px;">
           <option value="en-US">English (US)</option>
           <option value="en-GB">English (UK)</option>
           <option value="en-IN">English (India)</option>
-          <option value="hi-IN">Hindi</option>
-          <option value="ta-IN">Tamil</option>
           <option value="ml-IN">Malayalam</option>
-          <option value="te-IN">Telugu</option>
-          <option value="bn-IN">Bengali</option>
-          <option value="mr-IN">Marathi</option>
-          <option value="kn-IN">Kannada</option>
+          <option value="hi-IN">Hindi</option>
           <option value="es-ES">Spanish</option>
           <option value="fr-FR">French</option>
-          <option value="de-DE">German</option>
-          <option value="ja-JP">Japanese</option>
-          <option value="ko-KR">Korean</option>
-          <option value="zh-CN">Chinese (Mandarin)</option>
-          <option value="pt-BR">Portuguese (Brazil)</option>
-          <option value="ar-SA">Arabic</option>
         </select>
       </div>
-
-      <!-- Mode Selector -->
-      <div class="settings">
-        <label for="mode-select" class="settings-label">Session Mode</label>
-        <select id="mode-select" class="lang-select">
-          <option value="Therapy" selected>Therapy (Clinical SOAP)</option>
-          <option value="Mentoring">Mentoring (Academic GROW)</option>
-        </select>
-      </div>
+      <!-- Mode is now controlled globally via floating button -->
     </div>
 
     <!-- Toast Notification -->
-    <div id="toast" class="toast" style="display: none;">
+    <div id="toast" class="toast">
       <span id="toast-message"></span>
     </div>
 
-    <footer class="footer">
-      <p>EchoScribe — AI-powered clinical documentation. Transcription powered by Groq Whisper with voice-based speaker
-        diarization.
-      </p>
+    <footer
+      style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-subtle); text-align: center; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 0.85rem;">
+      <p>EchoScribe — AI-powered clinical documentation. Transcription powered by Groq Whisper.</p>
     </footer>
   </main>
 

@@ -1,11 +1,18 @@
 const Groq = require('groq-sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { AppError } = require('../middleware/errorHandler');
 
 let groq = null;
+let genAI = null;
 
 function initGroq(apiKey) {
     groq = new Groq({ apiKey });
     return groq;
+}
+
+function initGemini(apiKey) {
+    genAI = new GoogleGenerativeAI(apiKey);
+    return genAI;
 }
 
 // --- Clinical SOAP Summarization ---
@@ -177,126 +184,106 @@ Return ONLY valid JSON with this exact structure:
     }
 }
 
-// --- Speech-to-Text via Groq Whisper ---
+// --- Speech-to-Text via Gemini 2.0 Flash ---
 
-async function transcribeAudio(filePath, lang = 'en') {
-    if (!groq) throw new AppError('AI service not initialized', 500);
+async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
+    if (!genAI) {
+        initGemini(process.env.GEMINI_API_KEY);
+    }
+    if (!genAI) throw new AppError('Gemini API not initialized', 500);
 
-    const fs = require('fs');
-
-    // Map language codes to ensure correct ISO 639-1 format
-    const langMap = {
-        'en': 'en', 'hi': 'hi', 'ml': 'ml', 'ta': 'ta',
-        'es': 'es', 'fr': 'fr', 'de': 'de', 'ja': 'ja',
-        'ko': 'ko', 'zh': 'zh', 'pt': 'pt', 'ar': 'ar',
-    };
-    const whisperLang = langMap[lang] || lang;
-
-    // Language-specific prompts improve accuracy by conditioning the model
-    const langPrompts = {
-        'en': 'This is a counseling session conversation in English between a counselor and a patient.',
-        'hi': 'यह एक परामर्श सत्र है। काउंसलर और मरीज़ हिंदी में बात कर रहे हैं।',
-        'ml': 'ഇത് ഒരു കൗൺസിലിംഗ് സെഷൻ ആണ്. കൗൺസിലറും രോഗിയും മലയാളത്തിൽ സംസാരിക്കുന്നു.',
-        'ta': 'இது ஒரு ஆலோசனை அமர்வு. ஆலோசகரும் நோயாளியும் தமிழில் பேசுகிறார்கள்.',
-    };
-    const prompt = langPrompts[whisperLang] || `This is a counseling session conversation in the selected language.`;
-
-    // Use whisper-large-v3 for best multilingual accuracy (not turbo)
-    const transcription = await groq.audio.transcriptions.create({
-        file: fs.createReadStream(filePath),
-        model: 'whisper-large-v3',
-        language: whisperLang,
-        prompt: prompt,
-        response_format: 'verbose_json',
-        timestamp_granularities: ['segment'],
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        generationConfig: {
+            temperature: 0
+        },
+        systemInstruction: `
+    You are a highly accurate multilingual transcription engine.
+    Priority languages in order: Malayalam, English (Indian accent), Hindi.
+    Secondary languages: Tamil, Telugu, Bengali, and other Indian languages.
+    
+    Rules:
+    - Transcribe every word exactly as spoken — do not paraphrase or summarise
+    - For code-switched speech (Malayalam+English, Hindi+English), preserve the 
+      exact language used for each phrase — do not normalise everything to English
+    - Proper nouns, names, and technical terms: transcribe phonetically if unsure,
+      do not guess anglicised spellings
+    - Filler words (um, uh, enna, athe, matlab) should be omitted unless they carry meaning
+    - If a word is genuinely inaudible, write [inaudible] — do not guess
+    - Do not add punctuation that wasn't implied by the speaker's prosody
+    - Output only the transcript text — no labels, no timestamps, no explanation
+  `
     });
 
-    // Return segments with timestamps for speaker diarization
-    const segments = (transcription.segments || []).map(seg => ({
-        start: seg.start,
-        end: seg.end,
-        text: (seg.text || '').trim(),
-    }));
+    const prompt = "Please transcribe this audio exactly as instructed.";
 
-    return {
-        text: transcription.text || '',
-        segments,
+    const audioPart = {
+        inlineData: {
+            data: audioBuffer.toString('base64'),
+            mimeType: mimeType
+        }
     };
+
+    try {
+        const result = await model.generateContent([prompt, audioPart]);
+        const response = await result.response;
+        return response.text();
+    } catch (err) {
+        console.error('[Gemini STT] Error:', err.message);
+        throw new AppError('Gemini transcription failed.', 500);
+    }
 }
 
-// --- Speaker Identification via LLM ---
+// --- Strict Role Identification via Gemini ---
+// Replaces the old identifySpeakers that guessed Person 1/2.
+// Now maps deepgram's speaker_0/speaker_1 to exact session_mode roles.
 
-async function identifySpeakers(diarizedTranscript, pitchMetadata = '', mode = 'Therapy') {
-    if (!groq) throw new AppError('AI service not initialized', 500);
+async function identifyRoles(mergedTranscript, sessionMode = 'Therapy') {
+    if (!genAI) {
+        initGemini(process.env.GEMINI_API_KEY);
+    }
+    if (!genAI) throw new AppError('Gemini API not initialized', 500);
 
-    const role1 = mode === 'Therapy' ? 'Therapist' : 'Mentor';
-    const role2 = mode === 'Therapy' ? 'Patient' : 'Mentee';
+    let roleA, roleB;
+    if (sessionMode === 'Therapy') {
+        roleA = "Therapist"; roleB = "Patient";
+    } else if (sessionMode === 'Mentoring') {
+        roleA = "Mentor"; roleB = "Mentee";
+    } else {
+        roleA = "Counsellor"; roleB = "Patient";
+    }
 
-    const pitchPromptInstructions = pitchMetadata ? `\n\nAUDIO FREQUENCY METADATA:\n${pitchMetadata}\nThis is the true acoustic pitch of the speakers. Typical male adult fundamental frequency is around 100-140 Hz, while female adult frequency is around 180-240 Hz. If it is clear that one relies on pitch context, use this as a strong heuristic to determine the ${role1} and ${role2}, taking into consideration any contextual clues.` : '';
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json"
+        }
+    });
 
-    const contextClues = mode === 'Therapy' ? `
-Clues to identify the Therapist:
-- Asks open-ended questions ("How does that make you feel?", "Tell me more about...")
-- Uses therapeutic language ("I hear you", "Let's explore that")
-- Guides the conversation, summarizes, reflects
-- Uses professional/clinical terminology
+    const prompt = `You are a transcript analyst. Below is a conversation transcript with two speakers labelled speaker_0 and speaker_1. Based on the content, identify which speaker is the ${roleA} and which is the ${roleB}.
 
-Clues to identify the Patient:
-- Describes personal experiences, feelings, problems
-- Responds to questions rather than asking clinical ones
-- Shares emotional content, concerns, symptoms
-- Seeks advice or help` : `
-Clues to identify the Mentor:
-- Asks guiding questions to help the mentee find their own solutions
-- Offers academic or professional advice
-- Helps set goals and reviews progress
-- Often holds a position of authority or experience
+[ROLE_A] = ${roleA}
+[ROLE_B] = ${roleB}
 
-Clues to identify the Mentee:
-- Describes academic struggles, career questions, or project updates
-- Seeks guidance, feedback, or approval
-- Discusses their personal goals and challenges in a university context`;
-
-    const chatCompletion = await groq.chat.completions.create({
-        messages: [
-            {
-                role: 'system',
-                content: `You are an expert at analyzing conversation transcripts. Given a transcript with "Person 1" and "Person 2" labels, determine which person is the ${role1} and which is the ${role2}.
-
-CRITICAL INSTRUCTION: There are exactly two people. Exactly ONE person is the "${role1}" and exactly ONE person is the "${role2}". They CANNOT both be the ${role1}, and they CANNOT both be the ${role2}. You MUST assign mutually exclusive roles.
-${contextClues}${pitchPromptInstructions}
-
-You MUST respond with valid JSON only.`
-            },
-            {
-                role: 'user',
-                content: `Analyze this transcript and identify which person is the ${role1} and which is the ${role2}.
+Reply with ONLY valid JSON mapping the exact speaker keys to the literal role names. Do NOT use any other labels. Ensure you map both speakers.
+Example format:
+{ "speaker_0": "${roleA}", "speaker_1": "${roleB}" }
 
 TRANSCRIPT:
 """
-${diarizedTranscript}
-"""
+${mergedTranscript}
+"""`;
 
-Return ONLY valid JSON:
-{
-  "person1_role": "${role1}" or "${role2}",
-  "person2_role": "${role1}" or "${role2}",
-  "confidence": 0.0 to 1.0,
-  "reasoning": "Brief explanation of why"
-}`
-            }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.1,
-        max_tokens: 500,
-        response_format: { type: 'json_object' },
-    });
-
-    const responseText = chatCompletion.choices[0]?.message?.content || '';
     try {
-        return JSON.parse(responseText);
-    } catch (e) {
-        return { person1_role: 'Person 1', person2_role: 'Person 2', confidence: 0, reasoning: 'Could not determine roles' };
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const jsonText = response.text();
+        return JSON.parse(jsonText);
+    } catch (err) {
+        console.error('[Gemini Role ID] Error:', err.message);
+        // Fallback gracefully so we don't break the whole pipeline
+        return { "speaker_0": roleA, "speaker_1": roleB };
     }
 }
 
@@ -482,4 +469,4 @@ Return ONLY valid JSON in this format:
     }
 }
 
-module.exports = { initGroq, summarizeTranscript, generateProfile, transcribeAudio, identifySpeakers, diarizeTranscript };
+module.exports = { initGroq, initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, identifyRoles, diarizeTranscript };

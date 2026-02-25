@@ -9,10 +9,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="card.css" />
+    <!-- Global Mode Script -->
+    <script src="mode.js"></script>
     <style>
         .dashboard-header {
             display: flex;
@@ -502,81 +505,99 @@
     </style>
 </head>
 
-<body>
+<body data-mode="therapy">
     <div class="bg-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
         <div class="blob blob-3"></div>
     </div>
 
-    <main class="container" style="max-width: 900px;">
-        <div class="dashboard-header">
+    <main class="container" style="max-width: 1000px;">
+        <div class="dashboard-header"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.5rem;">
             <div>
-                <h1 class="dashboard-title">👥 Patients</h1>
-                <p style="color:#8892b0; font-size:0.85rem;" id="dash-greeting">Welcome back!</p>
+                <h1 style="font-family: var(--font-serif); font-size: 2.5rem; font-style: italic; color: var(--text-primary); margin-bottom: 0.5rem;"
+                    data-mode-text="patients">Patients</h1>
+                <p style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;"
+                    id="dash-greeting">Welcome back</p>
             </div>
             <div class="header-actions">
-                <button id="theme-toggle" class="btn btn-icon-only" title="Toggle Theme">🌙</button>
                 <button id="btn-logout" class="btn btn-secondary btn-sm">🚪 Logout</button>
             </div>
         </div>
 
+        <!-- Overview Stats (secondary) -->
+        <div id="stats-section" style="display:none; margin-bottom: 3rem;">
+            <h2 class="section-title">Overview</h2>
+            <div class="kpi-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
+                <div class="card">
+                    <div class="kpi-value stat-value" id="kpi-patients">0</div>
+                    <div class="kpi-label"
+                        style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;"
+                        data-mode-text="patients">Patients</div>
+                </div>
+                <div class="card">
+                    <div class="kpi-value stat-value" id="kpi-sessions">0</div>
+                    <div class="kpi-label"
+                        style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Total Sessions</div>
+                </div>
+                <div class="card">
+                    <div class="kpi-value stat-value" id="kpi-words">0</div>
+                    <div class="kpi-label"
+                        style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Words Captured</div>
+                </div>
+                <div class="card">
+                    <div class="kpi-value stat-value" id="kpi-risk-flags">0</div>
+                    <div class="kpi-label"
+                        style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;"
+                        data-mode-text="risk">Clinical Risk</div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title" data-mode-text="patients">Patients</h2>
+
         <!-- Patient Cards Grid -->
         <div class="patients-grid" id="patients-grid">
             <!-- Add Patient Card (always first) -->
-            <div class="add-patient-card" id="add-patient-btn" title="Add a new patient">
-                <div class="add-icon">＋</div>
-                <span class="add-label">Add Patient</span>
+            <div class="card add-patient-card" id="add-patient-btn" title="Add a new entry"
+                style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px; border: 2px dashed var(--border-strong); cursor: pointer; transition: all 0.3s; background: transparent;">
+                <div style="font-size: 2.5rem; color: var(--text-tertiary); margin-bottom: 1rem; transition: color 0.3s;"
+                    class="add-icon">＋</div>
+                <span style="font-family: var(--font-ui); font-weight: 600; color: var(--text-secondary);"
+                    data-mode-text="patient">Add Patient</span>
             </div>
             <!-- Loading state -->
-            <div id="patients-loading" style="grid-column: 1/-1; text-align:center; padding:2rem; color:#8892b0;">
-                Loading patients...
+            <div id="patients-loading"
+                style="grid-column: 1/-1; text-align:center; padding:2rem; color: var(--text-secondary);">
+                Loading...
             </div>
         </div>
 
-        <!-- Overview Stats (secondary) -->
-        <div id="stats-section" style="display:none;">
-            <h2 class="section-title">📊 Overview</h2>
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-value" id="kpi-patients">0</div>
-                    <div class="kpi-label">Patients</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-value" id="kpi-sessions">0</div>
-                    <div class="kpi-label">Total Sessions</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-value" id="kpi-words">0</div>
-                    <div class="kpi-label">Words Captured</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-value" id="kpi-risk-flags">0</div>
-                    <div class="kpi-label">Risk Flags</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="toast" class="toast" style="display: none;">
+        <div id="toast" class="toast">
             <span id="toast-message"></span>
         </div>
 
-        <footer class="footer">
-            <p>EchoScribe — Patient Dashboard</p>
+        <footer
+            style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-subtle); text-align: center; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 0.85rem;">
+            <p>EchoScribe — Operational Dashboard</p>
         </footer>
     </main>
 
     <!-- Add/Edit Patient Modal -->
     <div class="modal-overlay" id="patient-modal">
         <div class="modal-box">
-            <h2 class="modal-title" id="modal-title">Add New Patient</h2>
+            <h2 class="modal-title" id="modal-title"><span data-mode-text="patient">Add</span></h2>
             <form id="patient-form">
                 <input type="hidden" id="patient-id" />
                 <div class="form-group">
-                    <label for="patient-name">Patient Name *</label>
+                    <label for="patient-name">Name *</label>
                     <input type="text" id="patient-name" placeholder="Full name" required />
                 </div>
-                <div class="form-row">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
                         <label for="patient-age">Age</label>
                         <input type="number" id="patient-age" placeholder="e.g. 34" min="0" max="150" />
@@ -593,10 +614,10 @@
                         </select>
                     </div>
                 </div>
-                <div class="form-row">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
                         <label for="patient-email">Email</label>
-                        <input type="email" id="patient-email" placeholder="patient@example.com" />
+                        <input type="email" id="patient-email" placeholder="contact@example.com" />
                     </div>
                     <div class="form-group">
                         <label for="patient-phone">Phone</label>
@@ -605,11 +626,12 @@
                 </div>
                 <div class="form-group">
                     <label for="patient-notes">Notes</label>
-                    <textarea id="patient-notes" placeholder="Optional clinical notes, diagnosis, etc."></textarea>
+                    <textarea id="patient-notes" placeholder="Optional context or notes..."
+                        style="min-height: 80px; resize: vertical;"></textarea>
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-cancel" id="modal-cancel">Cancel</button>
-                    <button type="submit" class="btn-primary" id="modal-submit">Add Patient</button>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-secondary" id="modal-cancel" style="flex: 1;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="modal-submit" style="flex: 1;">Save</button>
                 </div>
             </form>
         </div>
@@ -669,25 +691,6 @@
             'use strict';
             EchoAuth.guard();
 
-            // --- Theme ---
-            function initTheme() {
-                const saved = localStorage.getItem('echoscribe_theme') || 'dark';
-                document.documentElement.setAttribute('data-theme', saved);
-                const toggle = document.getElementById('theme-toggle');
-                if (toggle) toggle.textContent = saved === 'dark' ? '🌙' : '☀️';
-            }
-            function toggleTheme() {
-                const current = document.documentElement.getAttribute('data-theme');
-                const next = current === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', next);
-                localStorage.setItem('echoscribe_theme', next);
-                const toggle = document.getElementById('theme-toggle');
-                if (toggle) toggle.textContent = next === 'dark' ? '🌙' : '☀️';
-            }
-            initTheme();
-
-            const themeToggle = document.getElementById('theme-toggle');
-            if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
             const logoutBtn = document.getElementById('btn-logout');
             if (logoutBtn) logoutBtn.addEventListener('click', () => EchoAuth.logout());
 
@@ -731,7 +734,9 @@
             // --- Fetch Patients ---
             async function fetchPatients() {
                 try {
-                    const response = await EchoAuth.authFetch('/api/patients');
+                    const mode = EchoMode.getMode() === 'mentoring' ? 'Mentoring' : 'Therapy';
+                    const response = await EchoAuth.authFetch(`/api/patients?mode=${mode}`);
+                    if (!response.ok) throw new Error(await response.text());
                     patients = await response.json();
                     renderPatients();
                     fetchStats();
@@ -744,7 +749,9 @@
             // --- Fetch Overview Stats ---
             async function fetchStats() {
                 try {
-                    const response = await EchoAuth.authFetch('/api/history');
+                    const mode = EchoMode.getMode() === 'mentoring' ? 'Mentoring' : 'Therapy';
+                    const response = await EchoAuth.authFetch(`/api/history?mode=${mode}`);
+                    if (!response.ok) throw new Error(await response.text());
                     const sessions = await response.json();
 
                     const statsSection = document.getElementById('stats-section');
@@ -789,7 +796,8 @@
 
                 patients.forEach(p => {
                     const card = document.createElement('div');
-                    card.className = 'patient-card';
+                    card.className = 'card patient-card';
+                    card.style.cursor = 'pointer';
                     card.dataset.id = p.id;
 
                     const initials = p.name.split(' ').map(n => n.charAt(0).toUpperCase()).slice(0, 2).join('');
@@ -797,6 +805,41 @@
                     if (p.age) metaParts.push(`${p.age} yrs`);
                     if (p.gender) metaParts.push(p.gender);
                     if (p.email || p.phone) metaParts.push('Contact info saved');
+
+                    card.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                            <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--mode-primary); color: white; display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-weight: 700; font-size: 1.2rem; box-shadow: 0 4px 10px var(--mode-primary-glow);">${initials}</div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary); font-family: var(--font-ui); font-weight: 600;">${escapeHtml(p.name)}</h3>
+                                <p style="margin: 0; font-size: 0.8rem; color: var(--text-tertiary); font-family: var(--font-mono);">${metaParts.join(' • ')}</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 1rem; margin-top: auto;">
+                            <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">
+                                ${p.session_count || 0} Sessions
+                            </span>
+                            <div class="patient-actions" style="display: flex; gap: 0.5rem; opacity: 0; transition: opacity 0.2s;">
+                                <button class="btn btn-icon-only btn-secondary btn-edit" title="Edit" data-id="${p.id}" style="padding: 0.4rem; border-radius: 6px;">✏️</button>
+                                <button class="btn btn-icon-only btn-danger btn-delete" title="Delete" data-id="${p.id}" style="padding: 0.4rem; border-radius: 6px;">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Hover to show actions
+                    card.addEventListener('mouseenter', () => {
+                        card.querySelector('.patient-actions').style.opacity = '1';
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        card.querySelector('.patient-actions').style.opacity = '0';
+                    });
+
+                    // Click to navigate (unless clicking an action)
+                    card.addEventListener('click', (e) => {
+                        if (!e.target.closest('.patient-actions')) {
+                            localStorage.setItem('echoscribe_active_patient', JSON.stringify(p));
+                            window.location.href = `/patient.html?id=${p.id}`;
+                        }
+                    });
 
                     card.innerHTML = `
                         <div class="patient-actions">
@@ -983,6 +1026,7 @@
                 if (gender) body.gender = gender;
                 if (email) body.email = email;
                 if (phone) body.phone = phone;
+                body.mode = EchoMode.getMode() === 'mentoring' ? 'Mentoring' : 'Therapy';
 
                 modalSubmit.disabled = true;
                 modalSubmit.textContent = id ? 'Saving...' : 'Adding...';
@@ -994,7 +1038,10 @@
                             method: 'PUT',
                             body: JSON.stringify(body),
                         });
-                        if (!res.ok) throw new Error('Failed to update patient');
+                        if (!res.ok) {
+                            const errData = await res.json();
+                            throw new Error(errData.error || 'Failed to update patient');
+                        }
                         showToast('✅ Patient updated');
                     } else {
                         // Create
@@ -1002,7 +1049,10 @@
                             method: 'POST',
                             body: JSON.stringify(body),
                         });
-                        if (!res.ok) throw new Error('Failed to create patient');
+                        if (!res.ok) {
+                            const errData = await res.json();
+                            throw new Error(errData.error || 'Failed to create patient');
+                        }
                         showToast('✅ Patient added');
                     }
                     modal.classList.remove('active');
@@ -1062,6 +1112,17 @@
             }
 
             // --- Init ---
+            // Listen for layout/mode changes to refresh lists automatically
+            document.addEventListener('echoscribe:modeChange', () => {
+                const oldCards = grid.querySelectorAll('.patient-card');
+                oldCards.forEach(c => c.remove());
+                if (loadingEl) {
+                    loadingEl.textContent = 'Loading...';
+                    grid.appendChild(loadingEl);
+                }
+                fetchPatients();
+            });
+
             fetchPatients();
         })();
     </script>
