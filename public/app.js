@@ -841,13 +841,15 @@
     }
 
     // --- Event Listeners ---
-    btnRecord.addEventListener('click', function () {
-        if (isRecording) {
-            stopRecording();
-        } else {
-            startRecording();
-        }
-    });
+    if (btnRecord) {
+        btnRecord.addEventListener('click', function () {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+    }
 
     function triggerUpload() {
         if (audioFileInput) audioFileInput.click();
@@ -861,14 +863,14 @@
         }
     });
 
-    btnClear.addEventListener('click', clearTranscript);
-    btnCopy.addEventListener('click', copyTranscript);
-    btnSummarize.addEventListener('click', summarizeTranscript);
+    if (btnClear) btnClear.addEventListener('click', clearTranscript);
+    if (btnCopy) btnCopy.addEventListener('click', copyTranscript);
+    if (btnSummarize) btnSummarize.addEventListener('click', summarizeTranscript);
     if (btnLogout) btnLogout.addEventListener('click', () => EchoAuth.logout());
     if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
 
     document.addEventListener('keydown', function (e) {
-        if (e.code === 'Space' && e.target === document.body) {
+        if (e.code === 'Space' && e.target === document.body && btnRecord) {
             e.preventDefault();
             btnRecord.click();
         }
