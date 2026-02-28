@@ -4,9 +4,16 @@ const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // Helper to enforce mode
 const extractMode = (req) => {
-    const mode = req.query.mode || req.body.mode;
-    if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
+    let mode = req.query.mode || req.body.mode;
+    if (!mode) {
         throw new AppError("A valid 'mode' (Therapy or Mentoring) is required in the query or body for strict data isolation.", 400);
+    }
+
+    // Normalize case
+    mode = mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+
+    if (mode !== 'Therapy' && mode !== 'Mentoring') {
+        throw new AppError("Mode must be strictly 'Therapy' or 'Mentoring'.", 400);
     }
     return mode;
 };
