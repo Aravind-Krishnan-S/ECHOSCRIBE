@@ -1,0 +1,9 @@
+﻿--- Logging into Vercel ---
+[NETWORK ERROR] 304 https://echoscribe-vert.vercel.app/style.css
+[NETWORK ERROR] 304 https://echoscribe-vert.vercel.app/auth-guard.js
+--- Testing patient.html on Vercel ---
+[NETWORK ERROR] 304 https://echoscribe-vert.vercel.app/mode.js
+[NETWORK ERROR] 304 https://echoscribe-vert.vercel.app/style.css
+[NETWORK ERROR] 304 https://echoscribe-vert.vercel.app/auth-guard.js
+[NETWORK ERROR] 400 https://echoscribe-vert.vercel.app/api/patients/33eb095d-84d4-4dc1-a016-b3f4bd2794d9?mode=therapy
+[NETWORK ERROR] 400 https://echoscribe-vert.vercel.app/api/patients/33eb095d-84d4-4dc1-a016-b3f4bd2794d9/sessions?mode=therapy

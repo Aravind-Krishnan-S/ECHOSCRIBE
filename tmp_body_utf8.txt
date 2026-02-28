@@ -1,0 +1,6 @@
+﻿--- Logging into Vercel ---
+--- Testing patient.html on Vercel ---
+[HTTP 400] https://echoscribe-vert.vercel.app/api/patients/33eb095d-84d4-4dc1-a016-b3f4bd2794d9?mode=therapy
+[RESPONSE BODY] {"status":"error","error":"Strict Data Isolation: 'mode' query parameter is required and must be either 'Therapy' or 'Mentoring'."}
+[HTTP 400] https://echoscribe-vert.vercel.app/api/patients/33eb095d-84d4-4dc1-a016-b3f4bd2794d9/sessions?mode=therapy
+[RESPONSE BODY] {"status":"error","error":"Strict Data Isolation: 'mode' query parameter is required and must be either 'Therapy' or 'Mentoring'."}

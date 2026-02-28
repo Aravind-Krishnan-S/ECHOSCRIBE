@@ -649,7 +649,7 @@
             isSummarizing = false;
             summarizeIcon.style.display = 'inline';
             summarizeSpinner.style.display = 'none';
-            summarizeLabel.textContent = 'Analyze (SOAP)';
+            summarizeLabel.textContent = selectedMode === 'Therapy' ? 'Analyze (SOAP)' : 'Analyze (GROW)';
             updateSummarizeButton();
         }
     }
