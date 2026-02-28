@@ -187,9 +187,82 @@
     if (btnSave) btnSave.addEventListener('click', handleSave);
     if (btnBottomSave) btnBottomSave.addEventListener('click', handleSave);
 
+    // --- Export Handlers ---
+
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    const btnExportJson = document.getElementById('btn-export-json');
+    const sessionId = localStorage.getItem('echoscribe_session_id');
+
     if (btnExport) {
-        btnExport.addEventListener('click', () => {
-            alert('PDF Export feature requires backend chromium processing. Placeholder triggered.');
+        btnExport.addEventListener('click', async () => {
+            if (!sessionId) {
+                alert('Please save the session first before exporting as PDF.');
+                return;
+            }
+            try {
+                btnExport.disabled = true;
+                btnExport.textContent = '⏳ Generating...';
+                const res = await EchoAuth.authFetch(`/api/export/pdf/${sessionId}`);
+                if (!res.ok) throw new Error('PDF generation failed');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `echoscribe-session-${sessionId}.pdf`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('PDF export failed: ' + err.message);
+            } finally {
+                btnExport.disabled = false;
+                btnExport.textContent = '📥 PDF';
+            }
+        });
+    }
+
+    if (btnExportCsv) {
+        btnExportCsv.addEventListener('click', async () => {
+            try {
+                btnExportCsv.disabled = true;
+                btnExportCsv.textContent = '⏳...';
+                const res = await EchoAuth.authFetch('/api/export/csv');
+                if (!res.ok) throw new Error('CSV export failed');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'echoscribe-sessions.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('CSV export failed: ' + err.message);
+            } finally {
+                btnExportCsv.disabled = false;
+                btnExportCsv.textContent = '📊 CSV';
+            }
+        });
+    }
+
+    if (btnExportJson) {
+        btnExportJson.addEventListener('click', async () => {
+            try {
+                btnExportJson.disabled = true;
+                btnExportJson.textContent = '⏳...';
+                const res = await EchoAuth.authFetch('/api/export/record');
+                if (!res.ok) throw new Error('JSON export failed');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'echoscribe-full-record.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('JSON export failed: ' + err.message);
+            } finally {
+                btnExportJson.disabled = false;
+                btnExportJson.textContent = '📁 JSON';
+            }
         });
     }
 
