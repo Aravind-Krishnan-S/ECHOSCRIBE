@@ -74,6 +74,10 @@ const updatePatientSchema = z.object({
 
 // Middleware for requiring mode in query for GET routes
 const validateModeQuery = (req, res, next) => {
+    if (req.query && req.query.mode && typeof req.query.mode === 'string') {
+        req.query.mode = req.query.mode.charAt(0).toUpperCase() + req.query.mode.slice(1).toLowerCase();
+    }
+
     const schema = z.object({ mode: z.enum(['Therapy', 'Mentoring']) });
     const result = schema.safeParse(req.query);
     if (!result.success) {
