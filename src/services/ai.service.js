@@ -1,24 +1,24 @@
-const Groq = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { AppError } = require('../middleware/errorHandler');
 
-let groq = null;
 let genAI = null;
-
-function initGroq(apiKey) {
-    groq = new Groq({ apiKey });
-    return groq;
-}
 
 function initGemini(apiKey) {
     genAI = new GoogleGenerativeAI(apiKey);
     return genAI;
 }
 
-// --- Clinical SOAP Summarization ---
+function ensureGemini() {
+    if (!genAI) {
+        initGemini(process.env.GEMINI_API_KEY);
+    }
+    if (!genAI) throw new AppError('Gemini API not initialized. Set GEMINI_API_KEY.', 500);
+}
+
+// --- Clinical SOAP Summarization (Gemini) ---
 
 async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', retries = 2) {
-    if (!groq) throw new AppError('AI service not initialized', 500);
+    ensureGemini();
 
     const wordCount = text.trim().split(/\s+/).length;
 
@@ -67,23 +67,15 @@ async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', retries 
 
     const config = modeConfig[mode] || modeConfig['Therapy'];
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const chatCompletion = await groq.chat.completions.create({
-                messages: [
-                    {
-                        role: 'system',
-                        content: `You are an ${config.role}. 
+    const systemInstruction = `You are an ${config.role}. 
 You analyze speech transcripts from sessions and produce structured documentation.
 The transcript may contain speaker labels like "Counsellor:", "Patient:", "Mentor:", or "Mentee:". Use these to understand the dialogue flow.
 You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
 Be thorough but precise. Do not fabricate information not present in the transcript.
 If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.
-You must also generate a client-facing communication summary translated into the locale: ${lang}.`
-                    },
-                    {
-                        role: 'user',
-                        content: `Analyze the following session transcript and return a STRICT structured note in JSON format.
+You must also generate a client-facing communication summary translated into the locale: ${lang}.`;
+
+    const userPrompt = `Analyze the following session transcript and return a STRICT structured note in JSON format.
 
 TRANSCRIPT:
 """
@@ -119,22 +111,27 @@ Return ONLY valid JSON with this exact structure:
   },
   "wordCount": ${wordCount},
   "originalText": ""
-}`
-                    }
-                ],
-                model: 'llama-3.3-70b-versatile',
-                temperature: 0.3,
-                max_tokens: 3000,
-                response_format: { type: 'json_object' },
-            });
+}`;
 
-            const responseText = chatCompletion.choices[0]?.message?.content || '';
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction,
+        generationConfig: {
+            temperature: 0.3,
+            responseMimeType: "application/json"
+        }
+    });
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const result = await model.generateContent(userPrompt);
+            const response = await result.response;
+            const responseText = response.text();
 
             let parsedData;
             try {
                 parsedData = JSON.parse(responseText);
             } catch (parseError) {
-                // Try extracting JSON from code fences if present
                 const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
                 if (jsonMatch) {
                     parsedData = JSON.parse(jsonMatch[1].trim());
@@ -176,10 +173,11 @@ Return ONLY valid JSON with this exact structure:
             return parsedData;
         } catch (err) {
             if (attempt < retries) {
-                console.warn(`[AI Service] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
+                console.warn(`[Gemini Summarize] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
                 continue;
             }
-            throw new AppError('Failed to analyze transcript. Please try again.', 500, err.message);
+            console.error('[Gemini Summarize] All attempts failed:', err.message);
+            throw new AppError('Failed to analyze transcript: ' + (err.message || 'Unknown error'), 500);
         }
     }
 }
@@ -187,10 +185,7 @@ Return ONLY valid JSON with this exact structure:
 // --- Speech-to-Text via Gemini 2.0 Flash ---
 
 async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
-    if (!genAI) {
-        initGemini(process.env.GEMINI_API_KEY);
-    }
-    if (!genAI) throw new AppError('Gemini API not initialized', 500);
+    ensureGemini();
 
     const model = genAI.getGenerativeModel({
         model: "gemini-2.0-flash",
@@ -235,14 +230,9 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
 }
 
 // --- Strict Role Identification via Gemini ---
-// Replaces the old identifySpeakers that guessed Person 1/2.
-// Now maps deepgram's speaker_0/speaker_1 to exact session_mode roles.
 
 async function identifyRoles(mergedTranscript, sessionMode = 'Therapy') {
-    if (!genAI) {
-        initGemini(process.env.GEMINI_API_KEY);
-    }
-    if (!genAI) throw new AppError('Gemini API not initialized', 500);
+    ensureGemini();
 
     let roleA, roleB;
     if (sessionMode === 'Therapy') {
@@ -282,15 +272,14 @@ ${mergedTranscript}
         return JSON.parse(jsonText);
     } catch (err) {
         console.error('[Gemini Role ID] Error:', err.message);
-        // Fallback gracefully so we don't break the whole pipeline
         return { "speaker_0": roleA, "speaker_1": roleB };
     }
 }
 
-// --- Longitudinal Profile Analysis ---
+// --- Longitudinal Profile Analysis (Gemini) ---
 
 async function generateProfile(sessions) {
-    if (!groq) throw new AppError('AI service not initialized', 500);
+    ensureGemini();
 
     let therapyCount = 0;
     let mentoringCount = 0;
@@ -372,56 +361,54 @@ async function generateProfile(sessions) {
   "psychological_profile": "Brief profile of the student's motivational and behavioral state"
 }`;
 
-    const chatCompletion = await groq.chat.completions.create({
-        messages: [
-            {
-                role: 'system',
-                content: systemMsg
-            },
-            {
-                role: 'user',
-                content: `${userMsgFocus}
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: systemMsg,
+        generationConfig: {
+            temperature: 0.3,
+            responseMimeType: "application/json"
+        }
+    });
+
+    try {
+        const result = await model.generateContent(`${userMsgFocus}
 
 SESSION HISTORY:
 ${sessionSummaries}
 
 Return ONLY valid JSON:
-${jsonSchema}`
+${jsonSchema}`);
+
+        const response = await result.response;
+        const responseText = response.text();
+
+        let profileAnalysis;
+        try {
+            const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+                profileAnalysis = JSON.parse(jsonMatch[1].trim());
+            } else {
+                profileAnalysis = JSON.parse(responseText);
             }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.3,
-        max_tokens: 3000,
-        response_format: { type: 'json_object' },
-    });
-
-    const responseText = chatCompletion.choices[0]?.message?.content || '';
-
-    let profileAnalysis;
-    try {
-        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-            profileAnalysis = JSON.parse(jsonMatch[1].trim());
-        } else {
-            profileAnalysis = JSON.parse(responseText);
+        } catch (e) {
+            profileAnalysis = { journey_summary: responseText, error: 'Partial parse' };
         }
-    } catch (e) {
-        profileAnalysis = { journey_summary: responseText, error: 'Partial parse' };
-    }
 
-    return profileAnalysis;
+        return profileAnalysis;
+    } catch (err) {
+        console.error('[Gemini Profile] Error:', err.message);
+        throw new AppError('Profile generation failed: ' + (err.message || 'Unknown error'), 500);
+    }
 }
 
-// --- LLM-based Speaker Diarization ---
+// --- LLM-based Speaker Diarization (Gemini) ---
 
 async function diarizeTranscript(rawText) {
-    if (!groq) throw new AppError('AI service not initialized', 500);
+    ensureGemini();
 
-    const chatCompletion = await groq.chat.completions.create({
-        messages: [
-            {
-                role: 'system',
-                content: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
 
 Rules:
 - There are exactly 2 speakers: "Person 1" and "Person 2"
@@ -432,11 +419,15 @@ Rules:
 - Do NOT fabricate or modify the text — use the exact words from the transcript
 - If unsure about a split point, make your best guess based on conversational logic
 
-You MUST respond with valid JSON only.`
-            },
-            {
-                role: 'user',
-                content: `Split this conversation transcript into speaker turns. Identify where one person stops speaking and the other responds.
+You MUST respond with valid JSON only.`,
+        generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json"
+        }
+    });
+
+    try {
+        const result = await model.generateContent(`Split this conversation transcript into speaker turns. Identify where one person stops speaking and the other responds.
 
 RAW TRANSCRIPT:
 """
@@ -450,23 +441,16 @@ Return ONLY valid JSON in this format:
     { "speaker": 2, "text": "exact text from person 2" },
     { "speaker": 1, "text": "exact text from person 1" }
   ]
-}`
-            }
-        ],
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.1,
-        max_tokens: 4000,
-        response_format: { type: 'json_object' },
-    });
+}`);
 
-    const responseText = chatCompletion.choices[0]?.message?.content || '';
-    try {
+        const response = await result.response;
+        const responseText = response.text();
         const parsed = JSON.parse(responseText);
         return parsed.turns || [];
     } catch (e) {
-        // Fallback: return entire text as single speaker
+        console.error('[Gemini Diarize] Error:', e.message);
         return [{ speaker: 1, text: rawText }];
     }
 }
 
-module.exports = { initGroq, initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, identifyRoles, diarizeTranscript };
+module.exports = { initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, identifyRoles, diarizeTranscript };
