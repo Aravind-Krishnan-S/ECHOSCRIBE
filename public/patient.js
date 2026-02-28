@@ -231,15 +231,19 @@
             btnGenerateProfile.disabled = true;
             btnGenerateProfile.textContent = '✨ Generating...';
             try {
-                const res = await EchoAuth.authFetch(`/api/profile?patientId=${patientId}`);
+                const currentMode = localStorage.getItem('echoscribe_mode') || 'Therapy';
+                const res = await EchoAuth.authFetch(`/api/patients/${patientId}/profile?mode=${currentMode}`);
                 if (res.ok) {
                     const profile = await res.json();
-                    profileContent.innerHTML = profile.psychological_profile || profile.journey_summary || 'Profile generated but no text format returned.';
+                    if (profileContent) {
+                        profileContent.innerHTML = profile.psychological_profile || profile.journey_summary || 'Profile generated but no text format returned.';
+                    }
                 } else {
-                    throw new Error('Profile failed');
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || 'Profile generation failed');
                 }
             } catch (err) {
-                alert('Failed to generate profile. Summarize more sessions first.');
+                alert(err.message || 'Failed to generate profile.');
             } finally {
                 btnGenerateProfile.disabled = false;
                 btnGenerateProfile.textContent = '✨ Generate Fresh';
