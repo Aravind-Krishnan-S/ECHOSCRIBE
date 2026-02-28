@@ -63,17 +63,21 @@
     }
 
     function renderPatientInfo() {
-        patientName.textContent = patientData.name || 'Unknown';
-        patientAge.textContent = patientData.age ? `🎂 ${patientData.age} years` : '🎂 -- yrs';
-        patientGender.textContent = patientData.gender ? `👤 ${patientData.gender}` : '👤 --';
-        patientEmail.textContent = patientData.email ? `📧 ${patientData.email}` : '📧 No email';
-        patientPhone.textContent = patientData.phone ? `📞 ${patientData.phone}` : '📞 No phone';
+        if (!patientData) return;
+        if (patientName) patientName.textContent = patientData.name || 'Unknown';
+        if (patientAge) patientAge.textContent = patientData.age ? `🎂 ${patientData.age} years` : '🎂 -- yrs';
+        if (patientGender) patientGender.textContent = patientData.gender ? `👤 ${patientData.gender}` : '👤 --';
+        if (patientEmail) patientEmail.textContent = patientData.email ? `📧 ${patientData.email}` : '📧 No email';
+        if (patientPhone) patientPhone.textContent = patientData.phone ? `📞 ${patientData.phone}` : '📞 No phone';
 
-        const initials = (patientData.name || 'U').split(' ').map(n => n.charAt(0).toUpperCase()).slice(0, 2).join('');
-        patientAvatar.textContent = initials;
+        if (patientAvatar) {
+            const initials = (patientData.name || 'U').split(' ').map(n => n.charAt(0).toUpperCase()).slice(0, 2).join('');
+            patientAvatar.textContent = initials;
+        }
     }
 
     function renderSessions() {
+        if (!sessionsList || !sessionsEmpty || !filterMode) return;
         const modeFilter = filterMode.value;
         const filtered = sessionsData.filter(s => {
             if (modeFilter === 'all') return true;
@@ -143,56 +147,60 @@
 
         // 1. Emotions Chart
         const ctxEmo = document.getElementById('emotionsChart');
-        if (emotionsChart) emotionsChart.destroy();
-        emotionsChart = new Chart(ctxEmo, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Emotional Valence',
-                    data: toneScores,
-                    borderColor: primaryColor,
-                    backgroundColor: primaryColor + '22',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { min: -1.5, max: 1.5, ticks: { callback: v => v === 1 ? 'Positive' : v === -1 ? 'Negative' : v === 0 ? 'Neutral' : '' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    x: { grid: { display: false } }
+        if (ctxEmo) {
+            if (emotionsChart) emotionsChart.destroy();
+            emotionsChart = new Chart(ctxEmo, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Emotional Valence',
+                        data: toneScores,
+                        borderColor: primaryColor,
+                        backgroundColor: primaryColor + '22',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: -1.5, max: 1.5, ticks: { callback: v => v === 1 ? 'Positive' : v === -1 ? 'Negative' : v === 0 ? 'Neutral' : '' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { grid: { display: false } }
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // 2. Activity Chart
         const ctxAct = document.getElementById('activityChart');
-        if (activityChart) activityChart.destroy();
-        activityChart = new Chart(ctxAct, {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Words Captured',
-                    data: words,
-                    backgroundColor: primaryColor,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    x: { grid: { display: false } }
+        if (ctxAct) {
+            if (activityChart) activityChart.destroy();
+            activityChart = new Chart(ctxAct, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Words Captured',
+                        data: words,
+                        backgroundColor: primaryColor,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { grid: { display: false } }
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     // --- Tabs Logic ---
@@ -207,33 +215,38 @@
     });
 
     // --- New Session ---
-    document.getElementById('btn-record-new').addEventListener('click', () => {
-        localStorage.setItem('echoscribe_active_patient', JSON.stringify(patientData));
-        window.location.href = '/record.html';
-    });
+    const btnRecordNew = document.getElementById('btn-record-new');
+    if (btnRecordNew) {
+        btnRecordNew.addEventListener('click', () => {
+            localStorage.setItem('echoscribe_active_patient', JSON.stringify(patientData));
+            window.location.href = '/record.html';
+        });
+    }
 
     // --- Generate Profile ---
-    btnGenerateProfile.addEventListener('click', async () => {
-        btnGenerateProfile.disabled = true;
-        btnGenerateProfile.textContent = '✨ Generating...';
-        try {
-            const res = await EchoAuth.authFetch(`/api/profile?patientId=${patientId}`);
-            if (res.ok) {
-                const profile = await res.json();
-                profileContent.innerHTML = profile.psychological_profile || profile.journey_summary || 'Profile generated but no text format returned.';
-            } else {
-                throw new Error('Profile failed');
+    if (btnGenerateProfile) {
+        btnGenerateProfile.addEventListener('click', async () => {
+            btnGenerateProfile.disabled = true;
+            btnGenerateProfile.textContent = '✨ Generating...';
+            try {
+                const res = await EchoAuth.authFetch(`/api/profile?patientId=${patientId}`);
+                if (res.ok) {
+                    const profile = await res.json();
+                    profileContent.innerHTML = profile.psychological_profile || profile.journey_summary || 'Profile generated but no text format returned.';
+                } else {
+                    throw new Error('Profile failed');
+                }
+            } catch (err) {
+                alert('Failed to generate profile. Summarize more sessions first.');
+            } finally {
+                btnGenerateProfile.disabled = false;
+                btnGenerateProfile.textContent = '✨ Generate Fresh';
             }
-        } catch (err) {
-            alert('Failed to generate profile. Summarize more sessions first.');
-        } finally {
-            btnGenerateProfile.disabled = false;
-            btnGenerateProfile.textContent = '✨ Generate Fresh';
-        }
-    });
+        });
+    }
 
     // --- Filter logic ---
-    filterMode.addEventListener('change', renderSessions);
+    if (filterMode) filterMode.addEventListener('change', renderSessions);
 
     // Boot
     init();
