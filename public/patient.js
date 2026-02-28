@@ -38,15 +38,17 @@
     // --- Init ---
     async function init() {
         try {
+            const currentMode = localStorage.getItem('echoscribe_mode') || 'Therapy';
+
             // 1. Fetch Patient Info
-            const pRes = await EchoAuth.authFetch(`/api/patients/${patientId}`);
+            const pRes = await EchoAuth.authFetch(`/api/patients/${patientId}?mode=${currentMode}`);
             if (pRes.ok) {
                 patientData = await pRes.json();
                 renderPatientInfo();
             }
 
             // 2. Fetch Sessions
-            const sRes = await EchoAuth.authFetch(`/api/patients/${patientId}/sessions`);
+            const sRes = await EchoAuth.authFetch(`/api/patients/${patientId}/sessions?mode=${currentMode}`);
             if (sRes.ok) {
                 sessionsData = await sRes.json();
                 renderSessions();
