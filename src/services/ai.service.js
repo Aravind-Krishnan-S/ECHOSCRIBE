@@ -229,8 +229,8 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         const response = await result.response;
         return response.text();
     } catch (err) {
-        console.error('[Gemini STT] Error:', err.message);
-        throw new AppError('Gemini transcription failed.', 500);
+        console.error('[Gemini STT] Full Error:', err.message, err.stack);
+        throw new AppError('Gemini transcription failed: ' + (err.message || 'Unknown error'), 500);
     }
 }
 
