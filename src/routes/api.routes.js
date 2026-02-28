@@ -14,7 +14,7 @@ const commsController = require('../controllers/communications.controller');
 
 const router = express.Router();
 
-// Multer config for audio uploads — preserve file extension for Groq Whisper
+// Multer config for audio uploads — preserve file extension for Gemini
 const uploadDir = path.join(os.tmpdir(), 'echoscribe-uploads');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        // Preserve original extension so Groq recognizes the file type
+        // Preserve original extension so Gemini recognizes the file type
         const ext = path.extname(file.originalname) || '.webm';
         const uniqueName = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
         cb(null, uniqueName);

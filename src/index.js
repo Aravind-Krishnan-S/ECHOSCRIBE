@@ -10,7 +10,7 @@ app.set('trust proxy', 1);
 
 // ─── Health / Debug endpoint (BEFORE env validation) ───
 app.get('/api/health', (req, res) => {
-    const keys = ['GROQ_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'NODE_ENV', 'PORT'];
+    const keys = ['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'NODE_ENV', 'PORT'];
     const status = {};
     keys.forEach(k => { status[k] = !!process.env[k]; });
     res.json({ ok: true, env: status, node: process.version });
@@ -45,14 +45,14 @@ app.use((req, res, next) => {
             const { createAuthMiddleware } = require('./middleware/auth');
             const { errorHandler } = require('./middleware/errorHandler');
             const { initSupabase } = require('./services/db.service');
-            const { initGroq } = require('./services/ai.service');
+            const { initGemini } = require('./services/ai.service');
             const { swaggerSpec } = require('./docs/swagger');
             const authRoutes = require('./routes/auth.routes');
             const apiRoutes = require('./routes/api.routes');
 
             const { aiLimiter } = setupSecurity(app, env);
             const supabase = initSupabase(env.SUPABASE_URL, env.SUPABASE_KEY);
-            initGroq(env.GROQ_API_KEY);
+            initGemini(env.GEMINI_API_KEY);
             const requireAuth = createAuthMiddleware(supabase);
 
             // Swagger docs
