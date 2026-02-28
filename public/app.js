@@ -18,6 +18,9 @@
     let activePatient;
     try {
         activePatient = JSON.parse(activePatientData);
+        if (!activePatient) {
+            throw new Error("Parsed patient data evaluates to null or undefined.");
+        }
     } catch (e) {
         localStorage.removeItem('echoscribe_active_patient');
         window.location.href = '/dashboard.html';
