@@ -6,7 +6,11 @@ const fs = require('fs');
 
 // POST /api/summarize — analyze + auto-save
 const summarize = asyncHandler(async (req, res) => {
-    const { text, patientId, language, mode } = req.body;
+    let { text, patientId, language, mode } = req.body;
+
+    if (mode) {
+        mode = mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+    }
 
     if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
         if (req.file) fs.unlink(req.file.path, () => { });
