@@ -102,6 +102,7 @@
 
     // Speaker diarization state (now just flat text blocks during live)
     let speakerSegments = [];      // { speaker: 1|2, text, start, end }
+    let speakerProfiles = { speaker1: { pitches: [], avgPitch: 0 }, speaker2: { pitches: [], avgPitch: 0 } };
     let chunkStartTime = 0;
     let recordingStartTime = 0;
     let chunkQueue = [];
