@@ -25,11 +25,21 @@ function setupSecurity(app, env) {
         allowedHeaders: ['Content-Type', 'Authorization'],
     }));
 
-    // Rate limiting — 10 requests per minute for AI endpoints
+    // Rate limiting — 15 requests per minute for light AI endpoints (transcribe, identify)
     const aiLimiter = rateLimit({
         windowMs: 60 * 1000,
-        max: 10,
+        max: 15,
         message: { error: 'Too many requests. Please wait a minute before trying again.' },
+        standardHeaders: true,
+        legacyHeaders: false,
+        validate: false,
+    });
+
+    // Heavy AI limiter — 5 requests per minute for expensive operations (summarize, profile, diarize)
+    const heavyAiLimiter = rateLimit({
+        windowMs: 60 * 1000,
+        max: 5,
+        message: { error: 'Rate limit exceeded for AI analysis. Please wait before trying again.' },
         standardHeaders: true,
         legacyHeaders: false,
         validate: false,
@@ -46,7 +56,7 @@ function setupSecurity(app, env) {
 
     app.use(generalLimiter);
 
-    return { aiLimiter };
+    return { aiLimiter, heavyAiLimiter };
 }
 
 module.exports = { setupSecurity };

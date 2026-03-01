@@ -1,7 +1,8 @@
 const { z } = require('zod');
 
 const envSchema = z.object({
-    GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),
+    GEMINI_API_KEY: z.string().optional().default(''),
+    GEMINI_API_KEYS: z.string().optional().default(''),
     DEEPGRAM_API_KEY: z.string().min(1, 'DEEPGRAM_API_KEY is required'),
     SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
     SUPABASE_KEY: z.string().min(1, 'SUPABASE_KEY is required'),
@@ -9,6 +10,11 @@ const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     CORS_ORIGIN: z.string().default('*'),
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
+}).refine(data => {
+    return (data.GEMINI_API_KEY && data.GEMINI_API_KEY.length > 0) ||
+        (data.GEMINI_API_KEYS && data.GEMINI_API_KEYS.length > 0);
+}, {
+    message: 'At least one of GEMINI_API_KEY or GEMINI_API_KEYS is required',
 });
 
 function validateEnv() {

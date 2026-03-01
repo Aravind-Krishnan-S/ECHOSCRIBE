@@ -10,10 +10,18 @@ app.set('trust proxy', 1);
 
 // ─── Health / Debug endpoint (BEFORE env validation) ───
 app.get('/api/health', (req, res) => {
-    const keys = ['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'NODE_ENV', 'PORT'];
+    const keys = ['GEMINI_API_KEY', 'GEMINI_API_KEYS', 'SUPABASE_URL', 'SUPABASE_KEY', 'NODE_ENV', 'PORT'];
     const status = {};
     keys.forEach(k => { status[k] = !!process.env[k]; });
-    res.json({ ok: true, env: status, node: process.version });
+
+    // Pool status
+    let poolStatus = null;
+    try {
+        const { geminiPool } = require('./services/gemini-pool');
+        poolStatus = geminiPool.getStatus();
+    } catch (e) { /* not yet initialized */ }
+
+    res.json({ ok: true, env: status, pool: poolStatus, node: process.version });
 });
 
 // ─── Validate env lazily — don't crash at module load ───
@@ -50,9 +58,17 @@ app.use((req, res, next) => {
             const authRoutes = require('./routes/auth.routes');
             const apiRoutes = require('./routes/api.routes');
 
-            const { aiLimiter } = setupSecurity(app, env);
+            const { aiLimiter, heavyAiLimiter } = setupSecurity(app, env);
             const supabase = initSupabase(env.SUPABASE_URL, env.SUPABASE_KEY);
-            initGemini(env.GEMINI_API_KEY);
+
+            // Initialize Gemini pool with multiple keys (comma-separated) or single key
+            const geminiKeys = (env.GEMINI_API_KEYS || env.GEMINI_API_KEY || '')
+                .split(',')
+                .map(k => k.trim())
+                .filter(k => k.length > 0);
+            initGemini(geminiKeys);
+            console.log(`[EchoScribe] Gemini pool initialized with ${geminiKeys.length} key(s)`);
+
             const requireAuth = createAuthMiddleware(supabase);
 
             // Swagger docs
@@ -70,11 +86,24 @@ app.use((req, res, next) => {
 
             const { complianceLogger } = require('./middleware/compliance');
 
-            // Protected API routes
+            // Protected API routes — with tiered rate limiting for AI endpoints
             app.use('/api', requireAuth, complianceLogger, (req2, res2, next2) => {
-                if (req2.path === '/summarize' && req2.method === 'POST') {
+                const path = req2.path;
+                const method = req2.method;
+
+                // Heavy AI limiter (5/min) — expensive Gemini operations
+                if ((path === '/summarize' && method === 'POST') ||
+                    (path === '/profile' && method === 'GET') ||
+                    (path === '/diarize-transcript' && method === 'POST')) {
+                    return heavyAiLimiter(req2, res2, next2);
+                }
+
+                // Light AI limiter (15/min) — frequent but cheap operations
+                if ((path === '/transcribe-audio' && method === 'POST') ||
+                    (path === '/identify-speakers' && method === 'POST')) {
                     return aiLimiter(req2, res2, next2);
                 }
+
                 next2();
             }, apiRoutes);
 
