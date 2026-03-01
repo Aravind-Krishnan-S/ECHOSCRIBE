@@ -195,6 +195,18 @@
     text-align: right;
 }
 
+.provider-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #a78bfa;
+    background: rgba(108, 99, 255, 0.1);
+    border: 1px solid rgba(108, 99, 255, 0.2);
+    padding: 0.15rem 0.6rem;
+    border-radius: 10px;
+    white-space: nowrap;
+    margin-left: 0.5rem;
+}
+
 /* --- Stats Bar --- */
 .stats-bar {
     display: flex;
@@ -417,7 +429,7 @@
 }
 
 .key-points-list li::before {
-    content: '▸';
+    content: '\25B8';
     position: absolute;
     left: 0;
     color: #a78bfa;
@@ -524,12 +536,47 @@
     margin-bottom: 0.5rem;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
 }
 
 .session-item:hover {
     background: rgba(108, 99, 255, 0.08);
     border-color: rgba(108, 99, 255, 0.25);
     transform: translateX(4px);
+}
+
+.session-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.session-delete-btn {
+    opacity: 0;
+    background: rgba(255, 77, 106, 0.1);
+    border: 1px solid rgba(255, 77, 106, 0.3);
+    color: #ff6b8a;
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+}
+
+.session-item:hover .session-delete-btn {
+    opacity: 1;
+}
+
+.session-delete-btn:hover {
+    background: rgba(255, 77, 106, 0.25);
+    border-color: rgba(255, 77, 106, 0.5);
+    color: #ff4d6a;
 }
 
 /* --- Summary Header --- */

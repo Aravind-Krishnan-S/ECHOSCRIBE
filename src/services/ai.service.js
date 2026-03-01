@@ -192,7 +192,9 @@ Return ONLY valid JSON with this exact structure:
             parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
             parsedData.confidence_score = parsedData.confidence_score || 0.0;
             parsedData.counselingStats = parsedData.counselingStats || {};
+            parsedData._provider = 'Gemini 2.0 Flash';
 
+            geminiPool.reportSuccess();
             return parsedData;
         } catch (err) {
             geminiPool.reportError(err.message || '');
@@ -209,7 +211,7 @@ Return ONLY valid JSON with this exact structure:
                     let parsedData = JSON.parse(groqResponse);
                     parsedData.wordCount = parsedData.wordCount || wordCount;
                     parsedData.originalText = text.trim();
-                    parsedData._provider = 'groq';
+                    parsedData._provider = 'Groq Llama 3.3';
                     if (mode === 'Therapy') {
                         parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
                         parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
@@ -284,7 +286,8 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
     try {
         const result = await model.generateContent([prompt, audioPart]);
         const response = await result.response;
-        return response.text();
+        geminiPool.reportSuccess();
+        return { text: response.text(), _provider: 'Gemini 2.0 Flash' };
     } catch (err) {
         geminiPool.reportError(err.message || '');
 
@@ -292,7 +295,8 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         if (fallback.isDeepgramAvailable()) {
             console.warn('[Transcribe] Gemini failed. Falling back to Deepgram Nova-2...');
             try {
-                return await fallback.transcribeAudioBuffer(audioBuffer, mimeType, lang);
+                const dgText = await fallback.transcribeAudioBuffer(audioBuffer, mimeType, lang);
+                return { text: dgText, _provider: 'Deepgram Nova-2' };
             } catch (dgErr) {
                 console.error('[Deepgram Fallback] Also failed:', dgErr.message);
             }
@@ -303,18 +307,131 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
     }
 }
 
-// --- Strict Role Identification via Gemini ---
+// --- Contextual Role Identification ---
 
-async function identifyRoles(mergedTranscript, sessionMode = 'Therapy') {
+/**
+ * Compute contextual signals from Deepgram turns for smarter role classification.
+ * Inspired by clinical NLP research:
+ *  - Therapists/Mentors: ask more questions, use guiding language, shorter turns
+ *  - Patients/Mentees: share personal narratives, longer turns, emotional language
+ */
+function computeSpeakerStats(turns) {
+    const stats = {};
+
+    turns.forEach(turn => {
+        const spkId = turn.speaker;
+        if (!stats[spkId]) {
+            stats[spkId] = {
+                totalWords: 0,
+                totalTime: 0,
+                turnCount: 0,
+                questionCount: 0,
+                clinicalTerms: 0,
+                guidingPhrases: 0,
+                emotionalPhrases: 0,
+                firstTurnIndex: Infinity,
+                text: ''
+            };
+        }
+        const s = stats[spkId];
+        const text = turn.text || '';
+        const words = text.trim().split(/\s+/).length;
+
+        s.totalWords += words;
+        s.totalTime += (turn.end || 0) - (turn.start || 0);
+        s.turnCount++;
+        s.text += text + ' ';
+        if (s.firstTurnIndex > turns.indexOf(turn)) s.firstTurnIndex = turns.indexOf(turn);
+
+        // Count questions (? or question starters)
+        s.questionCount += (text.match(/\?/g) || []).length;
+        const qStarters = /\b(how|what|when|where|why|can you|could you|do you|have you|tell me|would you|are you|is there|did you)\b/gi;
+        s.questionCount += (text.match(qStarters) || []).length;
+
+        // Clinical/professional vocabulary (therapist/mentor markers)
+        const clinicalWords = /\b(session|treatment|therapy|therapeutic|diagnosis|assessment|progress|intervention|coping|strategy|strategies|goals?|objectives?|homework|assignment|exercise|mindfulness|cognitive|behavioral|healing|recovery|resilience|support|referral|medication|dosage|schedule|follow.?up|appointment|check.?in|review|evaluation|reflect|explore|process|boundaries|self.?care|skills?|techniques?|resources?|action.?plan|timeline|milestones?|curriculum|academic|semester|coursework|research|professor|faculty|advisor|gpa|enrollment)\b/gi;
+        s.clinicalTerms += (text.match(clinicalWords) || []).length;
+
+        // Guiding/directing language (professional markers)
+        const guidingPhrases = /\b(let's|I'd like|I suggest|I recommend|I want you to|try to|consider|it sounds like|what I'm hearing|I notice|I sense|from what you've said|let me|perhaps|it seems|have you considered|one option|another approach|we could|shall we|let's focus|how about|moving forward)\b/gi;
+        s.guidingPhrases += (text.match(guidingPhrases) || []).length;
+
+        // Emotional/personal language (patient/mentee markers)
+        const emotionalPhrases = /\b(I feel|I felt|I'm feeling|I've been|I can't|I don't know|it hurts|I'm scared|I'm worried|I'm anxious|I'm stressed|I'm afraid|I'm sad|I'm angry|I'm confused|my family|my partner|my boss|my mother|my father|my friend|happened to me|I went through|I experienced|I struggle|I suffer|I need help|I'm lost|I cry|nightmare|panic|depression|anxiety|lonely|hopeless|overwhelmed|frustrated|my life|my problem|my issue)\b/gi;
+        s.emotionalPhrases += (text.match(emotionalPhrases) || []).length;
+    });
+
+    return stats;
+}
+
+async function identifyRoles(mergedTranscript, sessionMode = 'Therapy', turns = []) {
     ensureGemini();
 
-    let roleA, roleB;
+    let roleA, roleB, contextDescription;
     if (sessionMode === 'Therapy') {
         roleA = "Therapist"; roleB = "Patient";
+        contextDescription = `This is a THERAPY session. The Therapist is a trained mental health professional who:
+- Asks probing questions to understand the patient's state
+- Uses clinical language and therapeutic techniques (CBT, reflective listening, etc.)
+- Guides the conversation with structured interventions
+- Speaks in shorter, directed turns
+- Often starts the session by checking in or setting the agenda
+
+The Patient is the individual seeking help who:
+- Shares personal experiences, emotions, and struggles
+- Speaks in longer narrative turns about their life
+- Uses emotional and personal language ("I feel", "I can't", etc.)
+- Responds to the therapist's questions and prompts`;
     } else if (sessionMode === 'Mentoring') {
         roleA = "Mentor"; roleB = "Mentee";
+        contextDescription = `This is an ACADEMIC MENTORING session. The Mentor is a university faculty/senior who:
+- Guides academic and professional development
+- Asks about goals, progress, and challenges
+- Provides advice about coursework, research, career paths
+- Sets action items and follow-up tasks
+- Uses academic vocabulary (semester, GPA, coursework, thesis, etc.)
+
+The Mentee is the student seeking guidance who:
+- Shares academic struggles and personal challenges
+- Asks for advice and direction
+- Discusses their goals, uncertainties, and progress
+- Reports on previous action items`;
     } else {
         roleA = "Counsellor"; roleB = "Patient";
+        contextDescription = `This is a COUNSELLING session. The Counsellor guides the conversation.`;
+    }
+
+    // Compute contextual signals from Deepgram turns
+    let contextualAnalysis = '';
+    if (turns.length > 0) {
+        const stats = computeSpeakerStats(turns);
+        const speakers = Object.keys(stats).sort((a, b) => a - b);
+
+        contextualAnalysis = '\n\nSPEAKER ANALYSIS (from audio processing):\n';
+        speakers.forEach(spkId => {
+            const s = stats[spkId];
+            const avgWordsPerTurn = s.turnCount > 0 ? Math.round(s.totalWords / s.turnCount) : 0;
+            contextualAnalysis += `
+speaker_${spkId}:
+  - Total speaking time: ${s.totalTime.toFixed(1)}s
+  - Total words: ${s.totalWords}
+  - Number of turns: ${s.turnCount}
+  - Avg words/turn: ${avgWordsPerTurn}
+  - Questions asked: ${s.questionCount}
+  - Clinical/professional terms used: ${s.clinicalTerms}
+  - Guiding/directing phrases: ${s.guidingPhrases}
+  - Emotional/personal phrases: ${s.emotionalPhrases}
+  - Spoke first: ${s.firstTurnIndex === 0 ? 'YES' : 'NO'}
+`;
+        });
+
+        contextualAnalysis += `
+INTERPRETATION GUIDE:
+- The ${roleA} typically: asks MORE questions, uses MORE clinical/guiding terms, speaks in SHORTER turns, often speaks FIRST
+- The ${roleB} typically: uses MORE emotional/personal phrases, speaks in LONGER narrative turns, answers questions
+- Higher question count + clinical terms + guiding phrases = likely ${roleA}
+- Higher emotional phrases + longer turns = likely ${roleB}
+`;
     }
 
     const model = geminiPool.getModel({
@@ -325,14 +442,25 @@ async function identifyRoles(mergedTranscript, sessionMode = 'Therapy') {
         }
     });
 
-    const prompt = `You are a transcript analyst. Below is a conversation transcript with two speakers labelled speaker_0 and speaker_1. Based on the content, identify which speaker is the ${roleA} and which is the ${roleB}.
+    const prompt = `You are an expert clinical transcript analyst specializing in speaker role identification.
 
-[ROLE_A] = ${roleA}
-[ROLE_B] = ${roleB}
+CONTEXT:
+${contextDescription}
 
-Reply with ONLY valid JSON mapping the exact speaker keys to the literal role names. Do NOT use any other labels. Ensure you map both speakers.
-Example format:
-{ "speaker_0": "${roleA}", "speaker_1": "${roleB}" }
+TASK:
+Analyze the transcript below and determine which speaker (speaker_0 or speaker_1) is the ${roleA} and which is the ${roleB}.
+${contextualAnalysis}
+Use ALL available evidence:
+1. Content analysis (what each person says)
+2. Speaking patterns (questions vs. narratives)
+3. Vocabulary (clinical vs. emotional language)
+4. Turn structure (who guides vs. who follows)
+5. Statistical signals provided above
+
+Reply with ONLY valid JSON mapping speaker keys to roles:
+{ "speaker_0": "${roleA}" or "${roleB}", "speaker_1": "${roleA}" or "${roleB}" }
+
+IMPORTANT: You MUST assign exactly one ${roleA} and one ${roleB}. Both roles must be used.
 
 TRANSCRIPT:
 """
@@ -343,7 +471,18 @@ ${mergedTranscript}
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const jsonText = response.text();
-        return JSON.parse(jsonText);
+        const parsed = JSON.parse(jsonText);
+        geminiPool.reportSuccess();
+
+        // Validate: ensure both roles are assigned
+        const roles = Object.values(parsed);
+        if (!roles.includes(roleA) || !roles.includes(roleB)) {
+            console.warn('[RoleID] Invalid role mapping, fixing...', parsed);
+            return { "speaker_0": roleA, "speaker_1": roleB };
+        }
+
+        console.log(`[RoleID] Classification result: speaker_0=${parsed.speaker_0}, speaker_1=${parsed.speaker_1}`);
+        return parsed;
     } catch (err) {
         geminiPool.reportError(err.message || '');
 
@@ -352,7 +491,7 @@ ${mergedTranscript}
             console.warn('[RoleID] Gemini failed. Falling back to Groq...');
             try {
                 const groqResp = await fallback.chatCompletion(
-                    'You are a transcript analyst. Reply with ONLY valid JSON.',
+                    'You are a clinical transcript analyst. Reply with ONLY valid JSON.',
                     prompt, true
                 );
                 return JSON.parse(groqResp);

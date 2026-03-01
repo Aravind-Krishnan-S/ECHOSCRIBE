@@ -51,9 +51,10 @@
     const riskSI = document.getElementById('risk-si');
     const riskSHLevel = document.getElementById('risk-sh-level');
     const riskNotes = document.getElementById('risk-notes');
-    // Confidence
+    // Confidence & Provider
     const confidenceFill = document.getElementById('confidence-fill');
     const confidenceValue = document.getElementById('confidence-value');
+    const providerBadge = document.getElementById('provider-badge');
     // Lists
     const diagnosticList = document.getElementById('diagnostic-list');
     const interventionsPills = document.getElementById('interventions-pills');
@@ -240,6 +241,11 @@
     if (confidence >= 80) confidenceFill.style.background = 'linear-gradient(90deg, #00e676, #69f0ae)';
     else if (confidence >= 50) confidenceFill.style.background = 'linear-gradient(90deg, #ffc107, #ffca28)';
     else confidenceFill.style.background = 'linear-gradient(90deg, #ff4d6a, #ff6b8a)';
+
+    // --- AI Provider Badge ---
+    if (providerBadge && data._provider) {
+        providerBadge.textContent = '🤖 ' + data._provider;
+    }
 
     // --- Diagnostic Impressions / Key Observations ---
     const diagnostics = data.diagnostic_impressions || [];
@@ -874,25 +880,53 @@
                         ? (analysis.risk_assessment?.severe_distress_risk || 'low')
                         : (analysis.risk_assessment?.self_harm_risk || 'low');
                     const emo = analysis.counselingStats?.currentEmotionalState || analysis.emotional_tone || 'Unknown';
+                    const provider = analysis._provider || '';
 
                     div.innerHTML = `
-                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#e2e8f0; font-weight:600;">
-                            <span>${date}</span>
-                            <span style="display:flex; gap:0.5rem; align-items:center;">
-                                <span class="risk-badge risk-badge-${rk}" style="font-size:0.7rem; padding:0.15rem 0.5rem;">${rk.toUpperCase()}</span>
-                                <span>${emo}</span>
-                            </span>
+                        <div class="session-item-content">
+                            <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#e2e8f0; font-weight:600;">
+                                <span>${date}</span>
+                                <span style="display:flex; gap:0.5rem; align-items:center;">
+                                    ${provider ? `<span class="provider-badge" style="font-size:0.65rem;">\ud83e\udd16 ${provider}</span>` : ''}
+                                    <span class="risk-badge risk-badge-${rk}" style="font-size:0.7rem; padding:0.15rem 0.5rem;">${rk.toUpperCase()}</span>
+                                    <span>${emo}</span>
+                                </span>
+                            </div>
+                            <div style="font-size:0.8rem; color:#a0aec0; margin-top:0.3rem;">
+                                ${(item.summary || '').substring(0, 60)}...
+                            </div>
                         </div>
-                        <div style="font-size:0.8rem; color:#a0aec0; margin-top:0.3rem;">
-                            ${(item.summary || '').substring(0, 60)}...
-                        </div>
+                        <button class="session-delete-btn" data-session-id="${item.id}" title="Delete this session">\ud83d\uddd1\ufe0f Delete</button>
                     `;
-                    div.addEventListener('click', () => {
+
+                    // Click on content area to view session
+                    div.querySelector('.session-item-content').addEventListener('click', () => {
                         localStorage.setItem('echoscribe_summary', JSON.stringify(item.analysis_json));
                         lastSavedSessionId = item.id;
                         localStorage.setItem('echoscribe_session_id', item.id);
                         window.location.reload();
                     });
+
+                    // Click delete button
+                    div.querySelector('.session-delete-btn').addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (!confirm('Delete this session? This cannot be undone.')) return;
+                        try {
+                            const delResp = await EchoAuth.authFetch(`/api/session/${item.id}?mode=${currentMode}`, { method: 'DELETE' });
+                            if (delResp.ok) {
+                                div.remove();
+                                if (historyList.children.length === 0) {
+                                    historyList.innerHTML = '<p style="color:#718096; font-style:italic;">No saved sessions found.</p>';
+                                }
+                            } else {
+                                alert('Failed to delete session.');
+                            }
+                        } catch (delErr) {
+                            console.error('Delete failed:', delErr);
+                            alert('Failed to delete session.');
+                        }
+                    });
+
                     historyList.appendChild(div);
                 });
             } else {

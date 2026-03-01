@@ -96,6 +96,7 @@ router.post('/summarize', upload.single('audio'), sessionController.summarize);
 router.post('/session', upload.single('audio'), sessionController.saveSession);
 
 router.get('/history', validateModeQuery, sessionController.getHistory);
+router.delete('/session/:id', sessionController.deleteSession);
 
 // --- Transcription Routes ---
 router.post('/transcribe-audio', upload.single('audio'), transcribeController.transcribe);

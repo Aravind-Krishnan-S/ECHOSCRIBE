@@ -127,4 +127,18 @@ const getHistory = asyncHandler(async (req, res) => {
     res.json(data);
 });
 
-module.exports = { summarize, saveSession, getHistory };
+// DELETE /api/session/:id
+const deleteSessionHandler = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const mode = req.query.mode;
+
+    if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
+        throw new AppError("Strict Data Isolation: 'mode' query is required.", 400);
+    }
+
+    await dbService.deleteSession(req.supabaseToken, id, userId, mode);
+    res.json({ success: true, message: 'Session deleted.' });
+});
+
+module.exports = { summarize, saveSession, getHistory, deleteSession: deleteSessionHandler };
