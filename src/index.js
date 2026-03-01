@@ -10,7 +10,7 @@ app.set('trust proxy', 1);
 
 // ─── Health / Debug endpoint (BEFORE env validation) ───
 app.get('/api/health', (req, res) => {
-    const keys = ['GEMINI_API_KEY', 'GEMINI_API_KEYS', 'SUPABASE_URL', 'SUPABASE_KEY', 'NODE_ENV', 'PORT'];
+    const keys = ['GEMINI_API_KEY', 'GEMINI_API_KEYS', 'GROQ_API_KEY', 'DEEPGRAM_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'NODE_ENV', 'PORT'];
     const status = {};
     keys.forEach(k => { status[k] = !!process.env[k]; });
 
@@ -94,6 +94,9 @@ app.use((req, res, next) => {
             initGemini(geminiKeys);
             console.log(`[EchoScribe] Gemini pool initialized with ${geminiKeys.length} key(s)`);
 
+            // Initialize Groq + Deepgram fallback (used when all Gemini keys are exhausted)
+            const { initFallback } = require('./services/groq-fallback');
+            initFallback();
             const requireAuth = createAuthMiddleware(supabase);
 
             // Swagger docs

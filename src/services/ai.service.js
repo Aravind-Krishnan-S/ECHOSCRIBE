@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { AppError } = require('../middleware/errorHandler');
 const { geminiPool } = require('./gemini-pool');
+const fallback = require('./groq-fallback');
 
 // Legacy single-key init — now delegates to the pool
 function initGemini(apiKeyOrKeys) {
@@ -194,12 +195,50 @@ Return ONLY valid JSON with this exact structure:
 
             return parsedData;
         } catch (err) {
+            geminiPool.reportError(err.message || '');
             if (attempt < retries) {
-                geminiPool.reportError(err.message || '');
                 console.warn(`[Gemini Summarize] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
                 continue;
             }
-            console.error('[Gemini Summarize] All attempts failed:', err.message);
+
+            // --- FALLBACK: Groq Llama 3.3 ---
+            if (fallback.isAvailable()) {
+                console.warn('[Summarize] All Gemini attempts failed. Falling back to Groq Llama 3.3...');
+                try {
+                    const groqResponse = await fallback.chatCompletion(systemInstruction, userPrompt, true);
+                    let parsedData = JSON.parse(groqResponse);
+                    parsedData.wordCount = parsedData.wordCount || wordCount;
+                    parsedData.originalText = text.trim();
+                    parsedData._provider = 'groq';
+                    if (mode === 'Therapy') {
+                        parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
+                        parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
+                        parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
+                        parsedData.interventions_used = parsedData.interventions_used || [];
+                        parsedData.medication_changes = parsedData.medication_changes || [];
+                        parsedData.progress_indicators = parsedData.progress_indicators || [];
+                    } else {
+                        parsedData.grow = parsedData.grow || { goal: '', reality: '', options: '', way_forward: '' };
+                        parsedData.risk_assessment = parsedData.risk_assessment || { academic_burnout: false, severe_distress_risk: 'low', notes: '' };
+                        parsedData.skill_progression = parsedData.skill_progression || [];
+                        parsedData.action_items = parsedData.action_items || [];
+                        parsedData.goal_completion_rate = parsedData.goal_completion_rate || 'Unknown';
+                        parsedData.motivational_state = parsedData.motivational_state || 'Unknown';
+                    }
+                    parsedData.auto_booking = parsedData.auto_booking || { needs_follow_up: false, suggested_timeframe: 'None', reason: '' };
+                    parsedData.referral_form = parsedData.referral_form || { referral_needed: false, specialty_or_service: 'None', reason: '' };
+                    parsedData.patient_communication = parsedData.patient_communication || { instructions_english: 'No instructions generated.', instructions_translated: 'No translated instructions generated.' };
+                    parsedData.emotional_tone = parsedData.emotional_tone || 'neutral';
+                    parsedData.topics = parsedData.topics || [];
+                    parsedData.confidence_score = parsedData.confidence_score || 0.0;
+                    parsedData.counselingStats = parsedData.counselingStats || {};
+                    return parsedData;
+                } catch (groqErr) {
+                    console.error('[Groq Fallback] Also failed:', groqErr.message);
+                }
+            }
+
+            console.error('[Summarize] All providers failed:', err.message);
             throw new AppError('Failed to analyze transcript: ' + (err.message || 'Unknown error'), 500);
         }
     }
@@ -248,6 +287,17 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         return response.text();
     } catch (err) {
         geminiPool.reportError(err.message || '');
+
+        // --- FALLBACK: Deepgram Nova-2 ---
+        if (fallback.isDeepgramAvailable()) {
+            console.warn('[Transcribe] Gemini failed. Falling back to Deepgram Nova-2...');
+            try {
+                return await fallback.transcribeAudioBuffer(audioBuffer, mimeType, lang);
+            } catch (dgErr) {
+                console.error('[Deepgram Fallback] Also failed:', dgErr.message);
+            }
+        }
+
         console.error('[Gemini STT] Full Error:', err.message, err.stack);
         throw new AppError('Gemini transcription failed: ' + (err.message || 'Unknown error'), 500);
     }
@@ -295,7 +345,23 @@ ${mergedTranscript}
         const jsonText = response.text();
         return JSON.parse(jsonText);
     } catch (err) {
-        console.error('[Gemini Role ID] Error:', err.message);
+        geminiPool.reportError(err.message || '');
+
+        // --- FALLBACK: Groq Llama 3.3 ---
+        if (fallback.isAvailable()) {
+            console.warn('[RoleID] Gemini failed. Falling back to Groq...');
+            try {
+                const groqResp = await fallback.chatCompletion(
+                    'You are a transcript analyst. Reply with ONLY valid JSON.',
+                    prompt, true
+                );
+                return JSON.parse(groqResp);
+            } catch (groqErr) {
+                console.error('[Groq RoleID Fallback] Also failed:', groqErr.message);
+            }
+        }
+
+        console.error('[RoleID] All providers failed:', err.message);
         return { "speaker_0": roleA, "speaker_1": roleB };
     }
 }
@@ -421,7 +487,23 @@ ${jsonSchema}`);
         return profileAnalysis;
     } catch (err) {
         geminiPool.reportError(err.message || '');
-        console.error('[Gemini Profile] Error:', err.message);
+
+        // --- FALLBACK: Groq Llama 3.3 ---
+        if (fallback.isAvailable()) {
+            console.warn('[Profile] Gemini failed. Falling back to Groq Llama 3.3...');
+            try {
+                const groqResp = await fallback.chatCompletion(
+                    systemMsg,
+                    `${userMsgFocus}\n\nSESSION HISTORY:\n${sessionSummaries}\n\nReturn ONLY valid JSON:\n${jsonSchema}`,
+                    true
+                );
+                return JSON.parse(groqResp);
+            } catch (groqErr) {
+                console.error('[Groq Profile Fallback] Also failed:', groqErr.message);
+            }
+        }
+
+        console.error('[Profile] All providers failed:', err.message);
         throw new AppError('Profile generation failed: ' + (err.message || 'Unknown error'), 500);
     }
 }
@@ -474,7 +556,24 @@ Return ONLY valid JSON in this format:
         return parsed.turns || [];
     } catch (e) {
         geminiPool.reportError(e.message || '');
-        console.error('[Gemini Diarize] Error:', e.message);
+
+        // --- FALLBACK: Groq Llama 3.3 ---
+        if (fallback.isAvailable()) {
+            console.warn('[Diarize] Gemini failed. Falling back to Groq...');
+            try {
+                const diarizePrompt = `Split this conversation transcript into speaker turns.\n\nRAW TRANSCRIPT:\n"""\n${rawText}\n"""\n\nReturn ONLY valid JSON: { "turns": [{ "speaker": 1, "text": "..." }, ...] }`;
+                const groqResp = await fallback.chatCompletion(
+                    'You are an expert at analyzing conversation transcripts. Identify speaker turns. Reply with valid JSON only.',
+                    diarizePrompt, true
+                );
+                const parsed = JSON.parse(groqResp);
+                return parsed.turns || [];
+            } catch (groqErr) {
+                console.error('[Groq Diarize Fallback] Also failed:', groqErr.message);
+            }
+        }
+
+        console.error('[Diarize] All providers failed:', e.message);
         return [{ speaker: 1, text: rawText }];
     }
 }
