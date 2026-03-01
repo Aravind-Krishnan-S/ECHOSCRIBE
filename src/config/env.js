@@ -11,10 +11,16 @@ const envSchema = z.object({
     CORS_ORIGIN: z.string().default('*'),
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
 }).refine(data => {
-    return (data.GEMINI_API_KEY && data.GEMINI_API_KEY.length > 0) ||
-        (data.GEMINI_API_KEYS && data.GEMINI_API_KEYS.length > 0);
+    // Accept keys from GEMINI_API_KEY, GEMINI_API_KEYS, or numbered variants (1_GEMINI_API_KEY, etc.)
+    if (data.GEMINI_API_KEY && data.GEMINI_API_KEY.length > 0) return true;
+    if (data.GEMINI_API_KEYS && data.GEMINI_API_KEYS.length > 0) return true;
+    // Check for numbered keys in process.env directly
+    const hasNumbered = Object.keys(process.env).some(k =>
+        /gemini_api_key/i.test(k) && process.env[k]?.trim().length > 0
+    );
+    return hasNumbered;
 }, {
-    message: 'At least one of GEMINI_API_KEY or GEMINI_API_KEYS is required',
+    message: 'At least one Gemini API key is required (GEMINI_API_KEY, GEMINI_API_KEYS, or numbered like 1_GEMINI_API_KEY)',
 });
 
 function validateEnv() {
