@@ -1,18 +1,26 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { AppError } = require('../middleware/errorHandler');
+const { geminiPool } = require('./gemini-pool');
 
-let genAI = null;
-
-function initGemini(apiKey) {
-    genAI = new GoogleGenerativeAI(apiKey);
-    return genAI;
+// Legacy single-key init — now delegates to the pool
+function initGemini(apiKeyOrKeys) {
+    const keys = Array.isArray(apiKeyOrKeys) ? apiKeyOrKeys : [apiKeyOrKeys];
+    geminiPool.init(keys);
 }
 
 function ensureGemini() {
-    if (!genAI) {
-        initGemini(process.env.GEMINI_API_KEY);
+    if (geminiPool.getStatus().totalKeys === 0) {
+        // Fallback: try env
+        const envKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+        const keys = envKeys.split(',').filter(k => k.trim());
+        if (keys.length === 0) throw new AppError('Gemini API not initialized. Set GEMINI_API_KEY or GEMINI_API_KEYS.', 500);
+        geminiPool.init(keys);
     }
-    if (!genAI) throw new AppError('Gemini API not initialized. Set GEMINI_API_KEY.', 500);
+}
+
+function getModel(modelName = 'gemini-2.0-flash') {
+    ensureGemini();
+    return geminiPool.getModel(modelName);
 }
 
 // --- Clinical SOAP Summarization (Gemini) ---
@@ -113,7 +121,7 @@ Return ONLY valid JSON with this exact structure:
   "originalText": ""
 }`;
 
-    const model = genAI.getGenerativeModel({
+    const model = geminiPool.getModel({
         model: "gemini-2.0-flash",
         systemInstruction,
         generationConfig: {
@@ -173,6 +181,7 @@ Return ONLY valid JSON with this exact structure:
             return parsedData;
         } catch (err) {
             if (attempt < retries) {
+                geminiPool.reportError();
                 console.warn(`[Gemini Summarize] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
                 continue;
             }
@@ -187,7 +196,7 @@ Return ONLY valid JSON with this exact structure:
 async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
     ensureGemini();
 
-    const model = genAI.getGenerativeModel({
+    const model = geminiPool.getModel({
         model: "gemini-2.0-flash",
         generationConfig: {
             temperature: 0
@@ -224,6 +233,7 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         const response = await result.response;
         return response.text();
     } catch (err) {
+        geminiPool.reportError();
         console.error('[Gemini STT] Full Error:', err.message, err.stack);
         throw new AppError('Gemini transcription failed: ' + (err.message || 'Unknown error'), 500);
     }
@@ -243,7 +253,7 @@ async function identifyRoles(mergedTranscript, sessionMode = 'Therapy') {
         roleA = "Counsellor"; roleB = "Patient";
     }
 
-    const model = genAI.getGenerativeModel({
+    const model = geminiPool.getModel({
         model: "gemini-2.0-flash",
         generationConfig: {
             temperature: 0.1,
@@ -361,7 +371,7 @@ async function generateProfile(sessions) {
   "psychological_profile": "Brief profile of the student's motivational and behavioral state"
 }`;
 
-    const model = genAI.getGenerativeModel({
+    const model = geminiPool.getModel({
         model: "gemini-2.0-flash",
         systemInstruction: systemMsg,
         generationConfig: {
@@ -396,6 +406,7 @@ ${jsonSchema}`);
 
         return profileAnalysis;
     } catch (err) {
+        geminiPool.reportError();
         console.error('[Gemini Profile] Error:', err.message);
         throw new AppError('Profile generation failed: ' + (err.message || 'Unknown error'), 500);
     }
@@ -406,7 +417,7 @@ ${jsonSchema}`);
 async function diarizeTranscript(rawText) {
     ensureGemini();
 
-    const model = genAI.getGenerativeModel({
+    const model = geminiPool.getModel({
         model: "gemini-2.0-flash",
         systemInstruction: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
 
@@ -448,6 +459,7 @@ Return ONLY valid JSON in this format:
         const parsed = JSON.parse(responseText);
         return parsed.turns || [];
     } catch (e) {
+        geminiPool.reportError();
         console.error('[Gemini Diarize] Error:', e.message);
         return [{ speaker: 1, text: rawText }];
     }
