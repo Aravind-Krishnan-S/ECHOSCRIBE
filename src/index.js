@@ -61,11 +61,36 @@ app.use((req, res, next) => {
             const { aiLimiter, heavyAiLimiter } = setupSecurity(app, env);
             const supabase = initSupabase(env.SUPABASE_URL, env.SUPABASE_KEY);
 
-            // Initialize Gemini pool with multiple keys (comma-separated) or single key
-            const geminiKeys = (env.GEMINI_API_KEYS || env.GEMINI_API_KEY || '')
-                .split(',')
-                .map(k => k.trim())
-                .filter(k => k.length > 0);
+            // Initialize Gemini pool — collect keys from all env var patterns:
+            //   GEMINI_API_KEYS=key1,key2  (comma-separated)
+            //   GEMINI_API_KEY=key1        (single key)
+            //   1_GEMINI_API_KEY=key1      (numbered keys)
+            //   2_Gemini_API_KEY=key2      (any prefix/case)
+            const geminiKeys = [];
+            const seen = new Set();
+
+            // 1) Comma-separated GEMINI_API_KEYS
+            if (process.env.GEMINI_API_KEYS) {
+                process.env.GEMINI_API_KEYS.split(',').forEach(k => {
+                    const trimmed = k.trim();
+                    if (trimmed && !seen.has(trimmed)) { seen.add(trimmed); geminiKeys.push(trimmed); }
+                });
+            }
+
+            // 2) Single GEMINI_API_KEY
+            if (process.env.GEMINI_API_KEY) {
+                const k = process.env.GEMINI_API_KEY.trim();
+                if (k && !seen.has(k)) { seen.add(k); geminiKeys.push(k); }
+            }
+
+            // 3) Auto-discover numbered keys: 1_GEMINI_API_KEY, 2_Gemini_API_KEY, etc.
+            Object.keys(process.env).forEach(envKey => {
+                if (/gemini_api_key/i.test(envKey) && envKey !== 'GEMINI_API_KEY' && envKey !== 'GEMINI_API_KEYS') {
+                    const k = process.env[envKey]?.trim();
+                    if (k && !seen.has(k)) { seen.add(k); geminiKeys.push(k); }
+                }
+            });
+
             initGemini(geminiKeys);
             console.log(`[EchoScribe] Gemini pool initialized with ${geminiKeys.length} key(s)`);
 

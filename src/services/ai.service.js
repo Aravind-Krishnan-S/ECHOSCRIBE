@@ -10,10 +10,24 @@ function initGemini(apiKeyOrKeys) {
 
 function ensureGemini() {
     if (geminiPool.getStatus().totalKeys === 0) {
-        // Fallback: try env
-        const envKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
-        const keys = envKeys.split(',').filter(k => k.trim());
-        if (keys.length === 0) throw new AppError('Gemini API not initialized. Set GEMINI_API_KEY or GEMINI_API_KEYS.', 500);
+        // Fallback: discover all Gemini keys from env
+        const keys = [];
+        const seen = new Set();
+        // Comma-separated
+        (process.env.GEMINI_API_KEYS || '').split(',').forEach(k => {
+            const t = k.trim(); if (t && !seen.has(t)) { seen.add(t); keys.push(t); }
+        });
+        // Single key
+        const single = (process.env.GEMINI_API_KEY || '').trim();
+        if (single && !seen.has(single)) { seen.add(single); keys.push(single); }
+        // Numbered keys (1_GEMINI_API_KEY, etc.)
+        Object.keys(process.env).forEach(envKey => {
+            if (/gemini_api_key/i.test(envKey) && envKey !== 'GEMINI_API_KEY' && envKey !== 'GEMINI_API_KEYS') {
+                const t = process.env[envKey]?.trim();
+                if (t && !seen.has(t)) { seen.add(t); keys.push(t); }
+            }
+        });
+        if (keys.length === 0) throw new AppError('No Gemini API keys found. Set GEMINI_API_KEY, GEMINI_API_KEYS, or numbered keys like 1_GEMINI_API_KEY.', 500);
         geminiPool.init(keys);
     }
 }
