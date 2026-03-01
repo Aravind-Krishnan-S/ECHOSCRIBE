@@ -1,5 +1,6 @@
-const { transcribeWithGemini, identifyRoles, diarizeTranscript } = require('../services/ai.service');
+const { transcribeWithGemini, identifyRolesWithGroq, identifyRoles, diarizeTranscript } = require('../services/ai.service');
 const { transcribeAndDiarizeWithDeepgram } = require('../services/deepgram.service');
+const speechbrain = require('../services/speechbrain-client');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
 
@@ -19,39 +20,91 @@ const transcribe = asyncHandler(async (req, res) => {
         let formattedTranscript = '';
         let finalizedTurns = [];
         let roleMap = {};
+        let sttProvider = '';
+        let diarizationProvider = '';
 
         if (req.body.live === 'true') {
-            // Fast text for live chunks (no diarization complex merge)
+            // Fast text for live chunks (no diarization)
             const result = await transcribeWithGemini(audioBuffer, mimeType, lang);
             res.json({ text: result.text, _sttProvider: result._provider });
         } else {
-            // 1. Get highly accurate text via Gemini 2.0
-            const geminiResult = await transcribeWithGemini(audioBuffer, mimeType, lang);
-            const geminiText = geminiResult.text;
-            const sttProvider = geminiResult._provider;
+            // ═══════════════════════════════════════════════════
+            //  SPEECHBRAIN-FIRST PIPELINE
+            //  1. Try SpeechBrain: enhance (noise cancel) → diarize
+            //  2. Transcribe clean audio with Gemini
+            //  3. Assign roles with Groq
+            //  4. Fallback to Deepgram if SpeechBrain unavailable
+            // ═══════════════════════════════════════════════════
 
-            // 2. Get speaker boundaries via Deepgram
-            const deepgramRes = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
-            const deepgramTurns = deepgramRes.turns || [];
+            const sbAvailable = await speechbrain.isAvailable();
+            let deepgramTurns = [];
+            let enhancedFilePath = null;
 
-            // 3. Simple alignment: Prompt Gemini to align its own accurate text to the speaker turns
-            // For now, we use a basic heuristic/prompt trick via identifyRoles but since we just need the formatted output:
-            // Let's create a raw merged transcript to pass to identifyRoles
+            if (sbAvailable) {
+                // ─── SpeechBrain Path ───
+                console.log('[Transcribe] Using SpeechBrain pipeline (enhance + diarize)');
+
+                try {
+                    const sbResult = await speechbrain.processAudio(req.file.path, 2);
+                    diarizationProvider = 'SpeechBrain ECAPA-TDNN';
+
+                    // SpeechBrain returns diarization turns (speaker + timestamps)
+                    deepgramTurns = (sbResult.turns || []).map(t => ({
+                        speaker: t.speaker,
+                        start: t.start,
+                        end: t.end,
+                        text: t.text || ''
+                    }));
+
+                    // Save enhanced audio for cleaner transcription
+                    if (sbResult.enhanced_audio_b64) {
+                        enhancedFilePath = speechbrain.saveEnhancedToTemp(sbResult.enhanced_audio_b64);
+                    }
+
+                    console.log(`[Transcribe] SpeechBrain: ${deepgramTurns.length} turns, enhanced=${!!enhancedFilePath}`);
+                } catch (sbErr) {
+                    console.warn('[Transcribe] SpeechBrain failed, falling back to Deepgram:', sbErr.message);
+                    // Fall through to Deepgram
+                }
+            }
+
+            // ─── Deepgram Fallback for Diarization ───
+            if (deepgramTurns.length === 0) {
+                console.log('[Transcribe] Using Deepgram diarization fallback');
+                const deepgramRes = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
+                deepgramTurns = deepgramRes.turns || [];
+                diarizationProvider = 'Deepgram Nova-2';
+            }
+
+            // ─── Transcribe with Gemini (use enhanced audio if available) ───
+            let geminiText, geminiResult;
+            if (enhancedFilePath && fs.existsSync(enhancedFilePath)) {
+                // Transcribe the noise-cancelled audio for better accuracy
+                const enhancedBuffer = fs.readFileSync(enhancedFilePath);
+                geminiResult = await transcribeWithGemini(enhancedBuffer, 'audio/wav', lang);
+                // Clean up
+                fs.unlink(enhancedFilePath, () => { });
+            } else {
+                geminiResult = await transcribeWithGemini(audioBuffer, mimeType, lang);
+            }
+            geminiText = geminiResult.text;
+            sttProvider = geminiResult._provider;
+
+            // ─── Build merged transcript for role identification ───
             let mergedRawTranscript = '';
             deepgramTurns.forEach(t => {
                 mergedRawTranscript += `speaker_${t.speaker}:\n${t.text}\n\n`;
             });
 
-            // 4. Identify exact roles (Therapist/Patient etc.) with contextual analysis
-            roleMap = await identifyRoles(mergedRawTranscript, mode, deepgramTurns);
+            // ─── Identify roles with Groq (primary) ───
+            console.log('[Transcribe] Identifying roles with Groq...');
+            roleMap = await identifyRolesWithGroq(mergedRawTranscript, mode, deepgramTurns);
 
-            // 5. Build final output string (no "speaker_0" anywhere)
+            // ─── Build final diarized transcript ───
             finalizedTurns = deepgramTurns.map(turn => {
                 const roleName = roleMap[`speaker_${turn.speaker}`] || `speaker_${turn.speaker}`;
-                // Future enhancement: Replace turn.text with strictly matched geminiText substrings. 
-                // For this version, using Deepgram's text as base, but this satisfies the strict role attribution structure.
-                formattedTranscript += `${roleName}:\n    ${turn.text.trim()}\n\n`;
-                return { role: roleName, text: turn.text.trim() };
+                formattedTranscript += `${roleName}:\n    ${(turn.text || '').trim()}\n\n`;
+                return { role: roleName, text: (turn.text || '').trim(), start: turn.start, end: turn.end };
             });
 
             res.json({
@@ -59,7 +112,9 @@ const transcribe = asyncHandler(async (req, res) => {
                 turns: finalizedTurns,
                 roleMap: roleMap,
                 _sttProvider: sttProvider,
-                _diarizationProvider: 'Deepgram Nova-2'
+                _diarizationProvider: diarizationProvider,
+                _roleProvider: 'Groq Llama 3.3',
+                _enhancedBySpeechBrain: sbAvailable && enhancedFilePath !== null
             });
         }
 

@@ -159,8 +159,16 @@ app.use((req, res, next) => {
 // ─── Start Server (local dev only) ───
 if (process.env.NODE_ENV !== 'production') {
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
         console.log(`✅ EchoScribe running at http://localhost:${PORT}`);
+
+        // Probe SpeechBrain service availability
+        try {
+            const speechbrain = require('./services/speechbrain-client');
+            await speechbrain.probe();
+        } catch (e) {
+            console.log('[SpeechBrain] ⚠️ Probe skipped:', e.message);
+        }
     });
 }
 
