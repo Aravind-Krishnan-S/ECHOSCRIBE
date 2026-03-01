@@ -106,6 +106,101 @@ EchoScribe includes an optional **Python FastAPI microservice** powered by [Spee
 
 ---
 
+## 📐 Architecture Diagrams
+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph Client["🖥️ Frontend"]
+        REC["Record Page"]
+        SUM["Summary Page"]
+        DASH["Dashboard"]
+        PAT["Patient Profile"]
+    end
+
+    subgraph Backend["⚙️ Node.js Backend"]
+        MW["Middleware<br/>Auth · Rate Limit · Validation"]
+        API["REST API"]
+    end
+
+    subgraph AI["🤖 AI Providers"]
+        GEM["Gemini 2.0 Flash<br/>Transcription · Analysis"]
+        GRQ["Groq Llama 3.3<br/>Role Assignment · Fallback"]
+        DG["Deepgram Nova-2<br/>Diarization Fallback"]
+    end
+
+    subgraph SB["🧠 SpeechBrain Service"]
+        SEP["SepFormer<br/>Noise Cancellation"]
+        ECA["ECAPA-TDNN<br/>Speaker Diarization"]
+    end
+
+    subgraph Data["💾 Data Layer"]
+        DB["Supabase PostgreSQL<br/>Sessions · Patients"]
+        STR["Supabase Storage<br/>Audio Files"]
+    end
+
+    Client -->|HTTPS| MW --> API
+    API --> GEM
+    API --> GRQ
+    API --> DG
+    API --> SB
+    API --> Data
+```
+
+### Audio Processing Pipeline
+
+```mermaid
+flowchart LR
+    A["🎙️ Audio Input"] --> B{"SpeechBrain<br/>Available?"}
+    B -->|Yes| C["🔇 Noise Cancel<br/>SepFormer"]
+    C --> D["👥 Diarize<br/>ECAPA-TDNN"]
+    B -->|No| E["👥 Diarize<br/>Deepgram Nova-2"]
+    D --> F["📝 Transcribe<br/>Gemini 2.0 Flash"]
+    E --> F
+    F --> G["🏷️ Role Classify<br/>Groq + Context Analysis"]
+    G --> H["📋 SOAP/GROW<br/>Analysis"]
+    H --> I["💾 Auto-Save"]
+```
+
+### Dual-Mode Data Flow
+
+```mermaid
+graph LR
+    subgraph Therapy["🏥 Therapy Mode"]
+        TP["Patients"]
+        TS["SOAP Notes<br/>S · O · A · P"]
+        TR["Risk: Self-Harm<br/>Suicidal Ideation"]
+        TD["Diagnostic Impressions<br/>Interventions · Medications"]
+    end
+
+    subgraph Mentoring["🎓 Mentoring Mode"]
+        MP["Mentees"]
+        MG["GROW Notes<br/>G · R · O · W"]
+        MR["Risk: Burnout<br/>Severe Distress"]
+        MD["Skill Progression<br/>Action Items · Goals"]
+    end
+
+    ISO["🔒 Strict Mode Isolation<br/>No Cross-Mode Access"]
+
+    Therapy --- ISO --- Mentoring
+```
+
+### Security Layers
+
+```mermaid
+graph TD
+    REQ["Incoming Request"] --> L1["🌐 CORS + Helmet<br/>Security Headers"]
+    L1 --> L2["⏱️ Rate Limiting<br/>5/min Heavy · 15/min Light · 100/min General"]
+    L2 --> L3["🔑 JWT Authentication<br/>Supabase Auth"]
+    L3 --> L4["🛡️ Row-Level Security<br/>Users See Only Their Data"]
+    L4 --> L5["🏷️ Mode Isolation<br/>Therapy ↔ Mentoring Separated"]
+    L5 --> L6["📋 Audit Logging<br/>PHI Access Tracking"]
+    L6 --> RES["✅ Response"]
+```
+
+---
+
 ## 📁 Project Structure
 
 ```
