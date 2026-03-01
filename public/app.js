@@ -1,5 +1,5 @@
 /* ============================================
-   EchoScribe — Groq Whisper Recording Engine
+   EchoScribe — Gemini 2.0 Flash Recording Engine
    with Voice-Based Speaker Diarization
    ============================================ */
 
@@ -174,7 +174,7 @@
         };
         fullRecorder.start();
 
-        // 2. Fragmented Recorder for Live Visual Feedback (Groq Whisper)
+        // 2. Fragmented Recorder for Live Visual Feedback (Gemini STT)
         let audioChunks = [];
         function createLiveRecorder() {
             const recorder = new MediaRecorder(audioStream, { mimeType });
@@ -767,7 +767,7 @@
         formData.append('language', lang);
 
         uploadProgressBar.style.width = '30%';
-        uploadProgressText.textContent = 'Sending to Groq Whisper...';
+        uploadProgressText.textContent = 'Sending to Gemini STT...';
 
         try {
             const response = await EchoAuth.authFetch('/api/transcribe-audio', {
