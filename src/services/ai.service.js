@@ -195,7 +195,7 @@ Return ONLY valid JSON with this exact structure:
             return parsedData;
         } catch (err) {
             if (attempt < retries) {
-                geminiPool.reportError();
+                geminiPool.reportError(err.message || '');
                 console.warn(`[Gemini Summarize] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
                 continue;
             }
@@ -247,7 +247,7 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         const response = await result.response;
         return response.text();
     } catch (err) {
-        geminiPool.reportError();
+        geminiPool.reportError(err.message || '');
         console.error('[Gemini STT] Full Error:', err.message, err.stack);
         throw new AppError('Gemini transcription failed: ' + (err.message || 'Unknown error'), 500);
     }
@@ -420,7 +420,7 @@ ${jsonSchema}`);
 
         return profileAnalysis;
     } catch (err) {
-        geminiPool.reportError();
+        geminiPool.reportError(err.message || '');
         console.error('[Gemini Profile] Error:', err.message);
         throw new AppError('Profile generation failed: ' + (err.message || 'Unknown error'), 500);
     }
@@ -473,7 +473,7 @@ Return ONLY valid JSON in this format:
         const parsed = JSON.parse(responseText);
         return parsed.turns || [];
     } catch (e) {
-        geminiPool.reportError();
+        geminiPool.reportError(e.message || '');
         console.error('[Gemini Diarize] Error:', e.message);
         return [{ speaker: 1, text: rawText }];
     }
