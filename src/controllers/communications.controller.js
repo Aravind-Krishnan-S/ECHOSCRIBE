@@ -34,10 +34,12 @@ const sendCommunication = asyncHandler(async (req, res) => {
             const resend = getResendClient();
             if (!resend) throw new Error('Resend client not configured.');
 
+            const fromEmail = process.env.RESEND_FROM_EMAIL || 'EchoScribe <onboarding@resend.dev>';
+
             const { data, error } = await resend.emails.send({
-                from: 'onboarding@resend.dev',
+                from: fromEmail,
                 to: [patientEmail],
-                subject: `EchoScribe: ${type}`,
+                subject: `EchoScribe: ${type || 'Health Communication'}`,
                 html: `
                     <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                         <h2 style="color: #2b6cb0;">EchoScribe Health Communication</h2>

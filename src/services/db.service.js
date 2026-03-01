@@ -232,11 +232,28 @@ async function getPatientById(token, patientId, userId, mode) {
     return data;
 }
 
+// --- Session Delete ---
+
+async function deleteSession(token, sessionId, userId, mode) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const client = getAuthClient(token);
+    const { error } = await client
+        .from('sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', userId)
+        .eq('session_mode', mode);
+
+    if (error) throw error;
+    return true;
+}
+
 module.exports = {
     initSupabase,
     getSupabase,
     getAuthClient,
     saveSession,
+    deleteSession,
     uploadAudioToStorage,
     getHistory,
     getSessionById,

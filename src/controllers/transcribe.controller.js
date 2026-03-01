@@ -22,11 +22,13 @@ const transcribe = asyncHandler(async (req, res) => {
 
         if (req.body.live === 'true') {
             // Fast text for live chunks (no diarization complex merge)
-            const rawText = await transcribeWithGemini(audioBuffer, mimeType, lang);
-            res.json({ text: rawText });
+            const result = await transcribeWithGemini(audioBuffer, mimeType, lang);
+            res.json({ text: result.text, _sttProvider: result._provider });
         } else {
             // 1. Get highly accurate text via Gemini 2.0
-            const geminiText = await transcribeWithGemini(audioBuffer, mimeType, lang);
+            const geminiResult = await transcribeWithGemini(audioBuffer, mimeType, lang);
+            const geminiText = geminiResult.text;
+            const sttProvider = geminiResult._provider;
 
             // 2. Get speaker boundaries via Deepgram
             const deepgramRes = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
@@ -40,8 +42,8 @@ const transcribe = asyncHandler(async (req, res) => {
                 mergedRawTranscript += `speaker_${t.speaker}:\n${t.text}\n\n`;
             });
 
-            // 4. Identify exact roles (Therapist/Patient etc.)
-            roleMap = await identifyRoles(mergedRawTranscript, mode);
+            // 4. Identify exact roles (Therapist/Patient etc.) with contextual analysis
+            roleMap = await identifyRoles(mergedRawTranscript, mode, deepgramTurns);
 
             // 5. Build final output string (no "speaker_0" anywhere)
             finalizedTurns = deepgramTurns.map(turn => {
@@ -55,7 +57,9 @@ const transcribe = asyncHandler(async (req, res) => {
             res.json({
                 text: formattedTranscript.trim(),
                 turns: finalizedTurns,
-                roleMap: roleMap
+                roleMap: roleMap,
+                _sttProvider: sttProvider,
+                _diarizationProvider: 'Deepgram Nova-2'
             });
         }
 

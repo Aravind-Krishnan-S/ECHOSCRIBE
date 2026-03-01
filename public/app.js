@@ -638,7 +638,7 @@
                 localStorage.setItem('echoscribe_session_id', data.sessionId);
             }
             if (data.saved) {
-                showToast('✅ Session saved automatically');
+                showToast('✅ Session analyzed & saved (' + (data._provider || 'AI') + ')');
             }
             setTimeout(() => { window.location.href = '/summary'; }, 500);
 
@@ -827,7 +827,7 @@
             updateWordCount(getFullTranscriptText());
             updateSummarizeButton();
 
-            showToast(`✅ Transcribed ${file.name} — ${speakerSegments.length} segments`);
+            showToast(`✅ Transcribed ${file.name} — ${speakerSegments.length} segments (${data._sttProvider || 'AI'})`);
 
         } catch (err) {
             console.error('[EchoScribe] Upload error:', err);
