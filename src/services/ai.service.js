@@ -717,4 +717,88 @@ Return ONLY valid JSON in this format:
     }
 }
 
-module.exports = { initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, identifyRoles, diarizeTranscript };
+// --- Groq-first Role Identification (for SpeechBrain branch) ---
+
+async function identifyRolesWithGroq(mergedTranscript, sessionMode = 'Therapy', turns = []) {
+    if (!fallback.isAvailable()) {
+        console.warn('[RoleID-Groq] Groq not available, falling back to Gemini identifyRoles');
+        return identifyRoles(mergedTranscript, sessionMode, turns);
+    }
+
+    let roleA, roleB, contextDescription;
+    if (sessionMode === 'Therapy') {
+        roleA = "Therapist"; roleB = "Patient";
+        contextDescription = `This is a THERAPY session. The Therapist is a trained mental health professional who asks probing questions, uses clinical language and therapeutic techniques, guides the conversation, and speaks in shorter directed turns. The Patient shares personal experiences, emotions, and struggles in longer narrative turns.`;
+    } else if (sessionMode === 'Mentoring') {
+        roleA = "Mentor"; roleB = "Mentee";
+        contextDescription = `This is an ACADEMIC MENTORING session. The Mentor is a faculty/senior who guides academic development, asks about goals and progress, provides advice, and sets action items. The Mentee shares academic struggles, asks for advice, discusses goals and uncertainties.`;
+    } else {
+        roleA = "Counsellor"; roleB = "Patient";
+        contextDescription = `This is a COUNSELLING session. The Counsellor guides the conversation.`;
+    }
+
+    // Compute contextual signals
+    let contextualAnalysis = '';
+    if (turns.length > 0) {
+        const stats = computeSpeakerStats(turns);
+        const speakers = Object.keys(stats).sort((a, b) => a - b);
+
+        contextualAnalysis = '\n\nSPEAKER ANALYSIS (from audio processing via SpeechBrain ECAPA-TDNN):\n';
+        speakers.forEach(spkId => {
+            const s = stats[spkId];
+            const avgWordsPerTurn = s.turnCount > 0 ? Math.round(s.totalWords / s.turnCount) : 0;
+            contextualAnalysis += `
+speaker_${spkId}:
+  - Total speaking time: ${s.totalTime.toFixed(1)}s
+  - Total words: ${s.totalWords}, Turns: ${s.turnCount}, Avg words/turn: ${avgWordsPerTurn}
+  - Questions: ${s.questionCount}, Clinical/professional terms: ${s.clinicalTerms}
+  - Guiding phrases: ${s.guidingPhrases}, Emotional phrases: ${s.emotionalPhrases}
+  - Spoke first: ${s.firstTurnIndex === 0 ? 'YES' : 'NO'}
+`;
+        });
+
+        contextualAnalysis += `
+RULE: Higher questions + clinical terms + guiding phrases = ${roleA}. Higher emotional phrases + longer turns = ${roleB}.
+`;
+    }
+
+    const prompt = `You are an expert clinical transcript analyst.
+
+CONTEXT: ${contextDescription}
+
+TASK: Determine which speaker is the ${roleA} and which is the ${roleB}.
+${contextualAnalysis}
+Use content analysis, speaking patterns, vocabulary, and turn structure.
+
+Reply with ONLY valid JSON: { "speaker_0": "${roleA}" or "${roleB}", "speaker_1": "${roleA}" or "${roleB}" }
+Both roles must be assigned.
+
+TRANSCRIPT:
+"""
+${mergedTranscript}
+"""`;
+
+    try {
+        const groqResp = await fallback.chatCompletion(
+            'You are a clinical transcript analyst. Reply with ONLY valid JSON.',
+            prompt, true
+        );
+        const parsed = JSON.parse(groqResp);
+
+        // Validate
+        const roles = Object.values(parsed);
+        if (!roles.includes(roleA) || !roles.includes(roleB)) {
+            console.warn('[RoleID-Groq] Invalid mapping, defaulting:', parsed);
+            return { "speaker_0": roleA, "speaker_1": roleB };
+        }
+
+        console.log(`[RoleID-Groq] ✅ Classification: speaker_0=${parsed.speaker_0}, speaker_1=${parsed.speaker_1}`);
+        return parsed;
+    } catch (err) {
+        console.error('[RoleID-Groq] Failed:', err.message);
+        // Fall back to Gemini identifyRoles
+        return identifyRoles(mergedTranscript, sessionMode, turns);
+    }
+}
+
+module.exports = { initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, identifyRoles, identifyRolesWithGroq, diarizeTranscript };
