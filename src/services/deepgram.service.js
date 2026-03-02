@@ -110,7 +110,7 @@ async function transcribeAndDiarizeWithDeepgram(filePath, lang = 'en') {
 
         if (utterances && utterances.length > 0) {
             utterances.forEach(u => {
-                const speakerId = (u.speaker || 0) + 1; // Deepgram is 0-indexed, make it 1-indexed
+                const speakerId = u.speaker || 0; // Keep 0-indexed to match roleMap keys (speaker_0, speaker_1)
 
                 const turnObj = {
                     speaker: speakerId,
