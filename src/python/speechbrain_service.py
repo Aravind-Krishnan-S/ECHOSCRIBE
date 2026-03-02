@@ -18,6 +18,14 @@ import numpy as np
 import soundfile as sf
 import torch
 import torchaudio
+
+# ─── Torchaudio Compatibility Patch ───
+# torchaudio 2.1+ removed list_audio_backends() and set_audio_backend()
+# but SpeechBrain internally calls them. Monkey-patch to fix.
+if not hasattr(torchaudio, 'list_audio_backends'):
+    torchaudio.list_audio_backends = lambda: ['soundfile']
+if not hasattr(torchaudio, 'set_audio_backend'):
+    torchaudio.set_audio_backend = lambda backend: None
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
