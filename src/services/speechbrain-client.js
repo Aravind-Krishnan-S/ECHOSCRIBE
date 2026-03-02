@@ -13,7 +13,7 @@ const FormData = require('form-data');
 const SPEECHBRAIN_URL = process.env.SPEECHBRAIN_URL || 'http://localhost:5050';
 let serviceAvailable = false;
 let lastHealthCheck = 0;
-const HEALTH_CHECK_INTERVAL = 60_000; // Re-check every 60s
+const HEALTH_CHECK_INTERVAL = 15_000; // Re-check every 15s for faster pickup
 
 /**
  * Check if the SpeechBrain service is running.
@@ -36,8 +36,10 @@ async function isAvailable() {
 
         if (response.ok) {
             const data = await response.json();
-            serviceAvailable = data.models_loaded === true;
+            // Require speaker_model specifically for diarization
+            serviceAvailable = data.speaker_model === true;
             lastHealthCheck = now;
+            console.log(`[SpeechBrain] Health check: speaker_model=${data.speaker_model}, enhancer=${data.enhancer}, available=${serviceAvailable}`);
             return serviceAvailable;
         }
     } catch (err) {
