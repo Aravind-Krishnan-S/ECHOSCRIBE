@@ -33,7 +33,13 @@ def main():
     print()
 
     service_file = os.path.join(script_dir, "speechbrain_service.py")
-    os.execv(sys.executable, [sys.executable, service_file])
+    try:
+        subprocess.run([sys.executable, service_file], check=True)
+    except KeyboardInterrupt:
+        print("\n[SpeechBrain] Server stopped by user")
+    except subprocess.CalledProcessError as e:
+        print(f"\n[SpeechBrain] ❌ Server crashed: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

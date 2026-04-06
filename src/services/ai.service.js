@@ -33,7 +33,7 @@ function ensureGemini() {
     }
 }
 
-function getModel(modelName = 'gemini-2.0-flash') {
+function getModel(modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash') {
     ensureGemini();
     return geminiPool.getModel(modelName);
 }
@@ -137,7 +137,7 @@ Return ONLY valid JSON with this exact structure:
 }`;
 
     const model = geminiPool.getModel({
-        model: "gemini-2.0-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         systemInstruction,
         generationConfig: {
             temperature: 0.3,
@@ -192,7 +192,7 @@ Return ONLY valid JSON with this exact structure:
             parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
             parsedData.confidence_score = parsedData.confidence_score || 0.0;
             parsedData.counselingStats = parsedData.counselingStats || {};
-            parsedData._provider = 'Gemini 2.0 Flash';
+            parsedData._provider = `Gemini (${process.env.GEMINI_MODEL || 'gemini-2.5-flash'})`;
 
             geminiPool.reportSuccess();
             return parsedData;
@@ -246,13 +246,13 @@ Return ONLY valid JSON with this exact structure:
     }
 }
 
-// --- Speech-to-Text via Gemini 2.0 Flash ---
+// --- Speech-to-Text via Gemini 2.5 Flash ---
 
 async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
     ensureGemini();
 
     const model = geminiPool.getModel({
-        model: "gemini-2.0-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         generationConfig: {
             temperature: 0
         },
@@ -287,7 +287,7 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         const result = await model.generateContent([prompt, audioPart]);
         const response = await result.response;
         geminiPool.reportSuccess();
-        return { text: response.text(), _provider: 'Gemini 2.0 Flash' };
+        return { text: response.text(), _provider: `Gemini (${process.env.GEMINI_MODEL || 'gemini-2.5-flash'})` };
     } catch (err) {
         geminiPool.reportError(err.message || '');
 
@@ -435,7 +435,7 @@ INTERPRETATION GUIDE:
     }
 
     const model = geminiPool.getModel({
-        model: "gemini-2.0-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         generationConfig: {
             temperature: 0.1,
             responseMimeType: "application/json"
@@ -591,7 +591,7 @@ async function generateProfile(sessions) {
 }`;
 
     const model = geminiPool.getModel({
-        model: "gemini-2.0-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         systemInstruction: systemMsg,
         generationConfig: {
             temperature: 0.3,
@@ -653,7 +653,7 @@ async function diarizeTranscript(rawText) {
     ensureGemini();
 
     const model = geminiPool.getModel({
-        model: "gemini-2.0-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         systemInstruction: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
 
 Rules:

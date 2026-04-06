@@ -27,10 +27,20 @@ const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const supabase = getSupabase();
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
+    let data, error;
+    try {
+        ({ data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        }));
+    } catch (networkErr) {
+        // Network-level failure (DNS, timeout, Supabase project paused, etc.)
+        console.error('[Auth] Supabase unreachable:', networkErr.message);
+        throw new AppError(
+            'Unable to reach authentication service. Please check your internet connection and try again.',
+            503
+        );
+    }
 
     if (error) {
         throw new AppError('Invalid email or password.', 401);

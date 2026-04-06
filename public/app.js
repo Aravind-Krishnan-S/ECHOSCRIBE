@@ -1,5 +1,5 @@
 /* ============================================
-   EchoScribe — Gemini 2.0 Flash Recording Engine
+   EchoScribe — Gemini 2.5 Flash Recording Engine
    with Voice-Based Speaker Diarization
    ============================================ */
 

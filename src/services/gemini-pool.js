@@ -84,7 +84,7 @@ class GeminiPool {
      * Get a Gemini model from the next available key.
      * @param {string|object} modelConfig — model name or full config object
      */
-    getModel(modelConfig = 'gemini-2.0-flash') {
+    getModel(modelConfig = process.env.GEMINI_MODEL || 'gemini-2.5-flash') {
         const client = this._next();
         if (typeof modelConfig === 'string') {
             return client.genAI.getGenerativeModel({ model: modelConfig });
