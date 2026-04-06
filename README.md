@@ -11,7 +11,7 @@
 
 | Feature | Description |
 |---|---|
-| 🎙️ **Multi-Provider Transcription** | Gemini 2.0 Flash (primary), Groq Llama 3.3 (fallback), Deepgram Nova-2 (audio fallback) with automatic failover |
+| 🎙️ **Multi-Provider Transcription** | Gemini 2.5 Flash (primary), Groq Llama 3.3 (fallback), Deepgram Nova-2 (audio fallback) with automatic failover |
 | 🔇 **SpeechBrain Noise Cancellation** | SepFormer neural network removes background noise before transcription for cleaner results |
 | 🗣️ **Advanced Speaker Diarization** | SpeechBrain ECAPA-TDNN embeddings + spectral clustering (primary), Deepgram Nova-2 (fallback) |
 | 🧠 **Contextual Role Classification** | 8-signal analysis (speaking time, questions, clinical vocab, guiding phrases, emotional language) + LLM classification via Groq |
@@ -39,13 +39,13 @@ Audio Upload
     │     ├─ YES → SepFormer (noise cancel) → ECAPA-TDNN (diarize)
     │     └─ NO  → Deepgram Nova-2 (diarize)
     │
-    ├─ Gemini 2.0 Flash (transcribe clean audio)
+    ├─ Gemini 2.5 Flash (transcribe clean audio)
     │     └─ Fallback: Deepgram Nova-2
     │
     ├─ Groq Llama 3.3 (role assignment: Therapist/Patient or Mentor/Mentee)
-    │     └─ Fallback: Gemini 2.0 Flash
+    │     └─ Fallback: Gemini 2.5 Flash
     │
-    └─ Gemini 2.0 Flash (SOAP/GROW analysis)
+    └─ Gemini 2.5 Flash (SOAP/GROW analysis)
           └─ Fallback: Groq Llama 3.3
 ```
 
@@ -93,11 +93,11 @@ EchoScribe includes an optional **Python FastAPI microservice** powered by [Spee
 | Layer | Technologies |
 |---|---|
 | **Backend** | Node.js, Express, Helmet, CORS, Tiered Rate Limiting |
-| **AI (Transcription)** | Gemini 2.0 Flash (primary), Deepgram Nova-2 (fallback) |
-| **AI (Analysis)** | Gemini 2.0 Flash (primary), Groq Llama 3.3 70B (fallback) |
+| **AI (Transcription)** | Gemini 2.5 Flash (primary), Deepgram Nova-2 (fallback) |
+| **AI (Analysis)** | Gemini 2.5 Flash (primary), Groq Llama 3.3 70B (fallback) |
 | **AI (Diarization)** | SpeechBrain ECAPA-TDNN (primary), Deepgram Nova-2 (fallback) |
 | **AI (Noise Cancel)** | SpeechBrain SepFormer |
-| **AI (Role ID)** | Groq Llama 3.3 (primary), Gemini 2.0 Flash (fallback) |
+| **AI (Role ID)** | Groq Llama 3.3 (primary), Gemini 2.5 Flash (fallback) |
 | **Database** | Supabase PostgreSQL + Row-Level Security |
 | **Storage** | Supabase Storage (audio buckets) |
 | **Email** | Resend API |
@@ -125,7 +125,7 @@ graph TB
     end
 
     subgraph AI["🤖 AI Providers"]
-        GEM["Gemini 2.0 Flash<br/>Transcription · Analysis"]
+        GEM["Gemini 2.5 Flash<br/>Transcription · Analysis"]
         GRQ["Groq Llama 3.3<br/>Role Assignment · Fallback"]
         DG["Deepgram Nova-2<br/>Diarization Fallback"]
     end
@@ -156,7 +156,7 @@ flowchart LR
     B -->|Yes| C["🔇 Noise Cancel<br/>SepFormer"]
     C --> D["👥 Diarize<br/>ECAPA-TDNN"]
     B -->|No| E["👥 Diarize<br/>Deepgram Nova-2"]
-    D --> F["📝 Transcribe<br/>Gemini 2.0 Flash"]
+    D --> F["📝 Transcribe<br/>Gemini 2.5 Flash"]
     E --> F
     F --> G["🏷️ Role Classify<br/>Groq + Context Analysis"]
     G --> H["📋 SOAP/GROW<br/>Analysis"]

@@ -1,0 +1,13 @@
+{
+  "project_name": "ECHOSCRIBE",
+  "created_at": "2026-04-06T23:01:29.150290+00:00",
+  "last_synced": null,
+  "last_commit_hash": null,
+  "last_commit_message": null,
+  "sync_count": 0,
+  "gcs_bucket": null,
+  "google_project_id": null,
+  "cloud_run_url": null,
+  "cloud_run_region": null,
+  "remote_sync_enabled": false
+}
