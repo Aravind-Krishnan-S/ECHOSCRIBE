@@ -8,7 +8,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const FormData = require('form-data');
 
 const SPEECHBRAIN_URL = process.env.SPEECHBRAIN_URL || 'http://localhost:5050';
 let serviceAvailable = false;
@@ -61,14 +60,15 @@ async function processAudio(audioFilePath, numSpeakers = 2) {
         throw new Error('SpeechBrain service not available');
     }
 
+    const fileBuffer = fs.readFileSync(audioFilePath);
+    const audioBlob = new Blob([fileBuffer], { type: 'audio/wav' });
     const form = new FormData();
-    form.append('audio', fs.createReadStream(audioFilePath));
+    form.append('audio', audioBlob, 'audio.wav');
     form.append('num_speakers', String(numSpeakers));
 
     const response = await fetch(`${SPEECHBRAIN_URL}/process`, {
         method: 'POST',
-        body: form,
-        headers: form.getHeaders ? form.getHeaders() : {},
+        body: form
     });
 
     if (!response.ok) {
@@ -91,13 +91,14 @@ async function enhanceAudio(audioFilePath) {
         throw new Error('SpeechBrain service not available');
     }
 
+    const fileBuffer = fs.readFileSync(audioFilePath);
+    const audioBlob = new Blob([fileBuffer], { type: 'audio/wav' });
     const form = new FormData();
-    form.append('audio', fs.createReadStream(audioFilePath));
+    form.append('audio', audioBlob, 'audio.wav');
 
     const response = await fetch(`${SPEECHBRAIN_URL}/enhance`, {
         method: 'POST',
-        body: form,
-        headers: form.getHeaders ? form.getHeaders() : {},
+        body: form
     });
 
     if (!response.ok) {
@@ -120,14 +121,15 @@ async function diarizeAudio(audioFilePath, numSpeakers = 2) {
         throw new Error('SpeechBrain service not available');
     }
 
+    const fileBuffer = fs.readFileSync(audioFilePath);
+    const audioBlob = new Blob([fileBuffer], { type: 'audio/wav' });
     const form = new FormData();
-    form.append('audio', fs.createReadStream(audioFilePath));
+    form.append('audio', audioBlob, 'audio.wav');
     form.append('num_speakers', String(numSpeakers));
 
     const response = await fetch(`${SPEECHBRAIN_URL}/diarize`, {
         method: 'POST',
-        body: form,
-        headers: form.getHeaders ? form.getHeaders() : {},
+        body: form
     });
 
     if (!response.ok) {

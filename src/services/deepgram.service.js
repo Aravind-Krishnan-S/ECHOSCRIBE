@@ -149,6 +149,51 @@ async function transcribeAndDiarizeWithDeepgram(filePath, lang = 'en') {
     }
 }
 
+/**
+ * Transcribes audio using Deepgram without diarization (for live chunks or SpeechBrain-enhanced audio)
+ * @param {string|Buffer} audioData Path to the audio file or raw Buffer
+ * @param {string} lang Target language code
+ * @param {string} mode Session mode to optimize Deepgram model (e.g., 'Therapy')
+ * @returns {object} { text, _provider }
+ */
+async function transcribeAudioWithDeepgram(audioData, lang = 'en', mode = 'Therapy') {
+    const deepgramCli = getDeepgramClient();
+    if (!deepgramCli) throw new AppError('Deepgram service failed to initialize', 500);
+
+    const dgLang = langMap[lang] || 'en';
+    // nova-2-medical only supports English. Force fallback to nova-2 for other languages.
+    const dgModel = (mode === 'Therapy' && dgLang === 'en') ? 'nova-2-medical' : 'nova-2';
+
+    try {
+        const buffer = Buffer.isBuffer(audioData) ? audioData : fs.readFileSync(audioData);
+
+        const options = {
+            model: dgModel,
+            language: dgLang,
+            smart_format: true,
+            punctuate: true,
+        };
+
+        const { result, error } = await deepgramCli.listen.prerecorded.transcribeFile(
+            buffer,
+            options
+        );
+
+        if (error) {
+            console.error('[Deepgram STT] Transcription Error:', error);
+            throw new AppError(error.message || 'Deepgram API Error', 500);
+        }
+
+        const transcript = result.results.channels[0].alternatives[0].transcript;
+        return { text: transcript, _provider: `Deepgram (${dgModel})` };
+
+    } catch (err) {
+        console.error('[Deepgram STT Service] Error:', err);
+        throw new AppError(err.message || 'Failed to process audio with Deepgram STT.', 500);
+    }
+}
+
 module.exports = {
-    transcribeAndDiarizeWithDeepgram
+    transcribeAndDiarizeWithDeepgram,
+    transcribeAudioWithDeepgram
 };

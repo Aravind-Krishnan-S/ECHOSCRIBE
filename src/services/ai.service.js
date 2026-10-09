@@ -33,7 +33,7 @@ function ensureGemini() {
     }
 }
 
-function getModel(modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash') {
+function getModel(modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite') {
     ensureGemini();
     return geminiPool.getModel(modelName);
 }
@@ -92,7 +92,11 @@ async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', retries 
 
     const systemInstruction = `You are an ${config.role}. 
 You analyze speech transcripts from sessions and produce structured documentation.
-The transcript may contain speaker labels like "Counsellor:", "Patient:", "Mentor:", or "Mentee:". Use these to understand the dialogue flow.
+CRITICAL INSTRUCTION: Pay strict attention to the speaker labels (e.g., "Therapist:", "Patient:", "Mentor:", "Mentee:") in the transcript.
+- The "Therapist" or "Mentor" is the professional guiding the session.
+- The "Patient" or "Mentee" is the client seeking help.
+Do NOT attribute the professional's statements, questions, or guidance to the client. 
+Do NOT attribute the client's symptoms, experiences, or answers to the professional.
 You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
 Be thorough but precise. Do not fabricate information not present in the transcript.
 If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.
@@ -131,13 +135,11 @@ Return ONLY valid JSON with this exact structure:
     "reasonForCounseling": "Why the individual is seeking help/mentorship",
     "lastMajorProgress": "Any recent positive developments",
     "currentEmotionalState": "One-word emotion descriptor"
-  },
-  "wordCount": ${wordCount},
-  "originalText": ""
+  }
 }`;
 
     const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
         systemInstruction,
         generationConfig: {
             temperature: 0.3,
@@ -192,7 +194,7 @@ Return ONLY valid JSON with this exact structure:
             parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
             parsedData.confidence_score = parsedData.confidence_score || 0.0;
             parsedData.counselingStats = parsedData.counselingStats || {};
-            parsedData._provider = `Gemini (${process.env.GEMINI_MODEL || 'gemini-2.5-flash'})`;
+            parsedData._provider = `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'})`;
 
             geminiPool.reportSuccess();
             return parsedData;
@@ -252,22 +254,19 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
     ensureGemini();
 
     const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
         generationConfig: {
             temperature: 0
         },
         systemInstruction: `
     You are a highly accurate multilingual transcription engine.
-    Priority languages in order: Malayalam, English (Indian accent), Hindi.
-    Secondary languages: Tamil, Telugu, Bengali, and other Indian languages.
+    Primary language target: ${lang}.
     
     Rules:
     - Transcribe every word exactly as spoken — do not paraphrase or summarise
-    - For code-switched speech (Malayalam+English, Hindi+English), preserve the 
-      exact language used for each phrase — do not normalise everything to English
-    - Proper nouns, names, and technical terms: transcribe phonetically if unsure,
-      do not guess anglicised spellings
-    - Filler words (um, uh, enna, athe, matlab) should be omitted unless they carry meaning
+    - For code-switched speech, preserve the exact language used for each phrase
+    - Proper nouns, names, and technical terms: transcribe phonetically if unsure, do not guess anglicised spellings
+    - Filler words should be omitted unless they carry meaning
     - If a word is genuinely inaudible, write [inaudible] — do not guess
     - Do not add punctuation that wasn't implied by the speaker's prosody
     - Output only the transcript text — no labels, no timestamps, no explanation
@@ -287,7 +286,7 @@ async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
         const result = await model.generateContent([prompt, audioPart]);
         const response = await result.response;
         geminiPool.reportSuccess();
-        return { text: response.text(), _provider: `Gemini (${process.env.GEMINI_MODEL || 'gemini-2.5-flash'})` };
+        return { text: response.text(), _provider: `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.1-flash'})` };
     } catch (err) {
         geminiPool.reportError(err.message || '');
 
@@ -435,7 +434,7 @@ INTERPRETATION GUIDE:
     }
 
     const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
         generationConfig: {
             temperature: 0.1,
             responseMimeType: "application/json"
@@ -451,11 +450,10 @@ TASK:
 Analyze the transcript below and determine which speaker (speaker_0 or speaker_1) is the ${roleA} and which is the ${roleB}.
 ${contextualAnalysis}
 Use ALL available evidence:
-1. Content analysis (what each person says)
+1. Content analysis (what each person says - this is the most important factor)
 2. Speaking patterns (questions vs. narratives)
-3. Vocabulary (clinical vs. emotional language)
-4. Turn structure (who guides vs. who follows)
-5. Statistical signals provided above
+3. Turn structure (who guides vs. who follows)
+4. Statistical signals provided above (NOTE: These signals only count English words. If the transcript is in Malayalam or another language, these will be 0. Rely entirely on the translated meaning of the transcript).
 
 Reply with ONLY valid JSON mapping speaker keys to roles:
 { "speaker_0": "${roleA}" or "${roleB}", "speaker_1": "${roleA}" or "${roleB}" }
@@ -591,7 +589,7 @@ async function generateProfile(sessions) {
 }`;
 
     const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
         systemInstruction: systemMsg,
         generationConfig: {
             temperature: 0.3,
@@ -653,7 +651,7 @@ async function diarizeTranscript(rawText) {
     ensureGemini();
 
     const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
         systemInstruction: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
 
 Rules:
@@ -801,4 +799,59 @@ ${mergedTranscript}
     }
 }
 
-module.exports = { initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, identifyRoles, identifyRolesWithGroq, diarizeTranscript };
+// --- Audio Diarization via Gemini ---
+async function diarizeWithGemini(audioBuffer, mimeType, lang = 'en') {
+    ensureGemini();
+
+    const model = geminiPool.getModel({
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
+        generationConfig: {
+            temperature: 0,
+            responseMimeType: "application/json"
+        },
+        systemInstruction: `
+    You are an expert audio analyst capable of distinguishing speakers by their voice.
+    Listen to the audio and transcribe it exactly in language code: ${lang}.
+    You MUST diarize the audio (distinguish the speakers based on voice).
+    Return a JSON array of turns. Example:
+    [
+      { "speaker": "A", "text": "Hello, how are you?" },
+      { "speaker": "B", "text": "I'm doing well, thank you." }
+    ]
+    Use simple speaker labels like "A" and "B".
+  `
+    });
+
+    const prompt = "Please transcribe and diarize this audio. Return ONLY valid JSON.";
+
+    const audioPart = {
+        inlineData: {
+            data: audioBuffer.toString('base64'),
+            mimeType: mimeType
+        }
+    };
+
+    try {
+        const result = await model.generateContent([prompt, audioPart]);
+        const response = await result.response;
+        geminiPool.reportSuccess();
+        
+        const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+        const turnsArray = JSON.parse(jsonText);
+        
+        const turns = turnsArray.map((t, idx) => ({
+            speaker: t.speaker || (idx % 2 === 0 ? "A" : "B"),
+            start: idx, 
+            end: idx + 1,
+            text: t.text || ""
+        }));
+        
+        return { turns, _provider: `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.1-flash'})` };
+    } catch (err) {
+        geminiPool.reportError(err.message || '');
+        console.error('[Gemini Diarization] Error:', err.message);
+        throw new AppError('Gemini diarization failed: ' + (err.message || 'Unknown error'), 500);
+    }
+}
+
+module.exports = { initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, diarizeWithGemini, identifyRoles, identifyRolesWithGroq, diarizeTranscript };
