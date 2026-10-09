@@ -118,12 +118,19 @@ const saveSession = asyncHandler(async (req, res) => {
 const getHistory = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const mode = req.query.mode;
+    const patientId = req.query.patientId;
 
     if (!mode || (mode !== 'Therapy' && mode !== 'Mentoring')) {
         throw new AppError("Strict Data Isolation: 'mode' is required.", 400);
     }
 
-    const data = await dbService.getHistory(req.supabaseToken, userId, mode);
+    let data;
+    if (patientId) {
+        data = await dbService.getPatientSessions(req.supabaseToken, patientId, userId, mode);
+    } else {
+        data = await dbService.getHistory(req.supabaseToken, userId, mode);
+    }
+    
     res.json(data);
 });
 

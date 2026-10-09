@@ -1,5 +1,5 @@
-const { transcribeWithGemini, identifyRolesWithGroq, identifyRoles, diarizeTranscript } = require('../services/ai.service');
-const { transcribeAndDiarizeWithDeepgram } = require('../services/deepgram.service');
+const { transcribeWithGemini, identifyRolesWithGroq, identifyRoles, diarizeTranscript, diarizeWithGemini } = require('../services/ai.service');
+const { transcribeAndDiarizeWithDeepgram, transcribeAudioWithDeepgram } = require('../services/deepgram.service');
 const speechbrain = require('../services/speechbrain-client');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
@@ -57,7 +57,13 @@ const transcribe = asyncHandler(async (req, res) => {
 
         if (req.body.live === 'true') {
             // Fast text for live chunks (no diarization)
-            const result = await transcribeWithGemini(audioBuffer, mimeType, lang);
+            let result;
+            try {
+                result = await transcribeAudioWithDeepgram(audioBuffer, lang, mode);
+            } catch (err) {
+                console.warn('[Transcribe Live] Deepgram failed (unsupported language?), falling back to Gemini:', err.message);
+                result = await transcribeWithGemini(audioBuffer, mimeType, lang);
+            }
             res.json({ text: result.text, _sttProvider: result._provider });
         } else {
             // ═══════════════════════════════════════════════════
@@ -106,28 +112,58 @@ const transcribe = asyncHandler(async (req, res) => {
             // ─── Deepgram Fallback for Diarization ───
             if (diarizedTurns.length === 0) {
                 console.log('[Transcribe] Using Deepgram diarization fallback');
-                const deepgramRes = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
-                diarizedTurns = deepgramRes.turns || [];
-                diarizationProvider = 'Deepgram Nova-2';
+                try {
+                    const deepgramRes = await transcribeAndDiarizeWithDeepgram(req.file.path, lang);
+                    diarizedTurns = deepgramRes.turns || [];
+                    diarizationProvider = 'Deepgram Nova-2';
+                } catch (err) {
+                    console.warn('[Transcribe] Deepgram diarization failed (unsupported language?):', err.message);
+                }
             }
 
-            // ─── Transcribe with Gemini (use enhanced audio if available) ───
-            let geminiResult;
+            // ─── Gemini Fallback for Diarization ───
+            if (diarizedTurns.length === 0) {
+                console.log('[Transcribe] Using Gemini diarization fallback');
+                try {
+                    const geminiRes = await diarizeWithGemini(audioBuffer, mimeType, lang);
+                    diarizedTurns = geminiRes.turns || [];
+                    diarizationProvider = geminiRes._provider || 'Gemini';
+                } catch (err) {
+                    console.warn('[Transcribe] Gemini diarization failed:', err.message);
+                }
+            }
+
+            // ─── Transcribe with STT (Deepgram or Gemini) ───
+            let sttResult;
+            const processBuffer = (enhancedFilePath && fs.existsSync(enhancedFilePath)) 
+                ? fs.readFileSync(enhancedFilePath) 
+                : audioBuffer;
+
+            try {
+                sttResult = await transcribeAudioWithDeepgram(processBuffer, lang, mode);
+            } catch (err) {
+                console.warn('[Transcribe] Deepgram STT failed (unsupported language?), falling back to Gemini:', err.message);
+                sttResult = await transcribeWithGemini(processBuffer, mimeType, lang);
+            }
+
             if (enhancedFilePath && fs.existsSync(enhancedFilePath)) {
-                const enhancedBuffer = fs.readFileSync(enhancedFilePath);
-                geminiResult = await transcribeWithGemini(enhancedBuffer, 'audio/wav', lang);
                 fs.unlink(enhancedFilePath, () => { });
-            } else {
-                geminiResult = await transcribeWithGemini(audioBuffer, mimeType, lang);
             }
-            const geminiText = geminiResult.text;
-            sttProvider = geminiResult._provider;
+            
+            const transcribedText = sttResult.text;
+            sttProvider = sttResult._provider;
 
-            // ─── Fill empty SpeechBrain turns with Gemini transcript ───
+            // ─── Handle empty diarization if ALL diarization failed ───
+            if (diarizedTurns.length === 0 && transcribedText) {
+                diarizedTurns = [{ speaker: '0', start: 0, end: 1, text: transcribedText }];
+                diarizationProvider = 'None (STT only)';
+            }
+
+            // ─── Fill empty SpeechBrain turns with STT transcript ───
             const hasEmptyText = diarizedTurns.some(t => !t.text || !t.text.trim());
-            if (hasEmptyText && geminiText) {
-                console.log('[Transcribe] Aligning Gemini transcript into speaker turns...');
-                alignTranscriptToTurns(geminiText, diarizedTurns);
+            if (hasEmptyText && transcribedText) {
+                console.log('[Transcribe] Aligning transcript into speaker turns...');
+                alignTranscriptToTurns(transcribedText, diarizedTurns);
             }
 
             // ─── Build merged transcript for role identification ───

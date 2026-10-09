@@ -86,7 +86,6 @@
     const modalContent = document.getElementById('modal-content');
     // Card
     const cardName = document.getElementById('card-name');
-    const cardLvl = document.getElementById('card-lvl');
     const cardProblem = document.getElementById('card-problem');
     const cardReason = document.getElementById('card-reason');
     const cardProgress = document.getElementById('card-progress');
@@ -248,7 +247,7 @@
     }
 
     // --- Diagnostic Impressions / Key Observations ---
-    const diagnostics = data.diagnostic_impressions || [];
+    const diagnostics = data.diagnostic_impressions || (isMentoring && data.motivational_state ? [data.motivational_state] : []);
     if (diagnostics.length > 0) {
         diagnosticList.innerHTML = '';
         diagnostics.forEach(d => {
@@ -261,7 +260,7 @@
     }
 
     // --- Interventions / Skills ---
-    const interventions = data.interventions_used || [];
+    const interventions = data.interventions_used || data.skill_progression || [];
     interventionsPills.innerHTML = '';
     if (interventions.length > 0) {
         interventions.forEach(i => {
@@ -290,7 +289,7 @@
     }
 
     // --- Progress Indicators / Action Items ---
-    const progress = data.progress_indicators || [];
+    const progress = data.progress_indicators || data.action_items || [];
     if (progress.length > 0) {
         progressList.innerHTML = '';
         progress.forEach(p => {
@@ -383,7 +382,6 @@
     // --- Counseling / Mentee Card ---
     const stats = data.counselingStats || {};
     cardName.textContent = stats.name !== 'Unknown' ? stats.name : (activePatient ? activePatient.name : 'Client');
-    cardLvl.textContent = Math.floor(wc / 100) + 1;
     cardProblem.textContent = stats.presentingProblem || (isMentoring ? 'N/A' : 'N/A');
     cardReason.textContent = stats.reasonForCounseling || (isMentoring ? 'N/A' : 'N/A');
     cardProgress.textContent = stats.lastMajorProgress || 'None yet';
@@ -557,15 +555,19 @@
     if (btnExportCsv) {
         btnExportCsv.addEventListener('click', async function () {
             try {
-                const response = await EchoAuth.authFetch('/api/export/csv');
+                let fetchUrl = '/api/export/csv';
+                if (activePatient && activePatient.id) {
+                    fetchUrl += `?patientId=${activePatient.id}`;
+                }
+                const response = await EchoAuth.authFetch(fetchUrl);
                 if (!response.ok) throw new Error('CSV export failed');
                 const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
+                const blobUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = blobUrl;
                 a.download = 'echoscribe-sessions.csv';
                 a.click();
-                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(blobUrl);
                 showToast('📊 CSV exported!');
             } catch (err) {
                 showToast('❌ CSV export failed.');
@@ -578,15 +580,19 @@
     if (btnExportJson) {
         btnExportJson.addEventListener('click', async function () {
             try {
-                const response = await EchoAuth.authFetch('/api/export/record');
+                let fetchUrl = '/api/export/record';
+                if (activePatient && activePatient.id) {
+                    fetchUrl += `?patientId=${activePatient.id}`;
+                }
+                const response = await EchoAuth.authFetch(fetchUrl);
                 if (!response.ok) throw new Error('JSON export failed');
                 const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
+                const blobUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = blobUrl;
                 a.download = 'echoscribe-full-record.json';
                 a.click();
-                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(blobUrl);
                 showToast('📁 JSON exported!');
             } catch (err) {
                 showToast('❌ JSON export failed.');
@@ -604,7 +610,11 @@
             modalContent.innerHTML = '<p style="color:#a0aec0; text-align:center; padding:2rem;">⏳ Generating longitudinal analysis...</p>';
 
             try {
-                const response = await EchoAuth.authFetch(`/api/profile?mode=${currentMode}`);
+                let url = `/api/profile?mode=${currentMode}`;
+                if (activePatient && activePatient.id) {
+                    url += `&patientId=${activePatient.id}`;
+                }
+                const response = await EchoAuth.authFetch(url);
                 const profileData = await response.json();
 
                 if (response.ok) {
@@ -866,7 +876,11 @@
 
     async function fetchHistory() {
         try {
-            const response = await EchoAuth.authFetch(`/api/history?mode=${currentMode}`);
+            let url = `/api/history?mode=${currentMode}`;
+            if (activePatient && activePatient.id) {
+                url += `&patientId=${activePatient.id}`;
+            }
+            const response = await EchoAuth.authFetch(url);
             const history = await response.json();
 
             if (history && history.length > 0) {

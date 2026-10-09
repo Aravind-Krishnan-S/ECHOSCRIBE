@@ -120,9 +120,11 @@ def load_audio(file_bytes: bytes, target_sr: int = 16000) -> tuple:
 def tensor_to_wav_bytes(waveform: torch.Tensor, sr: int = 16000) -> bytes:
     """Convert a 1D or 2D tensor to WAV bytes."""
     if waveform.dim() == 1:
-        waveform = waveform.unsqueeze(0)
+        data = waveform.cpu().numpy()
+    else:
+        data = waveform.cpu().numpy().T
     buf = io.BytesIO()
-    torchaudio.save(buf, waveform.cpu(), sr, format="wav")
+    sf.write(buf, data, sr, format="wav")
     buf.seek(0)
     return buf.read()
 
