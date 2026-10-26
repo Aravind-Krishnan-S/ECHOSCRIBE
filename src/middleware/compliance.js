@@ -15,6 +15,8 @@ function complianceLogger(req, res, next) {
         if (safeBody.transcript) safeBody.transcript = '[REDACTED_TRANSCRIPT]';
         if (safeBody.summary) safeBody.summary = '[REDACTED_SUMMARY]';
         if (safeBody.analysisJson) safeBody.analysisJson = '[REDACTED_ANALYSIS]';
+        if (safeBody.key) safeBody.key = '[REDACTED_API_KEY]';
+        if (safeBody.keys) safeBody.keys = '[REDACTED_API_KEYS]';
 
         const logEntry = JSON.stringify({
             timestamp,

@@ -56,7 +56,7 @@
 
         <!-- Confidence Score & AI Provider -->
         <div class="confidence-bar" id="confidence-bar">
-            <span class="confidence-label">AI Confidence:</span>
+            <span class="confidence-label" title="Self-reported by the language model; not a calibrated probability of correctness.">Model-reported confidence (uncalibrated):</span>
             <div class="confidence-track">
                 <div class="confidence-fill" id="confidence-fill" style="width: 0%"></div>
             </div>
@@ -237,6 +237,8 @@
                         <span class="risk-badge" id="risk-sh-level">Low</span>
                     </div>
                     <p class="risk-notes" id="risk-notes">No risk factors identified.</p>
+                    <p class="risk-notes" id="risk-disclaimer" style="font-size: 0.78rem; opacity: 0.8; border-top: 1px solid var(--border-subtle); padding-top: 0.6rem; margin-top: 0.6rem;">
+                        ⚠️ Automated screen: a single language-model judgment on the transcript. It is not derived from or validated against the C-SSRS, PHQ-9 or any clinical instrument, and its sensitivity and specificity are unknown. No alert does not mean no risk, and an alert is not a diagnosis. The clinician must review the full transcript and remains responsible for risk assessment.</p>
                 </div>
             </div>
         </div>

@@ -11,6 +11,7 @@ const exportController = require('../controllers/export.controller');
 const patientController = require('../controllers/patient.controller');
 const transcribeController = require('../controllers/transcribe.controller');
 const commsController = require('../controllers/communications.controller');
+const providersController = require('../controllers/providers.controller');
 
 const router = express.Router();
 
@@ -122,5 +123,9 @@ router.get('/export/record', exportController.exportFullRecord);
 
 // --- Communications Routes ---
 router.post('/communications/send', commsController.sendCommunication);
+
+// --- Provider Settings Routes ---
+router.get('/providers', providersController.getProviders);
+router.post('/providers/test', providersController.testProvider);
 
 module.exports = router;

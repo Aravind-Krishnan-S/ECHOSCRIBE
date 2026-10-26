@@ -18,7 +18,7 @@ const getProfile = asyncHandler(async (req, res) => {
         throw new AppError(`No sessions found for ${mode} mode. Record some sessions first.`, 404);
     }
 
-    const profile = await aiService.generateProfile(sessions);
+    const profile = await aiService.generateProfile(sessions, { chains: req.providerChains });
     res.json(profile);
 });
 

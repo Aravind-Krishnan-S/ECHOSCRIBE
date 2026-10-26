@@ -19,6 +19,8 @@ function errorHandler(err, req, res, _next) {
     res.status(statusCode).json({
         error: err.message || 'Internal server error',
         ...(err.details && !isProduction ? { details: err.details } : {}),
+        // Safe-to-expose structure, e.g. the provider-attempt log of an exhausted chain (keys are masked)
+        ...(err.publicDetails ? err.publicDetails : {}),
     });
 }
 

@@ -1,48 +1,55 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { AppError } = require('../middleware/errorHandler');
-const { geminiPool } = require('./gemini-pool');
-const fallback = require('./groq-fallback');
+/* src/services/ai.service.js
+   AI tasks for the processing pipeline. Every task resolves its provider at
+   request time from the configured chain for its role (see provider-chain.js);
+   no vendor or model name is hard-coded here. */
 
-// Legacy single-key init — now delegates to the pool
-function initGemini(apiKeyOrKeys) {
-    const keys = Array.isArray(apiKeyOrKeys) ? apiKeyOrKeys : [apiKeyOrKeys];
-    geminiPool.init(keys);
-}
+const { runChain } = require('./provider-chain');
 
-function ensureGemini() {
-    if (geminiPool.getStatus().totalKeys === 0) {
-        // Fallback: discover all Gemini keys from env
-        const keys = [];
-        const seen = new Set();
-        // Comma-separated
-        (process.env.GEMINI_API_KEYS || '').split(',').forEach(k => {
-            const t = k.trim(); if (t && !seen.has(t)) { seen.add(t); keys.push(t); }
-        });
-        // Single key
-        const single = (process.env.GEMINI_API_KEY || '').trim();
-        if (single && !seen.has(single)) { seen.add(single); keys.push(single); }
-        // Numbered keys (1_GEMINI_API_KEY, etc.)
-        Object.keys(process.env).forEach(envKey => {
-            if (/gemini_api_key/i.test(envKey) && envKey !== 'GEMINI_API_KEY' && envKey !== 'GEMINI_API_KEYS') {
-                const t = process.env[envKey]?.trim();
-                if (t && !seen.has(t)) { seen.add(t); keys.push(t); }
-            }
-        });
-        if (keys.length === 0) throw new AppError('No Gemini API keys found. Set GEMINI_API_KEY, GEMINI_API_KEYS, or numbered keys like 1_GEMINI_API_KEY.', 500);
-        geminiPool.init(keys);
+/** Parse a model's JSON reply, tolerating ```json fences. Throws if unparseable. */
+function parseJsonResponse(text) {
+    try {
+        return JSON.parse(text);
+    } catch (parseError) {
+        const jsonMatch = String(text).match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) return JSON.parse(jsonMatch[1].trim());
+        throw parseError;
     }
 }
 
-function getModel(modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite') {
-    ensureGemini();
-    return geminiPool.getModel(modelName);
+// --- Clinical SOAP / GROW Summarization (NOTE_SYNTH slot) ---
+
+function normalizeAnalysis(parsedData, mode, text, wordCount) {
+    parsedData.wordCount = parsedData.wordCount || wordCount;
+    parsedData.originalText = text.trim();
+
+    if (mode === 'Therapy') {
+        parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
+        parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
+        parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
+        parsedData.interventions_used = parsedData.interventions_used || [];
+        parsedData.medication_changes = parsedData.medication_changes || [];
+        parsedData.progress_indicators = parsedData.progress_indicators || [];
+    } else {
+        parsedData.grow = parsedData.grow || { goal: '', reality: '', options: '', way_forward: '' };
+        parsedData.risk_assessment = parsedData.risk_assessment || { academic_burnout: false, severe_distress_risk: 'low', notes: '' };
+        parsedData.skill_progression = parsedData.skill_progression || [];
+        parsedData.action_items = parsedData.action_items || [];
+        parsedData.goal_completion_rate = parsedData.goal_completion_rate || 'Unknown';
+        parsedData.motivational_state = parsedData.motivational_state || 'Unknown';
+    }
+
+    parsedData.auto_booking = parsedData.auto_booking || { needs_follow_up: false, suggested_timeframe: 'None', reason: '' };
+    parsedData.referral_form = parsedData.referral_form || { referral_needed: false, specialty_or_service: 'None', reason: '' };
+    parsedData.patient_communication = parsedData.patient_communication || { instructions_english: 'No instructions generated.', instructions_translated: 'No translated instructions generated.' };
+
+    parsedData.emotional_tone = parsedData.emotional_tone || 'neutral';
+    parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
+    parsedData.confidence_score = parsedData.confidence_score || 0.0;
+    parsedData.counselingStats = parsedData.counselingStats || {};
+    return parsedData;
 }
 
-// --- Clinical SOAP Summarization (Gemini) ---
-
-async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', retries = 2) {
-    ensureGemini();
-
+async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', { chains } = {}) {
     const wordCount = text.trim().split(/\s+/).length;
 
     const modeConfig = {
@@ -90,12 +97,12 @@ async function summarizeTranscript(text, lang = 'en', mode = 'Therapy', retries 
 
     const config = modeConfig[mode] || modeConfig['Therapy'];
 
-    const systemInstruction = `You are an ${config.role}. 
+    const systemInstruction = `You are an ${config.role}.
 You analyze speech transcripts from sessions and produce structured documentation.
 CRITICAL INSTRUCTION: Pay strict attention to the speaker labels (e.g., "Therapist:", "Patient:", "Mentor:", "Mentee:") in the transcript.
 - The "Therapist" or "Mentor" is the professional guiding the session.
 - The "Patient" or "Mentee" is the client seeking help.
-Do NOT attribute the professional's statements, questions, or guidance to the client. 
+Do NOT attribute the professional's statements, questions, or guidance to the client.
 Do NOT attribute the client's symptoms, experiences, or answers to the professional.
 You MUST respond with valid JSON only. No markdown, no code fences, no extra text.
 Be thorough but precise. Do not fabricate information not present in the transcript.
@@ -138,178 +145,42 @@ Return ONLY valid JSON with this exact structure:
   }
 }`;
 
-    const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
-        systemInstruction,
-        generationConfig: {
-            temperature: 0.3,
-            responseMimeType: "application/json"
-        }
-    });
+    const { result, provider, attempts } = await runChain('NOTE_SYNTH', async (adapter) => {
+        const reply = await adapter.chatCompletion(systemInstruction, userPrompt, { json: true, temperature: 0.3 });
+        return parseJsonResponse(reply);
+    }, { chains });
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const result = await model.generateContent(userPrompt);
-            const response = await result.response;
-            const responseText = response.text();
-
-            let parsedData;
-            try {
-                parsedData = JSON.parse(responseText);
-            } catch (parseError) {
-                const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-                if (jsonMatch) {
-                    parsedData = JSON.parse(jsonMatch[1].trim());
-                } else {
-                    throw parseError;
-                }
-            }
-
-            // Ensure required fields
-            parsedData.wordCount = parsedData.wordCount || wordCount;
-            parsedData.originalText = text.trim();
-
-            // Normalize missing fields based on mode
-            if (mode === 'Therapy') {
-                parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
-                parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
-                parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
-                parsedData.interventions_used = parsedData.interventions_used || [];
-                parsedData.medication_changes = parsedData.medication_changes || [];
-                parsedData.progress_indicators = parsedData.progress_indicators || [];
-            } else {
-                parsedData.grow = parsedData.grow || { goal: '', reality: '', options: '', way_forward: '' };
-                parsedData.risk_assessment = parsedData.risk_assessment || { academic_burnout: false, severe_distress_risk: 'low', notes: '' };
-                parsedData.skill_progression = parsedData.skill_progression || [];
-                parsedData.action_items = parsedData.action_items || [];
-                parsedData.goal_completion_rate = parsedData.goal_completion_rate || 'Unknown';
-                parsedData.motivational_state = parsedData.motivational_state || 'Unknown';
-            }
-
-            parsedData.auto_booking = parsedData.auto_booking || { needs_follow_up: false, suggested_timeframe: 'None', reason: '' };
-            parsedData.referral_form = parsedData.referral_form || { referral_needed: false, specialty_or_service: 'None', reason: '' };
-            parsedData.patient_communication = parsedData.patient_communication || { instructions_english: 'No instructions generated.', instructions_translated: 'No translated instructions generated.' };
-
-            parsedData.emotional_tone = parsedData.emotional_tone || 'neutral';
-            parsedData.topics = parsedData.topics || parsedData.topicsDetected || [];
-            parsedData.confidence_score = parsedData.confidence_score || 0.0;
-            parsedData.counselingStats = parsedData.counselingStats || {};
-            parsedData._provider = `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'})`;
-
-            geminiPool.reportSuccess();
-            return parsedData;
-        } catch (err) {
-            geminiPool.reportError(err.message || '');
-            if (attempt < retries) {
-                console.warn(`[Gemini Summarize] Attempt ${attempt + 1} failed, retrying... Error: ${err.message}`);
-                continue;
-            }
-
-            // --- FALLBACK: Groq Llama 3.3 ---
-            if (fallback.isAvailable()) {
-                console.warn('[Summarize] All Gemini attempts failed. Falling back to Groq Llama 3.3...');
-                try {
-                    const groqResponse = await fallback.chatCompletion(systemInstruction, userPrompt, true);
-                    let parsedData = JSON.parse(groqResponse);
-                    parsedData.wordCount = parsedData.wordCount || wordCount;
-                    parsedData.originalText = text.trim();
-                    parsedData._provider = 'Groq Llama 3.3';
-                    if (mode === 'Therapy') {
-                        parsedData.soap = parsedData.soap || { subjective: '', objective: '', assessment: '', plan: '' };
-                        parsedData.risk_assessment = parsedData.risk_assessment || { suicidal_ideation: false, self_harm_risk: 'low', notes: '' };
-                        parsedData.diagnostic_impressions = parsedData.diagnostic_impressions || [];
-                        parsedData.interventions_used = parsedData.interventions_used || [];
-                        parsedData.medication_changes = parsedData.medication_changes || [];
-                        parsedData.progress_indicators = parsedData.progress_indicators || [];
-                    } else {
-                        parsedData.grow = parsedData.grow || { goal: '', reality: '', options: '', way_forward: '' };
-                        parsedData.risk_assessment = parsedData.risk_assessment || { academic_burnout: false, severe_distress_risk: 'low', notes: '' };
-                        parsedData.skill_progression = parsedData.skill_progression || [];
-                        parsedData.action_items = parsedData.action_items || [];
-                        parsedData.goal_completion_rate = parsedData.goal_completion_rate || 'Unknown';
-                        parsedData.motivational_state = parsedData.motivational_state || 'Unknown';
-                    }
-                    parsedData.auto_booking = parsedData.auto_booking || { needs_follow_up: false, suggested_timeframe: 'None', reason: '' };
-                    parsedData.referral_form = parsedData.referral_form || { referral_needed: false, specialty_or_service: 'None', reason: '' };
-                    parsedData.patient_communication = parsedData.patient_communication || { instructions_english: 'No instructions generated.', instructions_translated: 'No translated instructions generated.' };
-                    parsedData.emotional_tone = parsedData.emotional_tone || 'neutral';
-                    parsedData.topics = parsedData.topics || [];
-                    parsedData.confidence_score = parsedData.confidence_score || 0.0;
-                    parsedData.counselingStats = parsedData.counselingStats || {};
-                    return parsedData;
-                } catch (groqErr) {
-                    console.error('[Groq Fallback] Also failed:', groqErr.message);
-                }
-            }
-
-            console.error('[Summarize] All providers failed:', err.message);
-            throw new AppError('Failed to analyze transcript: ' + (err.message || 'Unknown error'), 500);
-        }
-    }
+    const parsedData = normalizeAnalysis(result, mode, text, wordCount);
+    parsedData._provider = provider;
+    parsedData._providerAttempts = attempts;
+    return parsedData;
 }
 
-// --- Speech-to-Text via Gemini 2.5 Flash ---
+// --- Speech-to-Text (STT slot) ---
 
-async function transcribeWithGemini(audioBuffer, mimeType, lang = 'en') {
-    ensureGemini();
-
-    const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
-        generationConfig: {
-            temperature: 0
-        },
-        systemInstruction: `
-    You are a highly accurate multilingual transcription engine.
-    Primary language target: ${lang}.
-    
-    Rules:
-    - Transcribe every word exactly as spoken — do not paraphrase or summarise
-    - For code-switched speech, preserve the exact language used for each phrase
-    - Proper nouns, names, and technical terms: transcribe phonetically if unsure, do not guess anglicised spellings
-    - Filler words should be omitted unless they carry meaning
-    - If a word is genuinely inaudible, write [inaudible] — do not guess
-    - Do not add punctuation that wasn't implied by the speaker's prosody
-    - Output only the transcript text — no labels, no timestamps, no explanation
-  `
-    });
-
-    const prompt = "Please transcribe this audio exactly as instructed.";
-
-    const audioPart = {
-        inlineData: {
-            data: audioBuffer.toString('base64'),
-            mimeType: mimeType
-        }
-    };
-
-    try {
-        const result = await model.generateContent([prompt, audioPart]);
-        const response = await result.response;
-        geminiPool.reportSuccess();
-        return { text: response.text(), _provider: `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.1-flash'})` };
-    } catch (err) {
-        geminiPool.reportError(err.message || '');
-
-        // --- FALLBACK: Deepgram Nova-2 ---
-        if (fallback.isDeepgramAvailable()) {
-            console.warn('[Transcribe] Gemini failed. Falling back to Deepgram Nova-2...');
-            try {
-                const dgText = await fallback.transcribeAudioBuffer(audioBuffer, mimeType, lang);
-                return { text: dgText, _provider: 'Deepgram Nova-2' };
-            } catch (dgErr) {
-                console.error('[Deepgram Fallback] Also failed:', dgErr.message);
-            }
-        }
-
-        console.error('[Gemini STT] Full Error:', err.message, err.stack);
-        throw new AppError('Gemini transcription failed: ' + (err.message || 'Unknown error'), 500);
-    }
+async function transcribeAudio(audioBuffer, mimeType, lang = 'en', { chains } = {}) {
+    const { result, provider, attempts } = await runChain('STT', (adapter) =>
+        adapter.transcribeAudioBuffer(audioBuffer, mimeType, { lang }), { chains });
+    return { text: result || '', _provider: provider, _attempts: attempts };
 }
 
-// --- Contextual Role Identification ---
+// --- Audio Diarization (DIARIZE slot: SpeechBrain → cloud fallbacks) ---
+
+async function diarizeAudio(audioBuffer, mimeType, lang = 'en', { chains } = {}) {
+    const { result, provider, attempts } = await runChain('DIARIZE', async (adapter) => {
+        const out = await adapter.diarizeAudioBuffer(audioBuffer, mimeType, { lang, numSpeakers: 2 });
+        if (!out || !Array.isArray(out.turns) || out.turns.length === 0) {
+            throw new Error('Diarization returned no speaker turns');
+        }
+        return out;
+    }, { chains });
+    return { turns: result.turns, enhancedBuffer: result.enhancedBuffer || null, _provider: provider, _attempts: attempts };
+}
+
+// --- Contextual Role Identification (ROLE_LABEL slot) ---
 
 /**
- * Compute contextual signals from Deepgram turns for smarter role classification.
+ * Compute contextual signals from diarized turns for smarter role classification.
  * Inspired by clinical NLP research:
  *  - Therapists/Mentors: ask more questions, use guiding language, shorter turns
  *  - Patients/Mentees: share personal narratives, longer turns, emotional language
@@ -363,13 +234,11 @@ function computeSpeakerStats(turns) {
     return stats;
 }
 
-async function identifyRoles(mergedTranscript, sessionMode = 'Therapy', turns = []) {
-    ensureGemini();
-
-    let roleA, roleB, contextDescription;
+function rolesForMode(sessionMode) {
     if (sessionMode === 'Therapy') {
-        roleA = "Therapist"; roleB = "Patient";
-        contextDescription = `This is a THERAPY session. The Therapist is a trained mental health professional who:
+        return {
+            roleA: "Therapist", roleB: "Patient",
+            contextDescription: `This is a THERAPY session. The Therapist is a trained mental health professional who:
 - Asks probing questions to understand the patient's state
 - Uses clinical language and therapeutic techniques (CBT, reflective listening, etc.)
 - Guides the conversation with structured interventions
@@ -380,10 +249,13 @@ The Patient is the individual seeking help who:
 - Shares personal experiences, emotions, and struggles
 - Speaks in longer narrative turns about their life
 - Uses emotional and personal language ("I feel", "I can't", etc.)
-- Responds to the therapist's questions and prompts`;
-    } else if (sessionMode === 'Mentoring') {
-        roleA = "Mentor"; roleB = "Mentee";
-        contextDescription = `This is an ACADEMIC MENTORING session. The Mentor is a university faculty/senior who:
+- Responds to the therapist's questions and prompts`,
+        };
+    }
+    if (sessionMode === 'Mentoring') {
+        return {
+            roleA: "Mentor", roleB: "Mentee",
+            contextDescription: `This is an ACADEMIC MENTORING session. The Mentor is a university faculty/senior who:
 - Guides academic and professional development
 - Asks about goals, progress, and challenges
 - Provides advice about coursework, research, career paths
@@ -394,13 +266,25 @@ The Mentee is the student seeking guidance who:
 - Shares academic struggles and personal challenges
 - Asks for advice and direction
 - Discusses their goals, uncertainties, and progress
-- Reports on previous action items`;
-    } else {
-        roleA = "Counsellor"; roleB = "Patient";
-        contextDescription = `This is a COUNSELLING session. The Counsellor guides the conversation.`;
+- Reports on previous action items`,
+        };
     }
+    return {
+        roleA: "Counsellor", roleB: "Patient",
+        contextDescription: `This is a COUNSELLING session. The Counsellor guides the conversation.`,
+    };
+}
 
-    // Compute contextual signals from Deepgram turns
+/**
+ * Label the two diarized speakers with session roles.
+ * Never throws: if every ROLE_LABEL provider fails, returns the default mapping.
+ * @returns {Promise<{ roleMap: object, _provider: string }>}
+ */
+async function identifyRoles(mergedTranscript, sessionMode = 'Therapy', turns = [], { chains } = {}) {
+    const { roleA, roleB, contextDescription } = rolesForMode(sessionMode);
+    const defaultMap = { "speaker_0": roleA, "speaker_1": roleB };
+
+    // Compute the eight contextual signals from the diarized turns
     let contextualAnalysis = '';
     if (turns.length > 0) {
         const stats = computeSpeakerStats(turns);
@@ -433,14 +317,6 @@ INTERPRETATION GUIDE:
 `;
     }
 
-    const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
-        generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json"
-        }
-    });
-
     const prompt = `You are an expert clinical transcript analyst specializing in speaker role identification.
 
 CONTEXT:
@@ -466,48 +342,30 @@ ${mergedTranscript}
 """`;
 
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const jsonText = response.text();
-        const parsed = JSON.parse(jsonText);
-        geminiPool.reportSuccess();
-
-        // Validate: ensure both roles are assigned
-        const roles = Object.values(parsed);
-        if (!roles.includes(roleA) || !roles.includes(roleB)) {
-            console.warn('[RoleID] Invalid role mapping, fixing...', parsed);
-            return { "speaker_0": roleA, "speaker_1": roleB };
-        }
-
-        console.log(`[RoleID] Classification result: speaker_0=${parsed.speaker_0}, speaker_1=${parsed.speaker_1}`);
-        return parsed;
-    } catch (err) {
-        geminiPool.reportError(err.message || '');
-
-        // --- FALLBACK: Groq Llama 3.3 ---
-        if (fallback.isAvailable()) {
-            console.warn('[RoleID] Gemini failed. Falling back to Groq...');
-            try {
-                const groqResp = await fallback.chatCompletion(
-                    'You are a clinical transcript analyst. Reply with ONLY valid JSON.',
-                    prompt, true
-                );
-                return JSON.parse(groqResp);
-            } catch (groqErr) {
-                console.error('[Groq RoleID Fallback] Also failed:', groqErr.message);
+        const { result, provider } = await runChain('ROLE_LABEL', async (adapter) => {
+            const reply = await adapter.chatCompletion(
+                'You are a clinical transcript analyst. Reply with ONLY valid JSON.',
+                prompt, { json: true, temperature: 0.1 }
+            );
+            const parsed = parseJsonResponse(reply);
+            const roles = Object.values(parsed);
+            if (!roles.includes(roleA) || !roles.includes(roleB)) {
+                throw new Error(`Invalid role mapping: ${JSON.stringify(parsed)}`);
             }
-        }
+            return parsed;
+        }, { chains });
 
-        console.error('[RoleID] All providers failed:', err.message);
-        return { "speaker_0": roleA, "speaker_1": roleB };
+        console.log(`[RoleID] ${provider}: speaker_0=${result.speaker_0}, speaker_1=${result.speaker_1}`);
+        return { roleMap: result, _provider: provider };
+    } catch (err) {
+        console.error('[RoleID] All providers failed, using default mapping:', err.message);
+        return { roleMap: defaultMap, _provider: 'Default mapping (all providers failed)' };
     }
 }
 
-// --- Longitudinal Profile Analysis (Gemini) ---
+// --- Longitudinal Profile Analysis (PROFILE_GEN slot) ---
 
-async function generateProfile(sessions) {
-    ensureGemini();
-
+async function generateProfile(sessions, { chains } = {}) {
     let therapyCount = 0;
     let mentoringCount = 0;
 
@@ -588,71 +446,27 @@ async function generateProfile(sessions) {
   "psychological_profile": "Brief profile of the student's motivational and behavioral state"
 }`;
 
-    const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
-        systemInstruction: systemMsg,
-        generationConfig: {
-            temperature: 0.3,
-            responseMimeType: "application/json"
-        }
-    });
-
-    try {
-        const result = await model.generateContent(`${userMsgFocus}
+    const userPrompt = `${userMsgFocus}
 
 SESSION HISTORY:
 ${sessionSummaries}
 
 Return ONLY valid JSON:
-${jsonSchema}`);
+${jsonSchema}`;
 
-        const response = await result.response;
-        const responseText = response.text();
+    const { result, provider } = await runChain('PROFILE_GEN', async (adapter) => {
+        const reply = await adapter.chatCompletion(systemMsg, userPrompt, { json: true, temperature: 0.3 });
+        return parseJsonResponse(reply);
+    }, { chains });
 
-        let profileAnalysis;
-        try {
-            const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-            if (jsonMatch) {
-                profileAnalysis = JSON.parse(jsonMatch[1].trim());
-            } else {
-                profileAnalysis = JSON.parse(responseText);
-            }
-        } catch (e) {
-            profileAnalysis = { journey_summary: responseText, error: 'Partial parse' };
-        }
-
-        return profileAnalysis;
-    } catch (err) {
-        geminiPool.reportError(err.message || '');
-
-        // --- FALLBACK: Groq Llama 3.3 ---
-        if (fallback.isAvailable()) {
-            console.warn('[Profile] Gemini failed. Falling back to Groq Llama 3.3...');
-            try {
-                const groqResp = await fallback.chatCompletion(
-                    systemMsg,
-                    `${userMsgFocus}\n\nSESSION HISTORY:\n${sessionSummaries}\n\nReturn ONLY valid JSON:\n${jsonSchema}`,
-                    true
-                );
-                return JSON.parse(groqResp);
-            } catch (groqErr) {
-                console.error('[Groq Profile Fallback] Also failed:', groqErr.message);
-            }
-        }
-
-        console.error('[Profile] All providers failed:', err.message);
-        throw new AppError('Profile generation failed: ' + (err.message || 'Unknown error'), 500);
-    }
+    result._provider = provider;
+    return result;
 }
 
-// --- LLM-based Speaker Diarization (Gemini) ---
+// --- LLM-based Speaker Diarization of plain text (ROLE_LABEL slot) ---
 
-async function diarizeTranscript(rawText) {
-    ensureGemini();
-
-    const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
-        systemInstruction: `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
+async function diarizeTranscript(rawText, { chains } = {}) {
+    const systemPrompt = `You are an expert at analyzing conversation transcripts. Given a raw transcript of a conversation between TWO people, identify speaker turns and split the text into alternating speakers.
 
 Rules:
 - There are exactly 2 speakers: "Person 1" and "Person 2"
@@ -663,15 +477,9 @@ Rules:
 - Do NOT fabricate or modify the text — use the exact words from the transcript
 - If unsure about a split point, make your best guess based on conversational logic
 
-You MUST respond with valid JSON only.`,
-        generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json"
-        }
-    });
+You MUST respond with valid JSON only.`;
 
-    try {
-        const result = await model.generateContent(`Split this conversation transcript into speaker turns. Identify where one person stops speaking and the other responds.
+    const userPrompt = `Split this conversation transcript into speaker turns. Identify where one person stops speaking and the other responds.
 
 RAW TRANSCRIPT:
 """
@@ -685,173 +493,26 @@ Return ONLY valid JSON in this format:
     { "speaker": 2, "text": "exact text from person 2" },
     { "speaker": 1, "text": "exact text from person 1" }
   ]
-}`);
+}`;
 
-        const response = await result.response;
-        const responseText = response.text();
-        const parsed = JSON.parse(responseText);
-        return parsed.turns || [];
-    } catch (e) {
-        geminiPool.reportError(e.message || '');
-
-        // --- FALLBACK: Groq Llama 3.3 ---
-        if (fallback.isAvailable()) {
-            console.warn('[Diarize] Gemini failed. Falling back to Groq...');
-            try {
-                const diarizePrompt = `Split this conversation transcript into speaker turns.\n\nRAW TRANSCRIPT:\n"""\n${rawText}\n"""\n\nReturn ONLY valid JSON: { "turns": [{ "speaker": 1, "text": "..." }, ...] }`;
-                const groqResp = await fallback.chatCompletion(
-                    'You are an expert at analyzing conversation transcripts. Identify speaker turns. Reply with valid JSON only.',
-                    diarizePrompt, true
-                );
-                const parsed = JSON.parse(groqResp);
-                return parsed.turns || [];
-            } catch (groqErr) {
-                console.error('[Groq Diarize Fallback] Also failed:', groqErr.message);
-            }
-        }
-
-        console.error('[Diarize] All providers failed:', e.message);
+    try {
+        const { result } = await runChain('ROLE_LABEL', async (adapter) => {
+            const reply = await adapter.chatCompletion(systemPrompt, userPrompt, { json: true, temperature: 0.1 });
+            return parseJsonResponse(reply).turns || [];
+        }, { chains });
+        return result;
+    } catch (err) {
+        console.error('[Diarize] All providers failed:', err.message);
         return [{ speaker: 1, text: rawText }];
     }
 }
 
-// --- Groq-first Role Identification (for SpeechBrain branch) ---
-
-async function identifyRolesWithGroq(mergedTranscript, sessionMode = 'Therapy', turns = []) {
-    if (!fallback.isAvailable()) {
-        console.warn('[RoleID-Groq] Groq not available, falling back to Gemini identifyRoles');
-        return identifyRoles(mergedTranscript, sessionMode, turns);
-    }
-
-    let roleA, roleB, contextDescription;
-    if (sessionMode === 'Therapy') {
-        roleA = "Therapist"; roleB = "Patient";
-        contextDescription = `This is a THERAPY session. The Therapist is a trained mental health professional who asks probing questions, uses clinical language and therapeutic techniques, guides the conversation, and speaks in shorter directed turns. The Patient shares personal experiences, emotions, and struggles in longer narrative turns.`;
-    } else if (sessionMode === 'Mentoring') {
-        roleA = "Mentor"; roleB = "Mentee";
-        contextDescription = `This is an ACADEMIC MENTORING session. The Mentor is a faculty/senior who guides academic development, asks about goals and progress, provides advice, and sets action items. The Mentee shares academic struggles, asks for advice, discusses goals and uncertainties.`;
-    } else {
-        roleA = "Counsellor"; roleB = "Patient";
-        contextDescription = `This is a COUNSELLING session. The Counsellor guides the conversation.`;
-    }
-
-    // Compute contextual signals
-    let contextualAnalysis = '';
-    if (turns.length > 0) {
-        const stats = computeSpeakerStats(turns);
-        const speakers = Object.keys(stats).sort((a, b) => a - b);
-
-        contextualAnalysis = '\n\nSPEAKER ANALYSIS (from audio processing via SpeechBrain ECAPA-TDNN):\n';
-        speakers.forEach(spkId => {
-            const s = stats[spkId];
-            const avgWordsPerTurn = s.turnCount > 0 ? Math.round(s.totalWords / s.turnCount) : 0;
-            contextualAnalysis += `
-speaker_${spkId}:
-  - Total speaking time: ${s.totalTime.toFixed(1)}s
-  - Total words: ${s.totalWords}, Turns: ${s.turnCount}, Avg words/turn: ${avgWordsPerTurn}
-  - Questions: ${s.questionCount}, Clinical/professional terms: ${s.clinicalTerms}
-  - Guiding phrases: ${s.guidingPhrases}, Emotional phrases: ${s.emotionalPhrases}
-  - Spoke first: ${s.firstTurnIndex === 0 ? 'YES' : 'NO'}
-`;
-        });
-
-        contextualAnalysis += `
-RULE: Higher questions + clinical terms + guiding phrases = ${roleA}. Higher emotional phrases + longer turns = ${roleB}.
-`;
-    }
-
-    const prompt = `You are an expert clinical transcript analyst.
-
-CONTEXT: ${contextDescription}
-
-TASK: Determine which speaker is the ${roleA} and which is the ${roleB}.
-${contextualAnalysis}
-Use content analysis, speaking patterns, vocabulary, and turn structure.
-
-Reply with ONLY valid JSON: { "speaker_0": "${roleA}" or "${roleB}", "speaker_1": "${roleA}" or "${roleB}" }
-Both roles must be assigned.
-
-TRANSCRIPT:
-"""
-${mergedTranscript}
-"""`;
-
-    try {
-        const groqResp = await fallback.chatCompletion(
-            'You are a clinical transcript analyst. Reply with ONLY valid JSON.',
-            prompt, true
-        );
-        const parsed = JSON.parse(groqResp);
-
-        // Validate
-        const roles = Object.values(parsed);
-        if (!roles.includes(roleA) || !roles.includes(roleB)) {
-            console.warn('[RoleID-Groq] Invalid mapping, defaulting:', parsed);
-            return { "speaker_0": roleA, "speaker_1": roleB };
-        }
-
-        console.log(`[RoleID-Groq] ✅ Classification: speaker_0=${parsed.speaker_0}, speaker_1=${parsed.speaker_1}`);
-        return parsed;
-    } catch (err) {
-        console.error('[RoleID-Groq] Failed:', err.message);
-        // Fall back to Gemini identifyRoles
-        return identifyRoles(mergedTranscript, sessionMode, turns);
-    }
-}
-
-// --- Audio Diarization via Gemini ---
-async function diarizeWithGemini(audioBuffer, mimeType, lang = 'en') {
-    ensureGemini();
-
-    const model = geminiPool.getModel({
-        model: process.env.GEMINI_MODEL || "gemini-3.1-flash",
-        generationConfig: {
-            temperature: 0,
-            responseMimeType: "application/json"
-        },
-        systemInstruction: `
-    You are an expert audio analyst capable of distinguishing speakers by their voice.
-    Listen to the audio and transcribe it exactly in language code: ${lang}.
-    You MUST diarize the audio (distinguish the speakers based on voice).
-    Return a JSON array of turns. Example:
-    [
-      { "speaker": "A", "text": "Hello, how are you?" },
-      { "speaker": "B", "text": "I'm doing well, thank you." }
-    ]
-    Use simple speaker labels like "A" and "B".
-  `
-    });
-
-    const prompt = "Please transcribe and diarize this audio. Return ONLY valid JSON.";
-
-    const audioPart = {
-        inlineData: {
-            data: audioBuffer.toString('base64'),
-            mimeType: mimeType
-        }
-    };
-
-    try {
-        const result = await model.generateContent([prompt, audioPart]);
-        const response = await result.response;
-        geminiPool.reportSuccess();
-        
-        const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-        const turnsArray = JSON.parse(jsonText);
-        
-        const turns = turnsArray.map((t, idx) => ({
-            speaker: t.speaker || (idx % 2 === 0 ? "A" : "B"),
-            start: idx, 
-            end: idx + 1,
-            text: t.text || ""
-        }));
-        
-        return { turns, _provider: `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.1-flash'})` };
-    } catch (err) {
-        geminiPool.reportError(err.message || '');
-        console.error('[Gemini Diarization] Error:', err.message);
-        throw new AppError('Gemini diarization failed: ' + (err.message || 'Unknown error'), 500);
-    }
-}
-
-module.exports = { initGemini, summarizeTranscript, generateProfile, transcribeWithGemini, diarizeWithGemini, identifyRoles, identifyRolesWithGroq, diarizeTranscript };
+module.exports = {
+    summarizeTranscript,
+    transcribeAudio,
+    diarizeAudio,
+    identifyRoles,
+    generateProfile,
+    diarizeTranscript,
+    computeSpeakerStats,
+};

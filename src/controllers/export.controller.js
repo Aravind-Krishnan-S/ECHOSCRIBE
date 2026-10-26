@@ -83,7 +83,7 @@ const exportPdf = asyncHandler(async (req, res) => {
     // ─── Cover Header ───
     const noteType = isMentoring ? 'Academic Mentoring GROW Note' : 'Clinical Session SOAP Note';
     const dateStr = new Date(session.created_at).toLocaleString();
-    addHeader(doc, noteType, `Date: ${dateStr}  |  Client: ${stats.name || 'Unknown'}  |  AI Confidence: ${((analysis.confidence_score || 0) * 100).toFixed(0)}%  |  Provider: ${provider}`);
+    addHeader(doc, noteType, `Date: ${dateStr}  |  Client: ${stats.name || 'Unknown'}  |  Model-reported confidence (uncalibrated): ${((analysis.confidence_score || 0) * 100).toFixed(0)}%  |  Provider: ${provider}`);
 
     // ─── Client Info ───
     addSection(doc, 'Client Information');
@@ -131,6 +131,9 @@ const exportPdf = asyncHandler(async (req, res) => {
         addField(doc, 'Self-Harm Risk', (risk.self_harm_risk || 'low').toUpperCase());
     }
     addField(doc, 'Notes', risk.notes);
+    doc.fontSize(8).font('Helvetica-Oblique').fillColor('#718096')
+        .text('Automated screen: a single language-model judgment on the transcript. It is not derived from or validated against the C-SSRS, PHQ-9 or any clinical instrument, and its sensitivity and specificity are unknown. No alert does not mean no risk, and an alert is not a diagnosis. The clinician must review the full transcript and remains responsible for risk assessment.');
+    doc.moveDown(0.5);
     addDivider(doc);
 
     // ─── Clinical Details (Therapy) / Mentoring Details ───
@@ -179,7 +182,7 @@ const exportPdf = asyncHandler(async (req, res) => {
     addField(doc, 'Session ID', sessionId);
     addField(doc, 'Mode', session.session_mode);
     addField(doc, 'Word Count', analysis.wordCount);
-    addField(doc, 'AI Confidence', ((analysis.confidence_score || 0) * 100).toFixed(0) + '%');
+    addField(doc, 'Model-reported confidence (uncalibrated)', ((analysis.confidence_score || 0) * 100).toFixed(0) + '%');
     addField(doc, 'AI Provider', provider);
     addField(doc, 'Date', dateStr);
 

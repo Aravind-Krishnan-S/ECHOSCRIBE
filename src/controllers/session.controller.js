@@ -22,7 +22,7 @@ const summarize = asyncHandler(async (req, res) => {
         throw new AppError('No transcript text provided.', 400);
     }
 
-    const result = await aiService.summarizeTranscript(text, language || 'en', mode);
+    const result = await aiService.summarizeTranscript(text, language || 'en', mode, { chains: req.providerChains });
 
     // 1. Upload audio if present
     let audioUrl = null;

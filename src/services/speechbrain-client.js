@@ -55,12 +55,20 @@ async function isAvailable() {
  * @returns {Object} { enhanced_audio_b64, turns, num_speakers, _provider }
  */
 async function processAudio(audioFilePath, numSpeakers = 2) {
+    return processAudioBuffer(fs.readFileSync(audioFilePath), numSpeakers);
+}
+
+/**
+ * Same as processAudio, but takes the audio as an in-memory Buffer.
+ * @param {Buffer} fileBuffer  — Raw audio bytes
+ * @param {number} numSpeakers — Expected number of speakers (default 2)
+ */
+async function processAudioBuffer(fileBuffer, numSpeakers = 2) {
     const available = await isAvailable();
     if (!available) {
         throw new Error('SpeechBrain service not available');
     }
 
-    const fileBuffer = fs.readFileSync(audioFilePath);
     const audioBlob = new Blob([fileBuffer], { type: 'audio/wav' });
     const form = new FormData();
     form.append('audio', audioBlob, 'audio.wav');
@@ -177,6 +185,7 @@ async function probe() {
 module.exports = {
     isAvailable,
     processAudio,
+    processAudioBuffer,
     enhanceAudio,
     diarizeAudio,
     saveEnhancedToTemp,

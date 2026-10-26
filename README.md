@@ -30,30 +30,32 @@
 
 ## 🧪 AI Provider Architecture
 
-EchoScribe uses a **multi-provider round-robin architecture** with automatic failover:
+Provider selection is a runtime setting, not code. Each processing **role** walks an ordered
+**provider chain** until one entry succeeds; when every entry fails the API returns
+**HTTP 503** with a structured list of the providers attempted.
 
-```
-Audio Upload
-    │
-    ├─ [SpeechBrain Available?]
-    │     ├─ YES → SepFormer (noise cancel) → ECAPA-TDNN (diarize)
-    │     └─ NO  → Deepgram Nova-2 (diarize)
-    │
-    ├─ Gemini 2.5 Flash (transcribe clean audio)
-    │     └─ Fallback: Deepgram Nova-2
-    │
-    ├─ Groq Llama 3.3 (role assignment: Therapist/Patient or Mentor/Mentee)
-    │     └─ Fallback: Gemini 2.5 Flash
-    │
-    └─ Gemini 2.5 Flash (SOAP/GROW analysis)
-          └─ Fallback: Groq Llama 3.3
-```
+| Role slot | Capability | Reference chain (default) |
+|---|---|---|
+| `STT` | transcribe | Gemini → Deepgram nova-2 → Groq whisper-large-v3 |
+| `DIARIZE` | diarize | SpeechBrain ECAPA-TDNN → Deepgram nova-2 → Gemini |
+| `ROLE_LABEL` | chat | Groq gpt-oss-120b → Gemini |
+| `NOTE_SYNTH` | chat | Gemini → Groq gpt-oss-120b |
+| `PROFILE_GEN` | chat | Gemini → Groq gpt-oss-120b |
 
-### Gemini Key Pool
-- Supports **multiple API keys** via round-robin (`GEMINI_API_KEYS=key1,key2,key3`)
-- Automatic failover on quota/rate limits (60s cooldown)
-- Permanent disable for invalid keys
-- Falls back to Groq + Deepgram when all Gemini keys are exhausted
+Chains come from (first match wins):
+1. **Provider Settings page** (`/settings`): each user builds their own chain per role. Keys are
+   validated with a test call before saving and are kept only in that browser. `DIARIZE` is not user-configurable.
+2. **`ROLE_CHAIN_<SLOT>` env vars**: comma-separated `family:model:key` triplets, e.g.
+   `ROLE_CHAIN_NOTE_SYNTH=groq:openai/gpt-oss-120b:gsk_a,gemini:gemini-2.0-flash:AIza_b`.
+   Omit the key (`family:model`) to reuse `GEMINI_API_KEYS` / `GROQ_API_KEY` / `DEEPGRAM_API_KEY`.
+3. The reference chain above, built from whichever legacy keys are set.
+
+**Multi-key pools.** Several keys for the same `family:model` form a sub-pool: keys rotate round-robin,
+a rate-limited key is suspended for 60 s, and a key that fails authentication is retired permanently.
+
+**Adding a vendor.** Call `registerFamily()` in `src/services/provider-registry.js` with an adapter exposing
+`chatCompletion(systemPrompt, userPrompt)`, `transcribeAudioBuffer(buffer, mimeType)` and/or
+`diarizeAudioBuffer(buffer, mimeType)`. No pipeline code changes.
 
 ### Role Classification (8-Signal Analysis)
 The `computeSpeakerStats()` function extracts these signals from audio metadata:
@@ -214,20 +216,21 @@ ECHOSCRIBE/
 │   │   ├── validate.js                # Zod request validation
 │   │   └── errorHandler.js            # AppError class + asyncHandler
 │   ├── services/
-│   │   ├── ai.service.js              # Gemini STT, SOAP/GROW, role ID, profiles
-│   │   ├── gemini-pool.js             # Round-robin multi-key Gemini pool
-│   │   ├── groq-fallback.js           # Groq Llama 3.3 fallback provider
-│   │   ├── deepgram.service.js        # Deepgram Nova-2 diarization
+│   │   ├── ai.service.js              # STT, diarization, SOAP/GROW, role ID, profiles (via chains)
+│   │   ├── provider-registry.js       # Adapter registry (gemini, groq, deepgram, speechbrain)
+│   │   ├── provider-pool.js           # Multi-key pool per chain entry
+│   │   ├── provider-chain.js          # Per-role ordered chains + failover
 │   │   ├── speechbrain-client.js      # SpeechBrain microservice HTTP client
 │   │   └── db.service.js              # RLS-aware Supabase CRUD + Audio Storage
 │   ├── controllers/
 │   │   ├── auth.controller.js         # signup, login, logout, refresh
 │   │   ├── session.controller.js      # summarize, auto-save, delete
-│   │   ├── transcribe.controller.js   # SpeechBrain-first pipeline + Deepgram fallback
+│   │   ├── transcribe.controller.js   # Six-stage pipeline (DIARIZE → STT → ROLE_LABEL)
 │   │   ├── patient.controller.js      # patient/mentee CMS & chart data
 │   │   ├── profile.controller.js      # longitudinal AI profiling
 │   │   ├── export.controller.js       # PDF, CSV, JSON export (full details)
-│   │   └── communications.controller.js # Resend email integration
+│   │   ├── communications.controller.js # Resend email integration
+│   │   └── providers.controller.js    # Provider Settings API (list chains, test keys)
 │   ├── routes/
 │   │   ├── auth.routes.js             # /api/auth/*
 │   │   └── api.routes.js              # /api/* (protected, Multer multipart)
@@ -281,30 +284,23 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your API keys:
+Edit `.env`. Only the Supabase values are required; add keys for whichever AI providers you use
+(see `.env.example` for every option, including `ROLE_CHAIN_<SLOT>`):
 
 ```env
-# AI Providers (at least one Gemini key required)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your_supabase_anon_key
+
 GEMINI_API_KEYS=key1,key2,key3
 GROQ_API_KEY=gsk_your_groq_key
 DEEPGRAM_API_KEY=your_deepgram_key
 
-# Database
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your_supabase_anon_key
-
-# Email (optional)
-RESEND_API_KEY=re_your_resend_key
-RESEND_FROM_EMAIL=EchoScribe <noreply@yourdomain.com>
-
-# SpeechBrain (optional, default: http://localhost:5050)
-SPEECHBRAIN_URL=http://localhost:5050
-
-# Server
-PORT=3000
-NODE_ENV=development
-CORS_ORIGIN=*
+SPEECHBRAIN_URL=http://localhost:5050   # optional local service
+RESEND_API_KEY=re_your_resend_key       # optional, for emailing take-home notes
 ```
+
+Run locally with `npm run dev` (or double-click `start.bat` on Windows, which also launches SpeechBrain)
+and open http://localhost:3000. On start-up the server logs the resolved chain for every role.
 
 ### 3. Set Up Supabase
 

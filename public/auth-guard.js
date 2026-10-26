@@ -47,6 +47,30 @@ const EchoAuth = (function () {
         return !!getToken();
     }
 
+    // ─── Provider Settings (per-role provider chains) ───
+    const PROVIDER_KEY = 'echoscribe_provider_chain';
+
+    function getProviderChains() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(PROVIDER_KEY) || '{}');
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveProviderChains(chains) {
+        const nonEmpty = Object.fromEntries(Object.entries(chains || {}).filter(([, list]) => Array.isArray(list) && list.length));
+        if (Object.keys(nonEmpty).length) localStorage.setItem(PROVIDER_KEY, JSON.stringify(nonEmpty));
+        else localStorage.removeItem(PROVIDER_KEY);
+    }
+
+    function getProviderChainHeader() {
+        const chains = getProviderChains();
+        if (!Object.keys(chains).length) return null;
+        return btoa(unescape(encodeURIComponent(JSON.stringify(chains))));
+    }
+
     // Wrapper for fetch that auto-attaches auth header
     async function authFetch(url, options = {}) {
         const token = getToken();
@@ -63,6 +87,10 @@ const EchoAuth = (function () {
         if (!(options.body instanceof FormData)) {
             headers['Content-Type'] = headers['Content-Type'] || 'application/json';
         }
+
+        // User-configured provider chain from the Settings page (keys live only in this browser)
+        const providerChain = getProviderChainHeader();
+        if (providerChain) headers['X-Provider-Chain'] = providerChain;
 
         let response = await fetch(url, { ...options, headers });
 
@@ -127,6 +155,8 @@ const EchoAuth = (function () {
         saveSession,
         clearSession,
         isAuthenticated,
+        getProviderChains,
+        saveProviderChains,
         authFetch,
         logout,
         guard,

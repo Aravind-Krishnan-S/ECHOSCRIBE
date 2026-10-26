@@ -120,7 +120,7 @@ const getPatientProfile = asyncHandler(async (req, res) => {
 
     // Call aiService with the patient's specific sessions
     const aiService = require('../services/ai.service');
-    const profile = await aiService.generateProfile(sessions);
+    const profile = await aiService.generateProfile(sessions, { chains: req.providerChains });
 
     res.json(profile);
 });

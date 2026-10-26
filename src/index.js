@@ -14,14 +14,17 @@ app.get('/api/health', (req, res) => {
     const status = {};
     keys.forEach(k => { status[k] = !!process.env[k]; });
 
-    // Pool status
-    let poolStatus = null;
+    // Provider chain per role — counts only, no key material (this endpoint is public)
+    let chains = null;
     try {
-        const { geminiPool } = require('./services/gemini-pool');
-        poolStatus = geminiPool.getStatus();
+        const { describeServerChains } = require('./services/provider-chain');
+        chains = Object.fromEntries(Object.entries(describeServerChains()).map(([slot, c]) => [
+            slot,
+            { source: c.source, entries: c.entries.map(e => `${e.family}:${e.model} (${e.activeKeys}/${e.keyCount} keys active)`) },
+        ]));
     } catch (e) { /* not yet initialized */ }
 
-    res.json({ ok: true, env: status, pool: poolStatus, node: process.version });
+    res.json({ ok: true, env: status, chains, node: process.version });
 });
 
 // ─── Validate env lazily — don't crash at module load ───
@@ -53,7 +56,7 @@ app.use((req, res, next) => {
             const { createAuthMiddleware } = require('./middleware/auth');
             const { errorHandler } = require('./middleware/errorHandler');
             const { initSupabase } = require('./services/db.service');
-            const { initGemini } = require('./services/ai.service');
+            const { attachProviderChains } = require('./services/provider-chain');
             const { swaggerSpec } = require('./docs/swagger');
             const authRoutes = require('./routes/auth.routes');
             const apiRoutes = require('./routes/api.routes');
@@ -61,42 +64,6 @@ app.use((req, res, next) => {
             const { aiLimiter, heavyAiLimiter } = setupSecurity(app, env);
             const supabase = initSupabase(env.SUPABASE_URL, env.SUPABASE_KEY);
 
-            // Initialize Gemini pool — collect keys from all env var patterns:
-            //   GEMINI_API_KEYS=key1,key2  (comma-separated)
-            //   GEMINI_API_KEY=key1        (single key)
-            //   1_GEMINI_API_KEY=key1      (numbered keys)
-            //   2_Gemini_API_KEY=key2      (any prefix/case)
-            const geminiKeys = [];
-            const seen = new Set();
-
-            // 1) Comma-separated GEMINI_API_KEYS
-            if (process.env.GEMINI_API_KEYS) {
-                process.env.GEMINI_API_KEYS.split(',').forEach(k => {
-                    const trimmed = k.trim();
-                    if (trimmed && !seen.has(trimmed)) { seen.add(trimmed); geminiKeys.push(trimmed); }
-                });
-            }
-
-            // 2) Single GEMINI_API_KEY
-            if (process.env.GEMINI_API_KEY) {
-                const k = process.env.GEMINI_API_KEY.trim();
-                if (k && !seen.has(k)) { seen.add(k); geminiKeys.push(k); }
-            }
-
-            // 3) Auto-discover numbered keys: 1_GEMINI_API_KEY, 2_Gemini_API_KEY, etc.
-            Object.keys(process.env).forEach(envKey => {
-                if (/gemini_api_key/i.test(envKey) && envKey !== 'GEMINI_API_KEY' && envKey !== 'GEMINI_API_KEYS') {
-                    const k = process.env[envKey]?.trim();
-                    if (k && !seen.has(k)) { seen.add(k); geminiKeys.push(k); }
-                }
-            });
-
-            initGemini(geminiKeys);
-            console.log(`[EchoScribe] Gemini pool initialized with ${geminiKeys.length} key(s)`);
-
-            // Initialize Groq + Deepgram fallback (used when all Gemini keys are exhausted)
-            const { initFallback } = require('./services/groq-fallback');
-            initFallback();
             const requireAuth = createAuthMiddleware(supabase);
 
             // Swagger docs
@@ -115,11 +82,11 @@ app.use((req, res, next) => {
             const { complianceLogger } = require('./middleware/compliance');
 
             // Protected API routes — with tiered rate limiting for AI endpoints
-            app.use('/api', requireAuth, complianceLogger, (req2, res2, next2) => {
+            app.use('/api', requireAuth, complianceLogger, attachProviderChains, (req2, res2, next2) => {
                 const path = req2.path;
                 const method = req2.method;
 
-                // Heavy AI limiter (5/min) — expensive Gemini operations
+                // Heavy AI limiter (5/min) — expensive LLM operations
                 if ((path === '/summarize' && method === 'POST') ||
                     (path === '/profile' && method === 'GET') ||
                     (path === '/diarize-transcript' && method === 'POST')) {
@@ -128,7 +95,8 @@ app.use((req, res, next) => {
 
                 // Light AI limiter (15/min) — frequent but cheap operations
                 if ((path === '/transcribe-audio' && method === 'POST') ||
-                    (path === '/identify-speakers' && method === 'POST')) {
+                    (path === '/identify-speakers' && method === 'POST') ||
+                    (path === '/providers/test' && method === 'POST')) {
                     return aiLimiter(req2, res2, next2);
                 }
 
@@ -142,6 +110,7 @@ app.use((req, res, next) => {
             app.get('/signup', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'signup.html')));
             app.get('/dashboard', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
             app.get('/summary', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'summary.html')));
+            app.get('/settings', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'settings.html')));
 
             app.use(errorHandler);
             app._booted = true;
@@ -156,11 +125,23 @@ app.use((req, res, next) => {
     }
 });
 
-// ─── Start Server (local dev only) ───
-if (process.env.NODE_ENV !== 'production') {
+// ─── Start Server when run directly (node src/index.js, PM2, start.bat) ───
+// On Vercel the app is imported by api/index.js instead, so it must not listen.
+if (require.main === module) {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, async () => {
         console.log(`✅ EchoScribe running at http://localhost:${PORT}`);
+
+        // Log the resolved provider chain for each role
+        try {
+            const { describeServerChains } = require('./services/provider-chain');
+            for (const [slot, c] of Object.entries(describeServerChains())) {
+                const list = c.entries.map(e => `${e.family}:${e.model}${e.keyCount > 1 ? ` ×${e.keyCount} keys` : ''}`).join(' → ') || '(none configured)';
+                console.log(`[ProviderChain] ${slot.padEnd(11)} ${list}  [${c.source}]`);
+            }
+        } catch (e) {
+            console.log('[ProviderChain] ⚠️ Could not resolve chains:', e.message);
+        }
 
         // Probe SpeechBrain service availability
         try {
