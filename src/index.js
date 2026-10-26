@@ -20,7 +20,7 @@ app.get('/api/health', (req, res) => {
         const { describeServerChains } = require('./services/provider-chain');
         chains = Object.fromEntries(Object.entries(describeServerChains()).map(([slot, c]) => [
             slot,
-            { source: c.source, entries: c.entries.map(e => `${e.family}:${e.model} (${e.activeKeys}/${e.keyCount} keys active)`) },
+            { source: c.source, strategy: c.strategy, entries: c.entries.map(e => `${e.family}:${e.model} (${e.activeKeys}/${e.keyCount} keys active)`) },
         ]));
     } catch (e) { /* not yet initialized */ }
 
@@ -134,13 +134,10 @@ if (require.main === module) {
 
         // Log the resolved provider chain for each role
         try {
-            const { describeServerChains, omniRouteEnabled } = require('./services/provider-chain');
-            console.log(omniRouteEnabled()
-                ? `[ProviderChain] OmniRoute mode — model switching handled by OmniRoute at ${process.env.OMNIROUTE_URL || 'http://localhost:20128/v1'}`
-                : '[ProviderChain] ⚠️ OMNIROUTE_API_KEY not set — using the direct in-house fallback chain');
+            const { describeServerChains } = require('./services/provider-chain');
             for (const [slot, c] of Object.entries(describeServerChains())) {
                 const list = c.entries.map(e => `${e.family}:${e.model}${e.keyCount > 1 ? ` ×${e.keyCount} keys` : ''}`).join(' → ') || '(none configured)';
-                console.log(`[ProviderChain] ${slot.padEnd(11)} ${list}  [${c.source}]`);
+                console.log(`[Router] ${slot.padEnd(11)} ${c.strategy.padEnd(13)} ${list}  [${c.source}]`);
             }
         } catch (e) {
             console.log('[ProviderChain] ⚠️ Could not resolve chains:', e.message);

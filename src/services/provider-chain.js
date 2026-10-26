@@ -1,23 +1,29 @@
 /* src/services/provider-chain.js
-   Vendor-agnostic, per-role ordered provider chain.
+   Embedded model router: every processing role ("slot") is served by a combo —
+   an ordered list of { family, model, keys[] } targets plus a routing strategy.
+   The design follows OmniRoute's combos (MIT, https://github.com/diegosouzapw/OmniRoute),
+   running in-process instead of as a separate gateway:
 
-   Each processing role ("slot") resolves its provider at request time from an
-   ordered list of { family, model, keys[] } entries. The runtime walks the list
-   top to bottom until one entry succeeds; when every entry is exhausted it
-   throws HTTP 503 with a structured log of the providers attempted.
+     1. order the targets with the combo's strategy (routing/strategies.js)
+     2. skip providers and keys that are cooling down (routing/cooldown-tracker.js)
+     3. try targets until one succeeds; key-specific failures try the next key first
+     4. if everything fails, throw HTTP 503 with a structured log of the attempts
 
-   Where a slot's chain comes from (first match wins):
+   Where a slot's combo comes from (first match wins):
      1. The signed-in user's Provider Settings (X-Provider-Chain header) — not for DIARIZE
-     2. ROLE_CHAIN_<SLOT> environment variable — comma-separated family:model:key triplets,
-        e.g. ROLE_CHAIN_NOTE_SYNTH=groq:llama-3.3-70b-versatile:gsk_a,gemini:gemini-2.0-flash:AIza_b
+     2. ROLE_CHAIN_<SLOT> — comma-separated family:model:key targets, e.g.
+        ROLE_CHAIN_NOTE_SYNTH=groq:openai/gpt-oss-120b:gsk_a,gemini:gemini-2.0-flash:AIza_b
         Omitting the key (family:model) uses that family's keys from the legacy variables
         (GEMINI_API_KEYS, GROQ_API_KEY, DEEPGRAM_API_KEY, ...).
-        Repeating the same family:model with different keys forms a multi-key sub-pool.
-     3. The shipped reference configuration (Gemini / Groq / Deepgram / SpeechBrain). */
+        Repeating the same family:model with different keys forms a multi-key pool.
+     3. The shipped reference configuration (Gemini / Groq / Deepgram / SpeechBrain).
+   The strategy comes from the user's settings, ROLE_STRATEGY_<SLOT>, ROUTING_STRATEGY, or "priority". */
 
 const { AppError } = require('../middleware/errorHandler');
 const { getFamily } = require('./provider-registry');
-const { getPool } = require('./provider-pool');
+const { getPool, poolId } = require('./provider-pool');
+const tracker = require('./routing/cooldown-tracker');
+const strategies = require('./routing/strategies');
 
 const SLOTS = {
     STT: { label: 'Speech-to-text', capability: 'transcribe', userConfigurable: true, timeoutMs: 180_000 },
@@ -57,9 +63,9 @@ function legacyKeys(family) {
     }
 }
 
-// ─── Chain parsing ───
+// ─── Target parsing ───
 
-/** Merge entries that share family+model into one multi-key entry (first position wins). */
+/** Merge targets that share family+model into one multi-key target (first position wins). */
 function mergeEntries(entries) {
     const merged = [];
     const byId = new Map();
@@ -77,7 +83,7 @@ function mergeEntries(entries) {
     return merged;
 }
 
-/** Drop entries whose family needs a key but has none. */
+/** Drop targets whose family needs a key but has none. */
 function usable(entries) {
     return entries.filter(e => {
         const def = getFamily(e.family);
@@ -112,12 +118,7 @@ function parseChainString(str, slot) {
     return usable(mergeEntries(entries));
 }
 
-/** True when an OmniRoute key is configured — the gateway then owns model switching. */
-function omniRouteEnabled() {
-    return legacyKeys('omniroute').length > 0;
-}
-
-function referenceChain(slot) {
+function referenceTargets(slot) {
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     // Llama 3.3 70B (used in the paper's evaluation) has been retired by Groq; gpt-oss-120b replaces it
     const groqModel = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
@@ -128,23 +129,6 @@ function referenceChain(slot) {
     const deepgram = { family: 'deepgram', model: deepgramModel, keys: legacyKeys('deepgram') };
     const sb = { family: 'speechbrain', model: 'ecapa-tdnn', keys: [] };
 
-    // OmniRoute mode: one OmniRoute call per role and OmniRoute's combos do the model
-    // switching. Diarization stays on the local SpeechBrain service; when it is down the
-    // pipeline splits the transcript into speakers with an OmniRoute text call instead.
-    if (omniRouteEnabled()) {
-        const omni = (model) => ({ family: 'omniroute', model, keys: legacyKeys('omniroute') });
-        const chatModel = (s) => process.env[`OMNIROUTE_MODEL_${s}`] || process.env.OMNIROUTE_MODEL || 'auto';
-        const omniRoute = {
-            STT: [omni(process.env.OMNIROUTE_MODEL_STT || 'groq/whisper-large-v3')],
-            DIARIZE: [sb],
-            ROLE_LABEL: [omni(chatModel('ROLE_LABEL'))],
-            NOTE_SYNTH: [omni(chatModel('NOTE_SYNTH'))],
-            PROFILE_GEN: [omni(chatModel('PROFILE_GEN'))],
-        };
-        return usable(omniRoute[slot]);
-    }
-
-    // Direct mode (no OmniRoute key): the in-house ordered fallback across vendors
     const reference = {
         STT: [gemini, deepgram, { family: 'groq', model: groqSttModel, keys: legacyKeys('groq') }],
         DIARIZE: [sb, deepgram, gemini],
@@ -155,27 +139,33 @@ function referenceChain(slot) {
     return usable(reference[slot].map(e => ({ ...e, keys: [...e.keys] })));
 }
 
-/** Server-side chain for a slot (env override, else reference configuration). */
+function serverStrategy(slot) {
+    return strategies.normalizeStrategy(process.env[`ROLE_STRATEGY_${slot}`] || process.env.ROUTING_STRATEGY);
+}
+
+/** Server-side combo for a slot: { targets, strategy, source }. */
 function getServerChain(slot) {
+    const strategy = serverStrategy(slot);
     const custom = process.env[`ROLE_CHAIN_${slot}`];
     if (custom && custom.trim()) {
         try {
-            return { entries: parseChainString(custom, slot), source: `ROLE_CHAIN_${slot}` };
+            return { entries: parseChainString(custom, slot), strategy, source: `ROLE_CHAIN_${slot}` };
         } catch (err) {
-            console.error(`[ProviderChain] ${err.message} — using reference configuration`);
+            console.error(`[Router] ${err.message} — using reference configuration`);
         }
     }
-    return { entries: referenceChain(slot), source: omniRouteEnabled() ? 'omniroute' : 'reference' };
+    return { entries: referenceTargets(slot), strategy, source: 'reference' };
 }
 
-// ─── Per-user overrides (Provider Settings panel) ───
+// ─── Per-user combos (Provider Settings panel) ───
 
 const MAX_ENTRIES = 10;
 const MAX_KEYS = 20;
 
 /**
  * Parse the X-Provider-Chain header: base64-encoded JSON
- *   { "NOTE_SYNTH": [{ "family": "groq", "model": "...", "keys": ["..."] }], ... }
+ *   { "NOTE_SYNTH": { "strategy": "round-robin", "targets": [{ "family": "groq", "model": "...", "keys": ["..."] }] } }
+ * A bare array of targets is accepted too (strategy "priority").
  * Only user-configurable slots are accepted. Returns {} when the header is absent.
  */
 function parseUserChains(headerValue) {
@@ -188,9 +178,10 @@ function parseUserChains(headerValue) {
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
 
-    const chains = {};
-    for (const [slot, list] of Object.entries(data)) {
+    const combos = {};
+    for (const [slot, value] of Object.entries(data)) {
         const def = SLOTS[slot];
+        const list = Array.isArray(value) ? value : value?.targets;
         if (!def || !def.userConfigurable || !Array.isArray(list) || list.length === 0) continue;
         const entries = list.slice(0, MAX_ENTRIES).map(e => {
             const family = getFamily(e?.family);
@@ -204,12 +195,14 @@ function parseUserChains(headerValue) {
             return { family: family.key, model, keys };
         });
         const ok = usable(mergeEntries(entries));
-        if (ok.length > 0) chains[slot] = ok;
+        if (ok.length > 0) {
+            combos[slot] = { entries: ok, strategy: strategies.normalizeStrategy(Array.isArray(value) ? null : value.strategy) };
+        }
     }
-    return chains;
+    return combos;
 }
 
-/** Express middleware — resolves the user's chains once per request. */
+/** Express middleware — resolves the user's combos once per request. */
 function attachProviderChains(req, res, next) {
     try {
         req.providerChains = parseUserChains(req.get('x-provider-chain'));
@@ -250,23 +243,25 @@ function scrub(message, key) {
 }
 
 /**
- * Run one task through a slot's ordered chain.
+ * Run one task through a slot's combo.
  * @param {string} slot      — STT | DIARIZE | ROLE_LABEL | NOTE_SYNTH | PROFILE_GEN
  * @param {(adapter, pool) => Promise<any>} invoke — performs the task with one adapter;
  *        throw (including on unparseable output) to move on.
- * @param {{ chains?: object }} opts — per-request user chains (req.providerChains)
- * @returns {Promise<{ result, provider: string, attempts: object[] }>}
+ * @param {{ chains?: object }} opts — per-request user combos (req.providerChains)
+ * @returns {Promise<{ result, provider: string, strategy: string, attempts: object[] }>}
  */
 async function runChain(slot, invoke, { chains } = {}) {
     const def = SLOTS[slot];
     if (!def) throw new Error(`Unknown provider slot "${slot}"`);
 
-    const userEntries = def.userConfigurable && chains && chains[slot];
-    const entries = userEntries || getServerChain(slot).entries;
+    const userCombo = def.userConfigurable && chains && chains[slot];
+    const { entries, strategy } = userCombo || getServerChain(slot);
+    const comboName = `${userCombo ? 'user' : 'server'}:${slot}`;
     const timeoutMs = Number(process.env[`ROLE_TIMEOUT_${slot}`]) || def.timeoutMs;
+    const ordered = strategies.orderTargets(strategy, entries.map(e => ({ id: poolId(e), entry: e })), comboName);
     const attempts = [];
 
-    for (const entry of entries) {
+    for (const { id, entry } of ordered) {
         let pool;
         try {
             pool = getPool(entry);
@@ -275,26 +270,34 @@ async function runChain(slot, invoke, { chains } = {}) {
             continue;
         }
 
-        const keys = pool.availableKeys();
-        if (keys.length === 0) {
-            attempts.push({ provider: pool.name, outcome: 'skipped', error: 'No active keys (all suspended or invalid)' });
+        const providerCoolMs = tracker.remainingMs(pool.family);
+        if (providerCoolMs > 0) {
+            attempts.push({ provider: pool.name, outcome: 'skipped', error: `Provider cooling down (${Math.ceil(providerCoolMs / 1000)}s left)` });
             continue;
         }
 
+        const keys = pool.availableKeys();
+        if (keys.length === 0) {
+            attempts.push({ provider: pool.name, outcome: 'skipped', error: 'No available keys (cooling down or retired)' });
+            continue;
+        }
+
+        strategies.recordAttempt(id);
         for (const k of keys) {
             try {
                 const result = await withTimeout(Promise.resolve().then(() => invoke(k.adapter, pool)), timeoutMs);
                 pool.reportSuccess(k);
+                strategies.recordSuccess(comboName, id);
                 attempts.push({ provider: pool.name, key: k.id, outcome: 'success' });
                 if (attempts.length > 1) {
-                    console.log(`[ProviderChain] ${slot} served by ${pool.name} after ${attempts.length - 1} failed attempt(s)`);
+                    console.log(`[Router] ${slot} (${strategy}) served by ${pool.name} after ${attempts.length - 1} failed attempt(s)`);
                 }
-                return { result, provider: pool.name, attempts };
+                return { result, provider: pool.name, strategy, attempts };
             } catch (err) {
                 const kind = pool.reportError(k, err);
                 attempts.push({ provider: pool.name, key: k.id, outcome: kind, error: scrub(err.message, k.key) });
-                console.warn(`[ProviderChain] ${slot} → ${pool.name} [${k.id}] ${kind}: ${scrub(err.message, k.key)}`);
-                // Key-specific failures try the next key in this entry; anything else moves down the chain
+                console.warn(`[Router] ${slot} → ${pool.name} [${k.id}] ${kind}: ${scrub(err.message, k.key)}`);
+                // Key-specific failures try the next key of this target; anything else moves to the next target
                 if (kind !== 'auth' && kind !== 'rate_limit') break;
             }
         }
@@ -303,17 +306,25 @@ async function runChain(slot, invoke, { chains } = {}) {
     throw new ProviderChainError(slot, attempts);
 }
 
-/** Masked, key-free description of the server chains — for /api/health and the settings panel. */
+/** Masked, key-free description of the server combos — for /api/health and the settings panel. */
 function describeServerChains() {
     const out = {};
     for (const slot of Object.keys(SLOTS)) {
-        const { entries, source } = getServerChain(slot);
+        const { entries, strategy, source } = getServerChain(slot);
         out[slot] = {
             ...SLOTS[slot],
             source,
+            strategy,
             entries: entries.map(e => {
                 const status = getPool(e).getStatus();
-                return { family: e.family, model: e.model, keyCount: status.totalKeys, activeKeys: status.activeKeys, keys: status.keys };
+                return {
+                    family: e.family,
+                    model: e.model,
+                    keyCount: status.totalKeys,
+                    activeKeys: status.activeKeys,
+                    providerCooldownSeconds: status.providerCooldownSeconds,
+                    keys: status.keys,
+                };
             }),
         };
     }
@@ -322,9 +333,9 @@ function describeServerChains() {
 
 module.exports = {
     SLOTS,
+    STRATEGIES: strategies.STRATEGIES,
     runChain,
     getServerChain,
-    omniRouteEnabled,
     parseChainString,
     parseUserChains,
     attachProviderChains,

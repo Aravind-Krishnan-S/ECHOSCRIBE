@@ -60,7 +60,9 @@ const EchoAuth = (function () {
     }
 
     function saveProviderChains(chains) {
-        const nonEmpty = Object.fromEntries(Object.entries(chains || {}).filter(([, list]) => Array.isArray(list) && list.length));
+        // Each slot is { strategy, targets: [...] }; older saves were a bare targets array
+        const targetsOf = (v) => (Array.isArray(v) ? v : v && v.targets) || [];
+        const nonEmpty = Object.fromEntries(Object.entries(chains || {}).filter(([, v]) => targetsOf(v).length));
         if (Object.keys(nonEmpty).length) localStorage.setItem(PROVIDER_KEY, JSON.stringify(nonEmpty));
         else localStorage.removeItem(PROVIDER_KEY);
     }

@@ -30,27 +30,24 @@
 
 ## 🧪 AI Provider Architecture
 
-### OmniRoute mode (default when `OMNIROUTE_API_KEY` is set)
+Provider selection is a runtime setting, not code. EchoScribe embeds an OmniRoute-style model router
+(adapted from the MIT-licensed [OmniRoute](https://github.com/diegosouzapw/OmniRoute); see `THIRD_PARTY_NOTICES.md`)
+directly in its Node backend, so no separate gateway is needed. Each processing **role** is served by a **combo**:
+a list of models plus a **routing strategy** that orders them per request. Models are tried in that order until one
+succeeds; when every model fails the API returns **HTTP 503** with a structured list of the providers attempted.
 
-AI calls go through a self-hosted [OmniRoute](https://github.com/diegosouzapw/OmniRoute) gateway, and **OmniRoute
-does the model switching** (quota, rate limits, outages) using the combos you build in its dashboard. EchoScribe makes
-one call per role:
+| Strategy | Behaviour |
+|---|---|
+| `priority` (default) | Declared order; later models are fallbacks |
+| `round-robin` | Rotate which model goes first on each request |
+| `random` | Shuffle on every request |
+| `strict-random` | Deck draw: every model goes first once per cycle |
+| `least-used` | Model with the fewest requests goes first |
+| `lkgp` | Last known good provider goes first |
 
-| Role | Goes to | Model (env) |
-|---|---|---|
-| STT | OmniRoute `/v1/audio/transcriptions` | `OMNIROUTE_MODEL_STT` (default `groq/whisper-large-v3`) |
-| DIARIZE | Local SpeechBrain; if it is down, the transcript is split into speakers by an OmniRoute text call | — |
-| ROLE_LABEL · NOTE_SYNTH · PROFILE_GEN | OmniRoute `/v1/chat/completions` | `OMNIROUTE_MODEL_<SLOT>` or `OMNIROUTE_MODEL` (default `auto`) |
-
-Setup: `npm install -g omniroute && omniroute` (or Docker), open the dashboard at http://localhost:20128, connect
-your providers, create combos (e.g. `echoscribe-notes` = Gemini Flash → gpt-oss-120b), copy a key from
-**Endpoints**, and set `OMNIROUTE_API_KEY` (plus the model/combo names) in `.env`.
-
-### Direct mode (no OmniRoute key)
-
-Provider selection is a runtime setting, not code. Each processing **role** walks an ordered
-**provider chain** until one entry succeeds; when every entry fails the API returns
-**HTTP 503** with a structured list of the providers attempted.
+**Cooldowns** (from OmniRoute's `providerCooldownTracker`): a failing key backs off 5 s → 10 s → 20 s … up to 5 min
+and resets on success; a provider with 15 failures in 30 min is skipped for 10 min (local SpeechBrain: 2 in 5 min →
+1 min). Keys that fail authentication are retired. A request-scoped HTTP 400 moves on without cooling the key.
 
 | Role slot | Capability | Reference chain (default) |
 |---|---|---|
@@ -61,15 +58,15 @@ Provider selection is a runtime setting, not code. Each processing **role** walk
 | `PROFILE_GEN` | chat | Gemini → Groq gpt-oss-120b |
 
 Chains come from (first match wins):
-1. **Provider Settings page** (`/settings`): each user builds their own chain per role. Keys are
+1. **Provider Settings page** (`/settings`): each user builds their own combo (models + strategy) per role. Keys are
    validated with a test call before saving and are kept only in that browser. `DIARIZE` is not user-configurable.
 2. **`ROLE_CHAIN_<SLOT>` env vars**: comma-separated `family:model:key` triplets, e.g.
    `ROLE_CHAIN_NOTE_SYNTH=groq:openai/gpt-oss-120b:gsk_a,gemini:gemini-2.0-flash:AIza_b`.
    Omit the key (`family:model`) to reuse `GEMINI_API_KEYS` / `GROQ_API_KEY` / `DEEPGRAM_API_KEY`.
 3. The reference chain above, built from whichever legacy keys are set.
 
-**Multi-key pools.** Several keys for the same `family:model` form a sub-pool: keys rotate round-robin,
-a rate-limited key is suspended for 60 s, and a key that fails authentication is retired permanently.
+**Multi-key pools.** Several keys for the same `family:model` form a sub-pool: keys rotate round-robin and each
+key has its own cooldown. Set strategies with `ROLE_STRATEGY_<SLOT>` / `ROUTING_STRATEGY`, or per user in `/settings`.
 
 **Adding a vendor.** Call `registerFamily()` in `src/services/provider-registry.js` with an adapter exposing
 `chatCompletion(systemPrompt, userPrompt)`, `transcribeAudioBuffer(buffer, mimeType)` and/or
@@ -237,7 +234,9 @@ ECHOSCRIBE/
 │   │   ├── ai.service.js              # STT, diarization, SOAP/GROW, role ID, profiles (via chains)
 │   │   ├── provider-registry.js       # Adapter registry (gemini, groq, deepgram, speechbrain)
 │   │   ├── provider-pool.js           # Multi-key pool per chain entry
-│   │   ├── provider-chain.js          # Per-role ordered chains + failover
+│   │   ├── provider-chain.js          # Embedded router: per-role combos + failover
+│   │   ├── routing/cooldown-tracker.js # Key/provider cooldowns (adapted from OmniRoute)
+│   │   ├── routing/strategies.js      # Combo routing strategies (adapted from OmniRoute)
 │   │   ├── speechbrain-client.js      # SpeechBrain microservice HTTP client
 │   │   └── db.service.js              # RLS-aware Supabase CRUD + Audio Storage
 │   ├── controllers/

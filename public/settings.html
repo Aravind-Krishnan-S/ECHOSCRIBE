@@ -59,10 +59,10 @@
         </div>
       </div>
       <p style="color: var(--text-secondary); margin: 0;">
-        Each processing role walks its provider chain from top to bottom until one succeeds.
-        Add your own entries to override the server default for that role only. Several keys for the same
-        provider and model form a pool: keys rotate, a rate-limited key rests for 60 s, and a key that fails
-        authentication is retired.
+        Each processing role is served by a <em>combo</em>: a list of models plus a routing strategy that decides
+        which one is tried first. If a model fails, the next one is tried. Add your own entries to override the server
+        default for that role only. Several keys for the same provider and model form a pool: keys rotate, a failing
+        key cools down (5 s, doubling up to 5 min), and a key that fails authentication is retired.
       </p>
     </header>
 

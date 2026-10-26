@@ -1,23 +1,23 @@
 /* src/services/provider-pool.js
-   Family-agnostic multi-key pool for one provider-chain entry.
-   Generalises the earlier single-provider GeminiPool.
+   Multi-key pool for one combo target ({ family, model, keys[] }).
 
-   Each entry holds { family, model, keys[] }. Keys rotate round-robin; each key
-   has a health state:
-     active        — eligible for rotation
-     rate_limited  — suspended for 60 s after a rate-limit / quota error
-     invalid       — permanently retired after an authentication failure
-   Quota headroom therefore scales with the number of keys supplied. */
+   Keys rotate round-robin. A key that fails authentication is retired for good;
+   rate limits and other failures put the key into an exponential-backoff
+   cooldown held by routing/cooldown-tracker.js (OmniRoute-style), so health
+   survives across requests. */
 
 const crypto = require('crypto');
 const { getFamily } = require('./provider-registry');
-
-const RATE_LIMIT_COOLDOWN_MS = 60_000;
-const MAX_CONSECUTIVE_ERRORS = 3;
+const tracker = require('./routing/cooldown-tracker');
 
 /**
- * Classify a provider error so the pool and the chain know what to do with it.
- * @returns {'auth'|'rate_limit'|'timeout'|'error'}
+ * Classify a provider error so the router knows what to do with it.
+ *   auth        — key rejected: retire the key, try the next key
+ *   rate_limit  — quota / 429: cool the key down, try the next key
+ *   bad_request — HTTP 400 for this request only: no cooldown, try the next target
+ *                 (OmniRoute open-sse/services/accountFallback/requestScoped400.ts)
+ *   timeout     — no answer in time: cool down, try the next target
+ *   error       — anything else (5xx, unparseable output): cool down, try the next target
  */
 function classifyError(err) {
     const status = err?.status || err?.statusCode || err?.response?.status;
@@ -34,6 +34,9 @@ function classifyError(err) {
     if (err?.name === 'AbortError' || err?.code === 'ETIMEDOUT' || err?.isTimeout ||
         /timed? ?out/i.test(msg)) {
         return 'timeout';
+    }
+    if (status === 400 || /\[400 Bad Request\]/.test(msg)) {
+        return 'bad_request';
     }
     return 'error';
 }
@@ -57,75 +60,79 @@ class ProviderPool {
         this.index = 0;
 
         const keyList = def.requiresKey ? keys.filter(k => k && k.trim()) : [null];
-        this.keys = keyList.map(k => ({
-            key: k ? k.trim() : null,
-            id: maskKey(k),
-            adapter: def.create({ apiKey: k ? k.trim() : null, model }),
-            state: 'active',
-            suspendedUntil: 0,
-            consecutiveErrors: 0,
-            errors: 0,
-        }));
+        this.keys = keyList.map(k => {
+            const trimmed = k ? k.trim() : null;
+            return {
+                key: trimmed,
+                id: maskKey(trimmed),
+                // Stable cooldown id per (family, model, key) without holding the raw key in the tracker
+                connectionId: crypto.createHash('sha256').update(`${def.key}|${model}|${trimmed}`).digest('hex').slice(0, 12),
+                adapter: def.create({ apiKey: trimmed, model }),
+                invalid: false,
+                errors: 0,
+            };
+        });
     }
 
     get name() {
         return `${this.label} (${this.model})`;
     }
 
-    /** Keys that may be tried right now, in round-robin order starting at the cursor. */
+    /** Keys that may be tried right now (not retired, not cooling), round-robin from the cursor. */
     availableKeys() {
-        const now = Date.now();
-        for (const k of this.keys) {
-            if (k.state === 'rate_limited' && now >= k.suspendedUntil) {
-                k.state = 'active';
-                k.consecutiveErrors = 0;
-            }
-        }
         const ordered = [];
         for (let i = 0; i < this.keys.length; i++) {
             const k = this.keys[(this.index + i) % this.keys.length];
-            if (k.state === 'active') ordered.push(k);
+            if (!k.invalid && !tracker.isInCooldown(this.family, k.connectionId)) ordered.push(k);
         }
         if (ordered.length > 0) this.index = (this.keys.indexOf(ordered[0]) + 1) % this.keys.length;
         return ordered;
     }
 
     reportSuccess(k) {
-        k.consecutiveErrors = 0;
+        tracker.recordSuccess(this.family, k.connectionId);
+        tracker.recordSuccess(this.family);
     }
 
-    /** Update key health after a failure. Returns the error class. */
+    /** Update key / provider health after a failure. Returns the error class. */
     reportError(k, err) {
         const kind = classifyError(err);
         k.errors++;
         if (kind === 'auth') {
-            k.state = 'invalid';
+            k.invalid = true;
             console.error(`[ProviderPool] ${this.name} key ${k.id} failed authentication — retired`);
-        } else if (kind === 'rate_limit') {
-            k.state = 'rate_limited';
-            k.suspendedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
-            console.warn(`[ProviderPool] ${this.name} key ${k.id} rate-limited — suspended for 60s`);
-        } else if (++k.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            k.state = 'rate_limited';
-            k.suspendedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
-            console.warn(`[ProviderPool] ${this.name} key ${k.id} suspended for 60s after ${k.consecutiveErrors} consecutive errors`);
+        } else if (kind !== 'bad_request') {
+            tracker.recordFailure(this.family, k.connectionId);
+            tracker.recordFailure(this.family);
+            const waitS = Math.round(tracker.remainingMs(this.family, k.connectionId) / 1000);
+            console.warn(`[ProviderPool] ${this.name} key ${k.id} ${kind} — cooling down for ${waitS}s`);
         }
         return kind;
     }
 
     getStatus() {
+        const keys = this.keys.map(k => {
+            const coolMs = tracker.remainingMs(this.family, k.connectionId);
+            return {
+                id: k.id,
+                state: k.invalid ? 'invalid' : coolMs > 0 ? 'cooling' : 'active',
+                cooldownSeconds: Math.ceil(coolMs / 1000),
+                errors: k.errors,
+            };
+        });
         return {
             family: this.family,
             model: this.model,
-            totalKeys: this.keys.length,
-            activeKeys: this.keys.filter(k => k.state === 'active').length,
-            keys: this.keys.map(k => ({ id: k.id, state: k.state, errors: k.errors })),
+            totalKeys: keys.length,
+            activeKeys: keys.filter(k => k.state === 'active').length,
+            providerCooldownSeconds: Math.ceil(tracker.remainingMs(this.family) / 1000),
+            keys,
         };
     }
 }
 
 // ─── Pool cache ───
-// Pools are cached by (family, model, key set) so key health survives across
+// Pools are cached by (family, model, key set) so key state survives across
 // requests — including pools built from keys a user supplied in the dashboard.
 
 const POOL_TTL_MS = 6 * 60 * 60 * 1000;
@@ -155,4 +162,4 @@ function getPool(entry) {
     return pool;
 }
 
-module.exports = { ProviderPool, getPool, classifyError, maskKey, RATE_LIMIT_COOLDOWN_MS };
+module.exports = { ProviderPool, getPool, poolId, classifyError, maskKey };

@@ -3,13 +3,14 @@
 
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { listFamilies, getFamily } = require('../services/provider-registry');
-const { describeServerChains, SLOTS } = require('../services/provider-chain');
+const { describeServerChains, SLOTS, STRATEGIES } = require('../services/provider-chain');
 const { classifyError } = require('../services/provider-pool');
 
 // GET /api/providers — registered families + the server's chain per slot (keys masked)
 const getProviders = asyncHandler(async (req, res) => {
     res.json({
         families: listFamilies(),
+        strategies: STRATEGIES,
         slots: describeServerChains(),
         userOverrides: Object.keys(req.providerChains || {}),
     });

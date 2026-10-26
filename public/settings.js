@@ -15,8 +15,20 @@
     const slotsEl = document.getElementById('slots');
     const statusEl = document.getElementById('save-status');
     let families = [];
+    let strategies = {};
     let slots = {};
-    let draft = {};
+    let draft = {}; // slot → { strategy, targets: [{ family, model, keys }] }
+
+    // Older saves stored a bare array of targets
+    function normalizeCombo(value) {
+        if (Array.isArray(value)) return { strategy: 'priority', targets: value };
+        return { strategy: (value && value.strategy) || 'priority', targets: (value && value.targets) || [] };
+    }
+
+    function strategyOptions(selected) {
+        return Object.entries(strategies).map(([key, desc]) =>
+            `<option value="${esc(key)}" title="${esc(desc)}" ${key === selected ? 'selected' : ''}>${esc(key)}</option>`).join('');
+    }
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -28,12 +40,13 @@
         const s = slots[slot];
         if (!s.entries.length) return '<em>No server default configured</em>';
         return s.entries.map(e => `<code>${esc(e.family)}:${esc(e.model)}</code>${e.keyCount > 1 ? ` (${e.keyCount} keys)` : ''}`).join(' → ')
-            + ` <span class="slot-meta">[${esc(s.source)}]</span>`;
+            + ` <span class="slot-meta">[${esc(s.strategy)} · ${esc(s.source)}]</span>`;
     }
 
     function render() {
         slotsEl.innerHTML = Object.entries(slots).map(([slot, s]) => {
-            const entries = draft[slot] || [];
+            const combo = draft[slot] || { strategy: 'priority', targets: [] };
+            const entries = combo.targets;
             const options = familiesFor(s.capability);
             const head = `
                 <div class="slot-head">
@@ -69,7 +82,10 @@
                 </div>`).join('');
 
             return `<section class="card slot-card">${head}
-                ${entries.length ? '<p class="slot-meta" style="font-family: var(--font-ui);">Your chain (overrides the server default for this role):</p>' : ''}
+                ${entries.length ? `<p class="slot-meta" style="font-family: var(--font-ui); display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                    Your combo (overrides the server default for this role) · routing strategy
+                    <select data-strategy-slot="${esc(slot)}" style="width: auto;">${strategyOptions(combo.strategy)}</select>
+                    <span>${esc(strategies[combo.strategy] || '')}</span></p>` : ''}
                 ${rows}
                 <div class="entry-actions">
                     <button class="btn btn-secondary btn-sm" data-action="add" data-slot="${esc(slot)}">+ Add provider</button>
@@ -87,11 +103,19 @@
         };
     }
 
+    // Strategy picker
+    slotsEl.addEventListener('change', (ev) => {
+        const slot = ev.target.dataset && ev.target.dataset.strategySlot;
+        if (!slot || !draft[slot]) return;
+        draft[slot].strategy = ev.target.value;
+        render();
+    });
+
     // Keep draft in sync with what is typed
     slotsEl.addEventListener('input', (ev) => {
         const entryEl = ev.target.closest('.entry');
         if (!entryEl) return;
-        draft[entryEl.dataset.slot][Number(entryEl.dataset.index)] = readEntry(entryEl);
+        draft[entryEl.dataset.slot].targets[Number(entryEl.dataset.index)] = readEntry(entryEl);
     });
 
     async function testEntry(slot, entry) {
@@ -125,7 +149,8 @@
         const action = btn.dataset.action;
         const entryEl = btn.closest('.entry');
         const slot = entryEl ? entryEl.dataset.slot : btn.dataset.slot;
-        const list = draft[slot] = draft[slot] || [];
+        const combo = draft[slot] = draft[slot] || { strategy: 'priority', targets: [] };
+        const list = combo.targets;
         const i = entryEl ? Number(entryEl.dataset.index) : -1;
 
         if (action === 'add') {
@@ -190,8 +215,9 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             families = data.families;
+            strategies = data.strategies || {};
             slots = data.slots;
-            draft = JSON.parse(JSON.stringify(EchoAuth.getProviderChains()));
+            draft = Object.fromEntries(Object.entries(EchoAuth.getProviderChains()).map(([slot, v]) => [slot, normalizeCombo(v)]));
             render();
         } catch (err) {
             slotsEl.innerHTML = `<p style="color: var(--danger);">Could not load provider settings: ${esc(err.message)}</p>`;
