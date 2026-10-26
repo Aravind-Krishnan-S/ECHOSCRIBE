@@ -20,6 +20,7 @@ function createAuthMiddleware(supabase) {
             req.user = {
                 id: user.id,
                 email: user.email,
+                metadata: user.user_metadata || {},
             };
 
             // Set the auth context for Supabase RLS

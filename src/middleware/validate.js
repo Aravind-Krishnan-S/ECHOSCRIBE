@@ -8,7 +8,7 @@ function validate(schema, source = 'body') {
             const messages = result.error.issues.map(
                 (i) => `${i.path.join('.')}: ${i.message}`
             );
-            throw new AppError('Validation failed', 400, messages);
+            throw new AppError(result.error.issues[0]?.message || 'Validation failed', 400, messages);
         }
 
         req[source] = result.data;

@@ -24,6 +24,28 @@ const summarize = asyncHandler(async (req, res) => {
 
     const result = await aiService.summarizeTranscript(text, language || 'en', mode, { chains: req.providerChains });
 
+    // Keep the speaker-turn timings (roles and times only) and the pipeline's providers with the note,
+    // so the conversation strip and provenance can be shown for any saved session
+    if (req.body.conversation) {
+        try {
+            const conv = JSON.parse(req.body.conversation);
+            result.conversation = {
+                turns: (Array.isArray(conv.turns) ? conv.turns : []).slice(0, 2000).map(t => ({
+                    role: String(t.role || '').slice(0, 30),
+                    start: Number(t.start) || 0,
+                    end: Number(t.end) || 0,
+                    words: Number(t.words) || 0,
+                })),
+                providers: {
+                    stt: conv.providers?.stt ? String(conv.providers.stt).slice(0, 80) : null,
+                    diarization: conv.providers?.diarization ? String(conv.providers.diarization).slice(0, 80) : null,
+                    roles: conv.providers?.roles ? String(conv.providers.roles).slice(0, 80) : null,
+                },
+                durationSec: Number(conv.durationSec) || null,
+            };
+        } catch { /* malformed conversation metadata is ignored */ }
+    }
+
     // 1. Upload audio if present
     let audioUrl = null;
     if (req.file) {
@@ -148,4 +170,24 @@ const deleteSessionHandler = asyncHandler(async (req, res) => {
     res.json({ success: true, message: 'Session deleted.' });
 });
 
-module.exports = { summarize, saveSession, getHistory, deleteSession: deleteSessionHandler };
+// GET /api/session/:id?mode=
+const getSession = asyncHandler(async (req, res) => {
+    try {
+        res.json(await dbService.getSessionById(req.supabaseToken, req.params.id, req.user.id, req.query.mode));
+    } catch (err) {
+        throw new AppError('Session not found in this workspace.', 404);
+    }
+});
+
+// PUT /api/session/:id?mode= — save an edited note
+const updateSession = asyncHandler(async (req, res) => {
+    const { analysisJson } = req.body || {};
+    if (!analysisJson || typeof analysisJson !== 'object') {
+        throw new AppError('analysisJson is required.', 400);
+    }
+    const summary = analysisJson.soap ? analysisJson.soap.subjective : (analysisJson.grow ? analysisJson.grow.goal : undefined);
+    const data = await dbService.updateSession(req.supabaseToken, req.params.id, req.user.id, req.query.mode, { analysisJson, summary });
+    res.json(data);
+});
+
+module.exports = { summarize, saveSession, getHistory, getSession, updateSession, deleteSession: deleteSessionHandler };

@@ -157,26 +157,40 @@ function getServerChain(slot) {
     return { entries: referenceTargets(slot), strategy, source: 'reference' };
 }
 
-// ─── Per-user combos (Provider Settings panel) ───
+// ─── Per-user combos (Settings → Models & API keys) ───
 
 const MAX_ENTRIES = 10;
 const MAX_KEYS = 20;
 
+function cleanKeys(list) {
+    return Array.isArray(list)
+        ? list.filter(k => typeof k === 'string' && k.trim()).map(k => k.trim().slice(0, 400)).slice(0, MAX_KEYS)
+        : [];
+}
+
 /**
- * Parse the X-Provider-Chain header: base64-encoded JSON
- *   { "NOTE_SYNTH": { "strategy": "round-robin", "targets": [{ "family": "groq", "model": "...", "keys": ["..."] }] } }
- * A bare array of targets is accepted too (strategy "priority").
- * Only user-configurable slots are accepted. Returns {} when the header is absent.
+ * Parse the X-Provider-Chain header: base64-encoded JSON.
+ *   { "keys": { "gemini": ["..."], "groq": ["..."] } }        — keys kept only in this browser
+ * Older clients sent whole combos per slot instead, still accepted:
+ *   { "NOTE_SYNTH": { "strategy": "round-robin", "targets": [{ "family", "model", "keys": [...] }] } }
+ *   { "NOTE_SYNTH": [ { "family", "model", "keys": [...] } ] }
+ * Returns { localKeys, combos }.
  */
-function parseUserChains(headerValue) {
-    if (!headerValue) return {};
+function parseHeader(headerValue) {
+    if (!headerValue) return { localKeys: {}, combos: {} };
     let data;
     try {
         data = JSON.parse(Buffer.from(String(headerValue), 'base64').toString('utf8'));
     } catch {
         throw new AppError('Provider Settings are corrupted. Re-save them on the Settings page.', 400);
     }
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return { localKeys: {}, combos: {} };
+
+    const localKeys = {};
+    for (const [family, list] of Object.entries(data.keys || {})) {
+        const def = getFamily(family);
+        if (def && def.requiresKey) localKeys[def.key] = cleanKeys(list);
+    }
 
     const combos = {};
     for (const [slot, value] of Object.entries(data)) {
@@ -186,26 +200,121 @@ function parseUserChains(headerValue) {
         const entries = list.slice(0, MAX_ENTRIES).map(e => {
             const family = getFamily(e?.family);
             const model = typeof e?.model === 'string' ? e.model.trim().slice(0, 120) : '';
-            const keys = Array.isArray(e?.keys)
-                ? e.keys.filter(k => typeof k === 'string' && k.trim()).map(k => k.trim().slice(0, 400)).slice(0, MAX_KEYS)
-                : [];
             if (!family || !family.capabilities.includes(def.capability) || !model) {
                 throw new AppError(`Provider Settings: invalid entry for ${slot}.`, 400);
             }
-            return { family: family.key, model, keys };
+            return { family: family.key, model, keys: cleanKeys(e?.keys) };
         });
         const ok = usable(mergeEntries(entries));
         if (ok.length > 0) {
             combos[slot] = { entries: ok, strategy: strategies.normalizeStrategy(Array.isArray(value) ? null : value.strategy) };
         }
     }
+    return { localKeys, combos };
+}
+
+/** Backwards-compatible name used by tests: header combos only. */
+function parseUserChains(headerValue) {
+    return parseHeader(headerValue).combos;
+}
+
+function mergeKeyMaps(...maps) {
+    const out = {};
+    for (const map of maps) {
+        for (const [family, keys] of Object.entries(map || {})) {
+            out[family] = [...new Set([...(out[family] || []), ...keys])];
+        }
+    }
+    return out;
+}
+
+/**
+ * Build the user's combo for every user-configurable slot.
+ *   modelSettings: { strategy?, combos?: { SLOT: { strategy, targets: [{ family, model }] } } }  (no secrets)
+ *   userKeys: { family: [keys] } — browser-local keys merged with synced keys
+ * A slot with chosen models uses them with the user's keys. A slot with no chosen models but a key for
+ * one of the server chain's families tries the user's key first, then the server's targets.
+ */
+function buildUserCombos({ headerCombos = {}, modelSettings = {}, userKeys = {} }) {
+    const combos = {};
+    for (const [slot, def] of Object.entries(SLOTS)) {
+        if (!def.userConfigurable) continue;
+        const withUserKeys = (e) => ({ ...e, keys: [...new Set([...(e.keys || []), ...(userKeys[e.family] || [])])] });
+
+        if (headerCombos[slot]) {
+            combos[slot] = { ...headerCombos[slot], entries: usable(headerCombos[slot].entries.map(withUserKeys)) };
+            continue;
+        }
+
+        const chosen = modelSettings.combos && modelSettings.combos[slot];
+        const strategy = strategies.normalizeStrategy(chosen?.strategy || modelSettings.strategy || serverStrategy(slot));
+        if (chosen && Array.isArray(chosen.targets) && chosen.targets.length) {
+            const entries = chosen.targets.slice(0, MAX_ENTRIES)
+                .map(t => ({ family: String(t.family || '').toLowerCase(), model: String(t.model || '').trim().slice(0, 120), keys: [] }))
+                .filter(t => {
+                    const fam = getFamily(t.family);
+                    return fam && fam.capabilities.includes(def.capability) && t.model;
+                })
+                .map(withUserKeys);
+            const ok = usable(mergeEntries(entries));
+            if (ok.length) combos[slot] = { entries: ok, strategy };
+            continue;
+        }
+
+        const server = getServerChain(slot).entries;
+        if (!server.some(e => (userKeys[e.family] || []).length)) continue;
+        const entries = [];
+        for (const e of server) {
+            if ((userKeys[e.family] || []).length) entries.push({ family: e.family, model: e.model, keys: [...userKeys[e.family]] });
+            entries.push(e);
+        }
+        // Same family+model with user keys first: keep them as separate targets so the user's key is tried first
+        combos[slot] = { entries: usable(entries), strategy };
+    }
     return combos;
 }
 
-/** Express middleware — resolves the user's combos once per request. */
-function attachProviderChains(req, res, next) {
+// Profile model settings and synced keys, cached briefly per user
+const USER_CACHE_MS = 30_000;
+const userCache = new Map();
+
+function invalidateUserChains(userId) {
+    userCache.delete(userId);
+}
+
+async function loadUserRouting(req) {
+    const userId = req.user && req.user.id;
+    if (!userId || !req.supabaseToken) return { modelSettings: {}, syncedKeys: {} };
+    const hit = userCache.get(userId);
+    if (hit && Date.now() - hit.at < USER_CACHE_MS) return hit.value;
+
+    let modelSettings = {};
+    let syncedKeys = {};
     try {
-        req.providerChains = parseUserChains(req.get('x-provider-chain'));
+        const { getAuthClient } = require('./db.service');
+        const { data } = await getAuthClient(req.supabaseToken)
+            .from('user_profiles').select('model_settings').eq('user_id', userId).maybeSingle();
+        modelSettings = (data && data.model_settings) || {};
+    } catch { /* profiles not migrated yet: no user model settings */ }
+    try {
+        syncedKeys = await require('./key-vault').keysByFamily(req.supabaseToken, userId);
+    } catch { /* key sync not configured */ }
+
+    const value = { modelSettings, syncedKeys };
+    userCache.set(userId, { at: Date.now(), value });
+    return value;
+}
+
+/** Express middleware — resolves the user's combos once per request. */
+async function attachProviderChains(req, res, next) {
+    try {
+        const { localKeys, combos: headerCombos } = parseHeader(req.get('x-provider-chain'));
+        const { modelSettings, syncedKeys } = await loadUserRouting(req);
+        req.providerChains = buildUserCombos({
+            headerCombos,
+            modelSettings,
+            userKeys: mergeKeyMaps(localKeys, syncedKeys),
+        });
         next();
     } catch (err) {
         next(err);
@@ -338,7 +447,10 @@ module.exports = {
     getServerChain,
     parseChainString,
     parseUserChains,
+    parseHeader,
+    buildUserCombos,
     attachProviderChains,
+    invalidateUserChains,
     describeServerChains,
     ProviderChainError,
 };

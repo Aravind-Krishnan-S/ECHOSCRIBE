@@ -97,6 +97,8 @@ router.post('/summarize', upload.single('audio'), sessionController.summarize);
 router.post('/session', upload.single('audio'), sessionController.saveSession);
 
 router.get('/history', validateModeQuery, sessionController.getHistory);
+router.get('/session/:id', validateModeQuery, sessionController.getSession);
+router.put('/session/:id', validateModeQuery, sessionController.updateSession);
 router.delete('/session/:id', sessionController.deleteSession);
 
 // --- Transcription Routes ---
@@ -127,5 +129,8 @@ router.post('/communications/send', commsController.sendCommunication);
 // --- Provider Settings Routes ---
 router.get('/providers', providersController.getProviders);
 router.post('/providers/test', providersController.testProvider);
+router.get('/providers/keys', providersController.listSyncedKeys);
+router.post('/providers/keys', providersController.addSyncedKey);
+router.delete('/providers/keys/:id', providersController.deleteSyncedKey);
 
 module.exports = router;

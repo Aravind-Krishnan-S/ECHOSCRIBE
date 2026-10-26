@@ -248,8 +248,29 @@ async function deleteSession(token, sessionId, userId, mode) {
     return true;
 }
 
+// --- Session Update (edited note) ---
+
+async function updateSession(token, sessionId, userId, mode, { analysisJson, summary }) {
+    if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
+    const client = getAuthClient(token);
+    const update = { analysis_json: analysisJson };
+    if (summary !== undefined) update.summary = summary;
+    const { data, error } = await client
+        .from('sessions')
+        .update(update)
+        .eq('id', sessionId)
+        .eq('user_id', userId)
+        .eq('session_mode', mode)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
 module.exports = {
     initSupabase,
+    updateSession,
     getSupabase,
     getAuthClient,
     saveSession,

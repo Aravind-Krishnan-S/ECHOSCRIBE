@@ -40,7 +40,10 @@ function getEnv() {
 app.use(express.json({ limit: '10mb' }));
 
 // ─── Static Files ───
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// The React app (frontend/) once built; otherwise the legacy pages in public/
+const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
+const HAS_FRONTEND = require('fs').existsSync(path.join(FRONTEND_DIST, 'index.html'));
+app.use(express.static(HAS_FRONTEND ? FRONTEND_DIST : path.join(__dirname, '..', 'public'), { index: HAS_FRONTEND ? false : 'index.html' }));
 
 // ─── Bootstrap middleware and routes lazily ───
 app.use((req, res, next) => {
@@ -104,13 +107,18 @@ app.use((req, res, next) => {
             }, apiRoutes);
 
             // Page routes
-            app.get('/', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
-            app.get('/record', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'record.html')));
-            app.get('/login', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-            app.get('/signup', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'signup.html')));
-            app.get('/dashboard', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
-            app.get('/summary', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'summary.html')));
-            app.get('/settings', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'settings.html')));
+            if (HAS_FRONTEND) {
+                // Single-page app: every non-API GET returns the app shell; React Router takes it from there
+                app.get(/^\/(?!api(\/|$)).*/, (req2, res2) => res2.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+            } else {
+                app.get('/', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
+                app.get('/record', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'record.html')));
+                app.get('/login', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+                app.get('/signup', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'signup.html')));
+                app.get('/dashboard', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
+                app.get('/summary', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'summary.html')));
+                app.get('/settings', (req2, res2) => res2.sendFile(path.join(__dirname, '..', 'public', 'settings.html')));
+            }
 
             app.use(errorHandler);
             app._booted = true;

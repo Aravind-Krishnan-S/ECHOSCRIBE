@@ -5,6 +5,8 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { listFamilies, getFamily } = require('../services/provider-registry');
 const { describeServerChains, SLOTS, STRATEGIES } = require('../services/provider-chain');
 const { classifyError } = require('../services/provider-pool');
+const keyVault = require('../services/key-vault');
+const { invalidateUserChains } = require('../services/provider-chain');
 
 // GET /api/providers — registered families + the server's chain per slot (keys masked)
 const getProviders = asyncHandler(async (req, res) => {
@@ -42,4 +44,23 @@ const testProvider = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { getProviders, testProvider };
+// GET /api/providers/keys — keys this user synced to their account (never the key itself)
+const listSyncedKeys = asyncHandler(async (req, res) => {
+    res.json({ keys: await keyVault.listKeys(req.supabaseToken, req.user.id), syncAvailable: !!process.env.PROVIDER_KEYS_SECRET });
+});
+
+// POST /api/providers/keys — encrypt and store one key
+const addSyncedKey = asyncHandler(async (req, res) => {
+    const key = await keyVault.addKey(req.supabaseToken, req.user.id, req.body || {});
+    invalidateUserChains(req.user.id);
+    res.status(201).json(key);
+});
+
+// DELETE /api/providers/keys/:id
+const deleteSyncedKey = asyncHandler(async (req, res) => {
+    await keyVault.deleteKey(req.supabaseToken, req.user.id, req.params.id);
+    invalidateUserChains(req.user.id);
+    res.json({ success: true });
+});
+
+module.exports = { getProviders, testProvider, listSyncedKeys, addSyncedKey, deleteSyncedKey };

@@ -13,6 +13,7 @@ function setupSecurity(app, env) {
                 fontSrc: ["'self'", "https://fonts.gstatic.com"],
                 imgSrc: ["'self'", "data:", "https:"],
                 connectSrc: ["'self'", env.SUPABASE_URL],
+                mediaSrc: ["'self'", "blob:", env.SUPABASE_URL],
             },
         },
     }));
