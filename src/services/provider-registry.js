@@ -145,8 +145,17 @@ registerFamily('groq', {
                 max_tokens: maxTokens,
             };
             if (json) params.response_format = { type: 'json_object' };
-            const completion = await client.chat.completions.create(params);
-            return completion.choices[0]?.message?.content || '';
+            try {
+                const completion = await client.chat.completions.create(params);
+                return completion.choices[0]?.message?.content || '';
+            } catch (err) {
+                // Groq rejects its own output when JSON mode validation fails (json_validate_failed).
+                // Retry once without JSON mode; callers already parse JSON from plain or fenced replies.
+                if (!json || !/json_validate_failed|Failed to generate JSON/i.test(String(err.message))) throw err;
+                delete params.response_format;
+                const completion = await client.chat.completions.create(params);
+                return completion.choices[0]?.message?.content || '';
+            }
         }
 
         return {

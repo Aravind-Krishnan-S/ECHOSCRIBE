@@ -42,6 +42,15 @@ function toTranscript(src) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// A daily quota (e.g. Groq's tokens-per-day) will not clear by waiting minutes: stop and say so
+function stopIfDailyQuota(err) {
+    if (/per day|TPD|RPD|daily/i.test(JSON.stringify(err.publicDetails || {}) + err.message)) {
+        console.log('STOPPED: a provider daily quota is exhausted. Re-run this script after it resets; finished items are kept.');
+        process.exit(2);
+    }
+}
+
+
 (async () => {
     for (const item of data) {
         if (done.has(item.file)) continue;
@@ -69,8 +78,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
             } catch (err) {
                 attempt++;
                 console.log(`${item.file}  attempt ${attempt} failed: ${err.message.slice(0, 160)}`);
-                if (attempt >= 4) break;
-                await sleep(30_000 * attempt); // let per-minute quotas reset
+                stopIfDailyQuota(err);
+                if (attempt >= 6) break;
+                await sleep(65_000); // per-minute token windows (Groq: 8,000 TPM) reset after 60 s
             }
         }
     }

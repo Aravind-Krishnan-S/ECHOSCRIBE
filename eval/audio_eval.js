@@ -79,6 +79,7 @@ async function sbDiarizeRaw(buffer) {
 
             const sbEnh = await timed(() => sb.processAudioBuffer(buffer, 2));
             row.seconds.sb_enhance_diarize = sbEnh.seconds;
+            if (!sbEnh.value && /not available/i.test(sbEnh.error || '')) throw new Error(`SpeechBrain stopped responding on ${key}; restart it and re-run (finished rows are kept)`);
             if (sbEnh.value) {
                 row.sb_enh = sbEnh.value.turns;
                 const enhanced = Buffer.from(sbEnh.value.enhanced_audio_b64, 'base64');
@@ -94,7 +95,7 @@ async function sbDiarizeRaw(buffer) {
                 const adapter = getFamily('gemini').create({ apiKey: geminiKeys[Math.floor(Math.random() * geminiKeys.length)], model: GEMINI_MODEL });
                 return (await adapter.diarizeAudioBuffer(buffer, 'audio/wav', { lang: 'en' })).turns;
             });
-            row.gemini_diar = gemDiar.value ?? null; row.seconds.gemini_diarize = gemDiar.seconds;
+            row.gemini_diar = gemDiar.value ?? null; row.seconds.gemini_diarize = gemDiar.seconds; if (gemDiar.error) row.gemini_diar_error = gemDiar.error;
 
             if (row.stt.gemini_raw) {
                 const textDiar = await timed(() => ai.diarizeTranscript(row.stt.gemini_raw));

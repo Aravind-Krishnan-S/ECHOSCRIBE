@@ -48,6 +48,7 @@ huggingface_hub.hf_hub_download = _hf_hub_download_compat
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from scipy.signal import resample
 from sklearn.cluster import SpectralClustering
 
@@ -302,7 +303,8 @@ async def enhance_endpoint(audio: UploadFile = File(...)):
     try:
         file_bytes = await audio.read()
         waveform, sr = load_audio(file_bytes, target_sr=16000)
-        enhanced = enhance_audio(waveform, sr)
+        # Model work runs in a worker thread so /health keeps answering during long jobs
+        enhanced = await run_in_threadpool(enhance_audio, waveform, sr)
         wav_bytes = tensor_to_wav_bytes(enhanced, sr)
 
         return StreamingResponse(
@@ -327,7 +329,7 @@ async def diarize_endpoint(
     try:
         file_bytes = await audio.read()
         waveform, sr = load_audio(file_bytes, target_sr=16000)
-        turns = diarize_audio(waveform, sr, num_speakers=num_speakers)
+        turns = await run_in_threadpool(diarize_audio, waveform, sr, num_speakers=num_speakers)
         return JSONResponse({"turns": turns, "num_speakers": num_speakers})
     except Exception as e:
         log.error(f"Diarization error: {e}")
@@ -352,14 +354,14 @@ async def process_endpoint(
         # Step 1: Enhance (if available)
         if enhancer is not None:
             log.info("Step 1/2: Enhancing audio...")
-            enhanced = enhance_audio(waveform, sr)
+            enhanced = await run_in_threadpool(enhance_audio, waveform, sr)
         else:
             log.info("Step 1/2: Enhancer unavailable, using original audio")
             enhanced = waveform
 
         # Step 2: Diarize
         log.info("Step 2/2: Diarizing speakers...")
-        turns = diarize_audio(enhanced, sr, num_speakers=num_speakers)
+        turns = await run_in_threadpool(diarize_audio, enhanced, sr, num_speakers=num_speakers)
 
         # Encode enhanced audio as base64 WAV
         wav_bytes = tensor_to_wav_bytes(enhanced, sr)
