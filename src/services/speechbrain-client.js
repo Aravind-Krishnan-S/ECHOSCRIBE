@@ -177,7 +177,7 @@ async function probe() {
             console.log(`[SpeechBrain] ✅ Service available at ${SPEECHBRAIN_URL}`);
         }
     } else {
-        console.log(`[SpeechBrain] ⚠️ Service not available at ${SPEECHBRAIN_URL} — using Deepgram fallback`);
+        console.log(`[SpeechBrain] ⚠️ Service not available at ${SPEECHBRAIN_URL} — diarization will use the next DIARIZE provider`);
     }
     return available;
 }
