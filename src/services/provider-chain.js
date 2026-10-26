@@ -119,27 +119,33 @@ function parseChainString(str, slot) {
     return usable(mergeEntries(entries));
 }
 
+/** "a,b" list from <FAMILY>_MODELS, else the single <FAMILY>_MODEL, else the default. */
+function modelList(listVar, singleVar, fallback) {
+    const list = String(process.env[listVar] || '').split(',').map(m => m.trim()).filter(Boolean);
+    return list.length ? list : [process.env[singleVar] || fallback];
+}
+
 function referenceTargets(slot) {
-    const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-    // Llama 3.3 70B (used in the paper's evaluation) has been retired by Groq; gpt-oss-120b replaces it
-    const groqModel = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
-    const groqSttModel = process.env.GROQ_STT_MODEL || 'whisper-large-v3';
-    const deepgramModel = process.env.DEEPGRAM_MODEL || 'nova-2';
-    const gemini = { family: 'gemini', model: geminiModel, keys: legacyKeys('gemini') };
-    const groq = { family: 'groq', model: groqModel, keys: legacyKeys('groq') };
-    const deepgram = { family: 'deepgram', model: deepgramModel, keys: legacyKeys('deepgram') };
-    const sb = { family: 'speechbrain', model: 'ecapa-tdnn', keys: [] };
+    // Several models per vendor (GEMINI_MODELS=a,b,c) become consecutive targets sharing the vendor's
+    // keys; under the priority strategy they take turns (routing/strategies.js), each with its own quota.
+    const targets = (family, models) => models.map(model => ({ family, model, keys: legacyKeys(family) }));
+    const gemini = targets('gemini', modelList('GEMINI_MODELS', 'GEMINI_MODEL', 'gemini-2.0-flash'));
+    // Llama 3.3 70B (used in the paper's first evaluation) has been retired by Groq; gpt-oss-120b replaces it
+    const groq = targets('groq', modelList('GROQ_MODELS', 'GROQ_MODEL', 'openai/gpt-oss-120b'));
+    const groqStt = targets('groq', modelList('GROQ_STT_MODELS', 'GROQ_STT_MODEL', 'whisper-large-v3'));
+    const deepgram = targets('deepgram', modelList('DEEPGRAM_MODELS', 'DEEPGRAM_MODEL', 'nova-2'));
+    const sb = [{ family: 'speechbrain', model: 'ecapa-tdnn', keys: [] }];
 
     const reference = {
-        STT: [gemini, deepgram, { family: 'groq', model: groqSttModel, keys: legacyKeys('groq') }],
-        DIARIZE: [sb, deepgram, gemini],
-        ROLE_LABEL: [groq, gemini],
-        NOTE_SYNTH: [gemini, groq],
-        PROFILE_GEN: [gemini, groq],
+        STT: [...gemini, ...deepgram, ...groqStt],
+        DIARIZE: [...sb, ...deepgram, ...gemini],
+        ROLE_LABEL: [...groq, ...gemini],
+        NOTE_SYNTH: [...gemini, ...groq],
+        PROFILE_GEN: [...gemini, ...groq],
         // Opposite order to NOTE_SYNTH so the checker is normally a different vendor from the writer
-        VERIFY: [groq, gemini],
+        VERIFY: [...groq, ...gemini],
     };
-    return usable(reference[slot].map(e => ({ ...e, keys: [...e.keys] })));
+    return usable(reference[slot]);
 }
 
 function serverStrategy(slot) {

@@ -10,6 +10,11 @@ const fs = require('fs');
 const path = require('path');
 
 const SPEECHBRAIN_URL = process.env.SPEECHBRAIN_URL || 'http://localhost:5050';
+
+// Enhancing a long session can take longer than fetch's default 300 s header timeout; the router
+// already applies a duration-scaled timeout, so SpeechBrain requests themselves wait as long as needed.
+const { Agent } = require('undici');
+const longRequests = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 let serviceAvailable = false;
 let lastHealthCheck = 0;
 const HEALTH_CHECK_INTERVAL = 15_000; // Re-check every 15s for faster pickup
@@ -76,7 +81,8 @@ async function processAudioBuffer(fileBuffer, numSpeakers = 2) {
 
     const response = await fetch(`${SPEECHBRAIN_URL}/process`, {
         method: 'POST',
-        body: form
+        body: form,
+        dispatcher: longRequests,
     });
 
     if (!response.ok) {
@@ -106,7 +112,8 @@ async function enhanceAudio(audioFilePath) {
 
     const response = await fetch(`${SPEECHBRAIN_URL}/enhance`, {
         method: 'POST',
-        body: form
+        body: form,
+        dispatcher: longRequests,
     });
 
     if (!response.ok) {
@@ -137,7 +144,8 @@ async function diarizeAudio(audioFilePath, numSpeakers = 2) {
 
     const response = await fetch(`${SPEECHBRAIN_URL}/diarize`, {
         method: 'POST',
-        body: form
+        body: form,
+        dispatcher: longRequests,
     });
 
     if (!response.ok) {

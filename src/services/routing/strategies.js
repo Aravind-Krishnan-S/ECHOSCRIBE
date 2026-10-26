@@ -9,7 +9,7 @@
    ports the ones that need only in-process usage statistics. */
 
 const STRATEGIES = {
-    priority: 'Try targets in the declared order; later targets are fallbacks.',
+    priority: 'Try vendors in the declared order; several models of one vendor take turns, later vendors are fallbacks.',
     'round-robin': 'Rotate which target goes first on each request, spreading load evenly.',
     random: 'Shuffle the targets on every request.',
     'strict-random': 'Deck draw: every target goes first once per cycle; the rest are shuffled.',
@@ -51,14 +51,43 @@ function nextFromDeck(deckKey, ids) {
 }
 
 /**
+ * Priority with rotation inside each vendor: consecutive targets of the same vendor (for example
+ * three Gemini models) take turns going first, so their separate quotas share the load, while the
+ * vendors themselves keep the declared fallback order. Keys of one model already rotate in their pool.
+ */
+function priorityRotating(targets, comboName) {
+    const out = [];
+    let i = 0;
+    while (i < targets.length) {
+        const family = targets[i].entry && targets[i].entry.family;
+        let j = i + 1;
+        while (j < targets.length && family && targets[j].entry && targets[j].entry.family === family) j++;
+        const run = targets.slice(i, j);
+        if (run.length > 1) {
+            const key = `${comboName}|${family}`;
+            const n = rrCounters.get(key) || 0;
+            rrCounters.set(key, n + 1);
+            const start = n % run.length;
+            out.push(...run.slice(start), ...run.slice(0, start));
+        } else {
+            out.push(...run);
+        }
+        i = j;
+    }
+    return out;
+}
+
+/**
  * Order a combo's targets for one request.
  * @param {string} strategy
- * @param {Array<{ id: string }>} targets — declared order
+ * @param {Array<{ id: string, entry?: { family: string } }>} targets — declared order
  * @param {string} comboName
  */
 function orderTargets(strategy, targets, comboName) {
     if (targets.length < 2) return [...targets];
     switch (normalizeStrategy(strategy)) {
+        case 'priority':
+            return priorityRotating(targets, comboName);
         case 'round-robin': {
             const n = rrCounters.get(comboName) || 0;
             rrCounters.set(comboName, n + 1);

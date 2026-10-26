@@ -151,25 +151,61 @@ def tensor_to_wav_bytes(waveform: torch.Tensor, sr: int = 16000) -> bytes:
 
 # ─── Speech Enhancement ───
 
+ENHANCE_WINDOW_SEC = float(os.environ.get("ENHANCE_WINDOW_SEC", "10"))
+ENHANCE_OVERLAP_SEC = 0.5
+
+
+def _separate(chunk: torch.Tensor) -> torch.Tensor:
+    """One SepFormer pass on a [1, time] chunk; returns [time] clean speech."""
+    with torch.no_grad():
+        out = enhancer.separate_batch(chunk.to(DEVICE))
+        # SepFormer returns [batch, time, sources] — take the first source (clean speech)
+        if out.dim() == 3:
+            out = out[:, :, 0]
+        elif out.dim() == 4:
+            out = out[:, :, 0, 0]
+    return out[0, :chunk.shape[1]].cpu()
+
+
 def enhance_audio(waveform: torch.Tensor, sr: int = 16000) -> torch.Tensor:
-    """Remove noise from audio using SepFormer."""
+    """Remove noise with SepFormer, in short overlapping windows.
+
+    Running the whole recording as one tensor makes memory grow with its length (a 72 s clip
+    exhausted 16 GB of RAM); fixed windows with a linear crossfade keep memory bounded and time
+    linear in the recording length, so long local sessions can be enhanced.
+    """
     if enhancer is None:
         log.warning("Enhancer not loaded, returning original audio")
         return waveform
 
-    # SepFormer expects shape [batch, time]
     if waveform.dim() == 1:
         waveform = waveform.unsqueeze(0)
+    total = waveform.shape[1]
+    win = int(ENHANCE_WINDOW_SEC * sr)
+    ov = int(ENHANCE_OVERLAP_SEC * sr)
+    if total <= win + ov:
+        return _separate(waveform).unsqueeze(0)
 
-    with torch.no_grad():
-        enhanced = enhancer.separate_batch(waveform.to(DEVICE))
-        # SepFormer returns [batch, time, sources] — take first source (clean speech)
-        if enhanced.dim() == 3:
-            enhanced = enhanced[:, :, 0]
-        elif enhanced.dim() == 4:
-            enhanced = enhanced[:, :, 0, 0]
-
-    return enhanced.cpu()
+    out = torch.zeros(total)
+    weight = torch.zeros(total)
+    fade_in = torch.linspace(0.0, 1.0, ov) if ov > 0 else None
+    start = 0
+    while start < total:
+        end = min(total, start + win + ov)
+        piece = _separate(waveform[:, start:end])
+        w = torch.ones(piece.shape[0])
+        if ov > 0 and start > 0:
+            n = min(ov, piece.shape[0])
+            w[:n] = fade_in[:n]
+        if ov > 0 and end < total:
+            n = min(ov, piece.shape[0])
+            w[-n:] = torch.flip(fade_in[:n], dims=[0])
+        out[start:end] += piece * w
+        weight[start:end] += w
+        if end >= total:
+            break
+        start += win
+    return (out / weight.clamp(min=1e-6)).unsqueeze(0)
 
 
 # ─── Speaker Diarization ───

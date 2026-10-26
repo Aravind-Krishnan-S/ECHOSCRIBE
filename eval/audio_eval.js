@@ -14,7 +14,9 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const GEMINI_ROTATION = (process.env.GEMINI_MODELS || process.env.GEMINI_MODEL || 'gemini-2.0-flash').split(',').map(m => m.trim()).filter(Boolean);
+// The transcript-based speaker split uses the same Gemini rotation
+process.env.ROLE_CHAIN_ROLE_LABEL = GEMINI_ROTATION.map(m => `gemini:${m}`).join(',');
 const GROQ_STT = process.env.GROQ_STT_MODEL || 'whisper-large-v3';
 process.env.ROLE_TIMEOUT_STT = '300000';
 process.env.ROLE_TIMEOUT_ROLE_LABEL = '240000';
@@ -31,6 +33,9 @@ const done = new Set(fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8').s
 
 const geminiKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const longRequests = new (require('undici').Agent)({ headersTimeout: 0, bodyTimeout: 0 });
+const lastProvider = {};
+let diarTurn = 0;
 
 async function timed(fn) {
     const t0 = Date.now();
@@ -46,8 +51,9 @@ async function timed(fn) {
 }
 
 async function stt(buffer, family) {
-    process.env.ROLE_CHAIN_STT = family === 'gemini' ? `gemini:${GEMINI_MODEL}` : `groq:${GROQ_STT}`;
+    process.env.ROLE_CHAIN_STT = family === 'gemini' ? GEMINI_ROTATION.map(m => `gemini:${m}`).join(',') : `groq:${GROQ_STT}`;
     const r = await ai.transcribeAudio(buffer, 'audio/wav', 'en');
+    lastProvider[family] = r._provider;
     return r.text;
 }
 
@@ -55,7 +61,7 @@ async function sbDiarizeRaw(buffer) {
     const form = new FormData();
     form.append('audio', new Blob([buffer], { type: 'audio/wav' }), 'audio.wav');
     form.append('num_speakers', '2');
-    const res = await fetch(`${process.env.SPEECHBRAIN_URL || 'http://localhost:5050'}/diarize`, { method: 'POST', body: form });
+    const res = await fetch(`${process.env.SPEECHBRAIN_URL || 'http://localhost:5050'}/diarize`, { method: 'POST', body: form, dispatcher: longRequests });
     if (!res.ok) throw new Error(`SpeechBrain /diarize ${res.status}`);
     return (await res.json()).turns;
 }
@@ -70,7 +76,7 @@ async function sbDiarizeRaw(buffer) {
             const row = { id: conv.id, cond, duration: conv.duration, stt: {}, seconds: {} };
 
             const geminiRaw = await timed(() => stt(buffer, 'gemini'));
-            row.stt.gemini_raw = geminiRaw.value ?? null; row.seconds.stt_gemini = geminiRaw.seconds; if (geminiRaw.error) row.stt.gemini_raw_error = geminiRaw.error;
+            row.stt.gemini_raw = geminiRaw.value ?? null; row.seconds.stt_gemini = geminiRaw.seconds; row.stt.gemini_raw_provider = lastProvider.gemini; if (geminiRaw.error) row.stt.gemini_raw_error = geminiRaw.error;
             const groqRaw = await timed(() => stt(buffer, 'groq'));
             row.stt.groq_raw = groqRaw.value ?? null; row.seconds.stt_groq = groqRaw.seconds; if (groqRaw.error) row.stt.groq_raw_error = groqRaw.error;
 
@@ -92,8 +98,13 @@ async function sbDiarizeRaw(buffer) {
             }
 
             const gemDiar = await timed(async () => {
-                const adapter = getFamily('gemini').create({ apiKey: geminiKeys[Math.floor(Math.random() * geminiKeys.length)], model: GEMINI_MODEL });
-                return (await adapter.diarizeAudioBuffer(buffer, 'audio/wav', { lang: 'en' })).turns;
+                // Rotate model and key on every attempt; the serving model is recorded
+                const n = diarTurn++;
+                const model = GEMINI_ROTATION[n % GEMINI_ROTATION.length];
+                const adapter = getFamily('gemini').create({ apiKey: geminiKeys[n % geminiKeys.length], model });
+                const turns = (await adapter.diarizeAudioBuffer(buffer, 'audio/wav', { lang: 'en' })).turns;
+                row.gemini_diar_model = model;
+                return turns;
             });
             row.gemini_diar = gemDiar.value ?? null; row.seconds.gemini_diarize = gemDiar.seconds; if (gemDiar.error) row.gemini_diar_error = gemDiar.error;
 

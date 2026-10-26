@@ -12,6 +12,9 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 process.env.ROLE_TIMEOUT_ROLE_LABEL = '240000';
+// Gemini models in turn (Groq's daily token cap is spent on the note experiments); the serving model is recorded per row
+const GEMINI_ROTATION = (process.env.GEMINI_MODELS || process.env.GEMINI_MODEL || 'gemini-2.0-flash').split(',').map(m => m.trim()).filter(Boolean);
+process.env.ROLE_CHAIN_ROLE_LABEL = GEMINI_ROTATION.map(m => `gemini:${m}`).join(',');
 
 const ai = require('../src/services/ai.service');
 const aci = require('./data/aci-bench/data/challenge_data_json/clinicalnlp_taskB_test1.json').data;
