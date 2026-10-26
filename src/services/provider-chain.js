@@ -31,6 +31,7 @@ const SLOTS = {
     ROLE_LABEL: { label: 'Role labelling (clinician/client)', capability: 'chat', userConfigurable: true, timeoutMs: 90_000 },
     NOTE_SYNTH: { label: 'Note synthesis (SOAP/GROW)', capability: 'chat', userConfigurable: true, timeoutMs: 120_000 },
     PROFILE_GEN: { label: 'Longitudinal profile', capability: 'chat', userConfigurable: true, timeoutMs: 120_000 },
+    VERIFY: { label: 'Note verification & second-opinion risk screen', capability: 'chat', userConfigurable: true, timeoutMs: 90_000 },
 };
 
 // ─── Legacy key discovery (keeps existing .env files working) ───
@@ -135,6 +136,8 @@ function referenceTargets(slot) {
         ROLE_LABEL: [groq, gemini],
         NOTE_SYNTH: [gemini, groq],
         PROFILE_GEN: [gemini, groq],
+        // Opposite order to NOTE_SYNTH so the checker is normally a different vendor from the writer
+        VERIFY: [groq, gemini],
     };
     return usable(reference[slot].map(e => ({ ...e, keys: [...e.keys] })));
 }
@@ -356,10 +359,11 @@ function scrub(message, key) {
  * @param {string} slot      — STT | DIARIZE | ROLE_LABEL | NOTE_SYNTH | PROFILE_GEN
  * @param {(adapter, pool) => Promise<any>} invoke — performs the task with one adapter;
  *        throw (including on unparseable output) to move on.
- * @param {{ chains?: object }} opts — per-request user combos (req.providerChains)
- * @returns {Promise<{ result, provider: string, strategy: string, attempts: object[] }>}
+ * @param {{ chains?: object, avoidFamily?: string }} opts — per-request user combos (req.providerChains);
+ *        avoidFamily moves that vendor's targets to the end (cross-vendor verification)
+ * @returns {Promise<{ result, provider: string, family: string, strategy: string, attempts: object[] }>}
  */
-async function runChain(slot, invoke, { chains } = {}) {
+async function runChain(slot, invoke, { chains, avoidFamily } = {}) {
     const def = SLOTS[slot];
     if (!def) throw new Error(`Unknown provider slot "${slot}"`);
 
@@ -367,7 +371,10 @@ async function runChain(slot, invoke, { chains } = {}) {
     const { entries, strategy } = userCombo || getServerChain(slot);
     const comboName = `${userCombo ? 'user' : 'server'}:${slot}`;
     const timeoutMs = Number(process.env[`ROLE_TIMEOUT_${slot}`]) || def.timeoutMs;
-    const ordered = strategies.orderTargets(strategy, entries.map(e => ({ id: poolId(e), entry: e })), comboName);
+    let ordered = strategies.orderTargets(strategy, entries.map(e => ({ id: poolId(e), entry: e })), comboName);
+    if (avoidFamily) {
+        ordered = [...ordered.filter(t => t.entry.family !== avoidFamily), ...ordered.filter(t => t.entry.family === avoidFamily)];
+    }
     const attempts = [];
 
     for (const { id, entry } of ordered) {
@@ -401,7 +408,7 @@ async function runChain(slot, invoke, { chains } = {}) {
                 if (attempts.length > 1) {
                     console.log(`[Router] ${slot} (${strategy}) served by ${pool.name} after ${attempts.length - 1} failed attempt(s)`);
                 }
-                return { result, provider: pool.name, strategy, attempts };
+                return { result, provider: pool.name, family: pool.family, strategy, attempts };
             } catch (err) {
                 const kind = pool.reportError(k, err);
                 attempts.push({ provider: pool.name, key: k.id, outcome: kind, error: scrub(err.message, k.key) });

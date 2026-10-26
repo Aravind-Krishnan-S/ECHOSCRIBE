@@ -4,6 +4,7 @@
    no vendor or model name is hard-coded here. */
 
 const { runChain } = require('./provider-chain');
+const grounding = require('./grounding');
 
 /** Parse a model's JSON reply, tolerating ```json fences. Throws if unparseable. */
 function parseJsonResponse(text) {
@@ -109,12 +110,18 @@ Be thorough but precise. Do not fabricate information not present in the transcr
 If information for a field is not available from the transcript, use "Not discussed" or empty arrays as appropriate.
 You must also generate a client-facing communication summary translated into the locale: ${lang}.`;
 
+    const numbered = grounding.numberTranscript(text);
+    const sectionKeys = mode === 'Mentoring' ? ['goal', 'reality', 'options', 'way_forward'] : ['subjective', 'objective', 'assessment', 'plan'];
+    const sectionGroup = mode === 'Mentoring' ? 'grow' : 'soap';
+
     const userPrompt = `Analyze the following session transcript and return a STRICT structured note in JSON format.
 
-TRANSCRIPT:
+TRANSCRIPT (numbered turns):
 """
-${text.trim()}
+${numbered.prompt}
 """
+
+EVIDENCE RULE: In every "${sectionGroup}" field and in "risk_assessment.notes", end each sentence with the numbers of the turns that support it, for example: "Reports two weeks of poor sleep [T4, T6]." Cite only turns that actually contain the information. Do not write a sentence you cannot cite; if a field has nothing to cite, write "Not discussed".
 
 Return ONLY valid JSON with this exact structure:
 {${config.structure}
@@ -145,15 +152,121 @@ Return ONLY valid JSON with this exact structure:
   }
 }`;
 
-    const { result, provider, attempts } = await runChain('NOTE_SYNTH', async (adapter) => {
+    const generate = (avoidFamily) => runChain('NOTE_SYNTH', async (adapter) => {
         const reply = await adapter.chatCompletion(systemInstruction, userPrompt, { json: true, temperature: 0.3 });
         return parseJsonResponse(reply);
-    }, { chains });
+    }, { chains, avoidFamily });
 
-    const parsedData = normalizeAnalysis(result, mode, text, wordCount);
-    parsedData._provider = provider;
-    parsedData._providerAttempts = attempts;
+    // Split each section into cited sentences, strip the markers, then verify with another vendor
+    const ground = async (raw, writerFamily) => {
+        const note = normalizeAnalysis(raw, mode, text, wordCount);
+        const sections = {};
+        const flat = [];
+        for (const key of sectionKeys) {
+            const { clean, statements } = grounding.extractStatements(note[sectionGroup][key], numbered.turns.length);
+            note[sectionGroup][key] = clean;
+            sections[key] = statements;
+            statements.forEach(st => flat.push(st));
+        }
+        if (note.risk_assessment && note.risk_assessment.notes) {
+            note.risk_assessment.notes = grounding.extractStatements(note.risk_assessment.notes, numbered.turns.length).clean;
+        }
+        if (!GROUNDING_ENABLED) return { note, sections, summary: null, verifier: null };
+
+        const verified = await grounding.verifyStatements(flat, numbered.turns, { chains, avoidFamily: writerFamily });
+        if (verified) flat.forEach((st, k) => Object.assign(st, verified.verdicts[k]));
+        else flat.forEach(st => { st.label = 'unverified'; });
+        return { note, sections, summary: grounding.summarize(sections), verifier: verified ? verified.provider : null };
+    };
+
+    const first = await generate();
+    let chosen = { gen: first, grounded: await ground(first.result, first.family) };
+    const cascade = { escalated: false };
+
+    // Verification-gated cascade: too many unsupported sentences -> one retry on a different vendor
+    const ratio = chosen.grounded.summary && chosen.grounded.summary.unsupported_ratio;
+    if (GROUNDING_ENABLED && ratio !== null && ratio !== undefined && ratio > GROUNDING_GATE) {
+        try {
+            const second = await generate(first.family);
+            const groundedSecond = await ground(second.result, second.family);
+            const ratio2 = groundedSecond.summary && groundedSecond.summary.unsupported_ratio !== null ? groundedSecond.summary.unsupported_ratio : 1;
+            cascade.escalated = true;
+            cascade.reason = `${Math.round(ratio * 100)}% of sentences unsupported (gate ${Math.round(GROUNDING_GATE * 100)}%)`;
+            cascade.candidates = [
+                { provider: first.provider, unsupported_ratio: ratio },
+                { provider: second.provider, unsupported_ratio: ratio2 },
+            ];
+            if (ratio2 < ratio) chosen = { gen: second, grounded: groundedSecond };
+            cascade.kept = chosen.gen.provider;
+        } catch (err) {
+            cascade.error = err.message;
+        }
+    }
+
+    const parsedData = chosen.grounded.note;
+    parsedData._provider = chosen.gen.provider;
+    parsedData._providerAttempts = chosen.gen.attempts;
+    parsedData.grounding = {
+        turns: numbered.turns.map(t => ({ id: t.id, role: t.role })),
+        sections: chosen.grounded.sections,
+        summary: chosen.grounded.summary,
+        verifier: chosen.grounded.verifier,
+        gate: GROUNDING_GATE,
+        cascade,
+    };
+
+    if (RISK_SECOND_OPINION) {
+        parsedData.risk_assessment.consensus = await secondOpinionRisk(numbered.prompt, mode, parsedData.risk_assessment, chosen.gen.family, chains);
+    }
     return parsedData;
+}
+
+const GROUNDING_ENABLED = process.env.NOTE_GROUNDING !== 'off';
+const GROUNDING_GATE = Math.min(1, Math.max(0, Number(process.env.GROUNDING_GATE ?? 0.2)));
+const RISK_SECOND_OPINION = process.env.RISK_SECOND_OPINION !== 'off';
+
+function riskFlag(risk, mode) {
+    if (!risk) return false;
+    const level = (v) => ['moderate', 'high'].includes(String(v || '').toLowerCase());
+    return mode === 'Mentoring'
+        ? !!(risk.academic_burnout || level(risk.severe_distress_risk))
+        : !!(risk.suicidal_ideation || level(risk.self_harm_risk));
+}
+
+/**
+ * Independent risk screen by a second vendor. The flag is raised if either model raises it
+ * (sensitivity first); disagreement is surfaced as "needs review" rather than resolved silently.
+ */
+async function secondOpinionRisk(numberedTranscript, mode, primaryRisk, writerFamily, chains) {
+    const therapy = mode !== 'Mentoring';
+    const schema = therapy
+        ? '{"suicidal_ideation": false, "self_harm_risk": "low|moderate|high", "evidence_turns": [3, 7], "notes": "one sentence"}'
+        : '{"academic_burnout": false, "severe_distress_risk": "low|moderate|high", "evidence_turns": [3, 7], "notes": "one sentence"}';
+    const focus = therapy
+        ? 'language suggesting suicidal ideation or self-harm by the patient'
+        : 'signs of academic burnout or severe distress in the mentee';
+
+    try {
+        const { result, provider } = await runChain('VERIFY', async (adapter) => {
+            const reply = await adapter.chatCompletion(
+                'You screen session transcripts for safety concerns so that a licensed professional can review them. You do not diagnose. Respond with valid JSON only.',
+                `Read the numbered transcript and judge only ${focus}. Cite the turns you relied on.\n\nTRANSCRIPT:\n"""\n${numberedTranscript}\n"""\n\nReturn ONLY valid JSON: ${schema}`,
+                { json: true, temperature: 0 });
+            return parseJsonResponse(reply);
+        }, { chains, avoidFamily: writerFamily });
+
+        const a = riskFlag(primaryRisk, mode);
+        const b = riskFlag(result, mode);
+        return {
+            second_opinion: result,
+            second_provider: provider,
+            agree: a === b,
+            flagged: a || b,
+            needs_review: a !== b,
+        };
+    } catch (err) {
+        return { error: 'Second-opinion screen unavailable: ' + err.message, flagged: riskFlag(primaryRisk, mode), needs_review: true };
+    }
 }
 
 // --- Speech-to-Text (STT slot) ---
