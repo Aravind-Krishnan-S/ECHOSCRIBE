@@ -32,7 +32,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
     storage,
-    limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
+    // Local app: sessions are not capped by length; MAX_UPLOAD_MB guards against runaway files
+    limits: { fileSize: (Number(process.env.MAX_UPLOAD_MB) || 2048) * 1024 * 1024 },
 });
 
 // All routes here require authentication (middleware applied in index.js)

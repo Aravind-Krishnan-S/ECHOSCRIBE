@@ -85,7 +85,10 @@ app.use((req, res, next) => {
             const { complianceLogger } = require('./middleware/compliance');
 
             // Protected API routes — with tiered rate limiting for AI endpoints
+            // Per-minute AI caps protect a shared server; a local single-user app turns them off (AI_RATE_LIMITS=on to enable)
+            const aiLimitsOn = process.env.AI_RATE_LIMITS === 'on';
             app.use('/api', requireAuth, complianceLogger, attachProviderChains, (req2, res2, next2) => {
+                if (!aiLimitsOn) return next2();
                 const path = req2.path;
                 const method = req2.method;
 

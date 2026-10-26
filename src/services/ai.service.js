@@ -271,22 +271,25 @@ async function secondOpinionRisk(numberedTranscript, mode, primaryRisk, writerFa
 
 // --- Speech-to-Text (STT slot) ---
 
-async function transcribeAudio(audioBuffer, mimeType, lang = 'en', { chains } = {}) {
+async function transcribeAudio(audioBuffer, mimeType, lang = 'en', { chains, durationSec } = {}) {
     const { result, provider, attempts } = await runChain('STT', (adapter) =>
-        adapter.transcribeAudioBuffer(audioBuffer, mimeType, { lang }), { chains });
+        adapter.transcribeAudioBuffer(audioBuffer, mimeType, { lang }),
+        { chains, timeoutMs: durationSec ? durationSec * 4000 : 0 });
     return { text: result || '', _provider: provider, _attempts: attempts };
 }
 
 // --- Audio Diarization (DIARIZE slot: SpeechBrain → cloud fallbacks) ---
 
-async function diarizeAudio(audioBuffer, mimeType, lang = 'en', { chains } = {}) {
-    const { result, provider, attempts } = await runChain('DIARIZE', async (adapter) => {
-        const out = await adapter.diarizeAudioBuffer(audioBuffer, mimeType, { lang, numSpeakers: 2 });
+async function diarizeAudio(audioBuffer, mimeType, lang = 'en', { chains, durationSec, cloudAudio } = {}) {
+    const { result, provider, attempts } = await runChain('DIARIZE', async (adapter, pool) => {
+        // The local SpeechBrain service gets the original recording; cloud models get the compact copy
+        const useCloud = cloudAudio && pool.family !== 'speechbrain';
+        const out = await adapter.diarizeAudioBuffer(useCloud ? cloudAudio.buffer : audioBuffer, useCloud ? cloudAudio.mimeType : mimeType, { lang, numSpeakers: 2 });
         if (!out || !Array.isArray(out.turns) || out.turns.length === 0) {
             throw new Error('Diarization returned no speaker turns');
         }
         return out;
-    }, { chains });
+    }, { chains, timeoutMs: durationSec ? durationSec * 10000 : 0 });
     return { turns: result.turns, enhancedBuffer: result.enhancedBuffer || null, _provider: provider, _attempts: attempts };
 }
 

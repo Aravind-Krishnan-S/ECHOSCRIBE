@@ -1,4 +1,5 @@
 const { transcribeAudio, diarizeAudio, identifyRoles, diarizeTranscript } = require('../services/ai.service');
+const audioPrep = require('../services/audio-prep');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
 
@@ -68,8 +69,12 @@ const transcribe = asyncHandler(async (req, res) => {
         let diarizationProvider = 'None (STT only)';
         let enhancedBuffer = null;
 
+        // Long local sessions: measure the length and give cloud models a compact mono Opus copy
+        const durationSec = await audioPrep.probeDuration(audioBuffer).catch(() => null);
+        const cloudAudio = await audioPrep.toCompactOpus(audioBuffer, mimeType).catch(() => ({ buffer: audioBuffer, mimeType }));
+
         try {
-            const diar = await diarizeAudio(audioBuffer, mimeType, lang, { chains });
+            const diar = await diarizeAudio(audioBuffer, mimeType, lang, { chains, durationSec, cloudAudio });
             diarizedTurns = diar.turns;
             diarizationProvider = diar._provider;
             enhancedBuffer = diar.enhancedBuffer;
@@ -78,9 +83,10 @@ const transcribe = asyncHandler(async (req, res) => {
             console.warn('[Transcribe] Every diarization provider failed; continuing with STT only:', err.message);
         }
 
-        const sttResult = enhancedBuffer
-            ? await transcribeAudio(enhancedBuffer, 'audio/wav', lang, { chains })
-            : await transcribeAudio(audioBuffer, mimeType, lang, { chains });
+        const sttInput = enhancedBuffer
+            ? await audioPrep.toCompactOpus(enhancedBuffer, 'audio/wav').catch(() => ({ buffer: enhancedBuffer, mimeType: 'audio/wav' }))
+            : cloudAudio;
+        const sttResult = await transcribeAudio(sttInput.buffer, sttInput.mimeType, lang, { chains, durationSec });
         const transcribedText = sttResult.text;
 
         // ─── No audio diarization: split the transcript into speakers with the text model ───
@@ -126,6 +132,7 @@ const transcribe = asyncHandler(async (req, res) => {
             _diarizationProvider: diarizationProvider,
             _roleProvider: roleProvider,
             _enhancedBySpeechBrain: !!enhancedBuffer,
+            durationSec,
         });
     } catch (err) {
         console.error('[Transcribe] Error:', err.message || err);

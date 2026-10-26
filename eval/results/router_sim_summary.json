@@ -1,0 +1,497 @@
+[
+ {
+  "scenario": "quota",
+  "condition": "nomemory",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9997,
+   "sd": 0.0008
+  },
+  "calls_per_request": {
+   "mean": 1.476,
+   "sd": 0.0282
+  },
+  "failed_calls_per_request": {
+   "mean": 0.4762,
+   "sd": 0.028
+  },
+  "latency_p50_s": {
+   "mean": 1.362,
+   "sd": 0.0303
+  },
+  "latency_p95_s": {
+   "mean": 2.444,
+   "sd": 0.0288
+  },
+  "latency_mean_s": {
+   "mean": 1.46,
+   "sd": 0.0332
+  },
+  "jain_fairness": {
+   "mean": 0.6306,
+   "sd": 0.0147
+  }
+ },
+ {
+  "scenario": "quota",
+  "condition": "fixed60",
+  "n": 5,
+  "success_rate": {
+   "mean": 1,
+   "sd": 0
+  },
+  "calls_per_request": {
+   "mean": 1.0978,
+   "sd": 0.0106
+  },
+  "failed_calls_per_request": {
+   "mean": 0.0978,
+   "sd": 0.0106
+  },
+  "latency_p50_s": {
+   "mean": 1.19,
+   "sd": 0.0394
+  },
+  "latency_p95_s": {
+   "mean": 2.28,
+   "sd": 0.1025
+  },
+  "latency_mean_s": {
+   "mean": 1.286,
+   "sd": 0.0434
+  },
+  "jain_fairness": {
+   "mean": 0.7858,
+   "sd": 0.0117
+  }
+ },
+ {
+  "scenario": "quota",
+  "condition": "priority",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9997,
+   "sd": 0.0008
+  },
+  "calls_per_request": {
+   "mean": 1.2268,
+   "sd": 0.0088
+  },
+  "failed_calls_per_request": {
+   "mean": 0.227,
+   "sd": 0.0088
+  },
+  "latency_p50_s": {
+   "mean": 1.324,
+   "sd": 0.0378
+  },
+  "latency_p95_s": {
+   "mean": 2.374,
+   "sd": 0.0835
+  },
+  "latency_mean_s": {
+   "mean": 1.398,
+   "sd": 0.037
+  },
+  "jain_fairness": {
+   "mean": 0.6468,
+   "sd": 0.0143
+  }
+ },
+ {
+  "scenario": "quota",
+  "condition": "round-robin",
+  "n": 5,
+  "success_rate": {
+   "mean": 1,
+   "sd": 0
+  },
+  "calls_per_request": {
+   "mean": 1.0136,
+   "sd": 0.0054
+  },
+  "failed_calls_per_request": {
+   "mean": 0.0136,
+   "sd": 0.0054
+  },
+  "latency_p50_s": {
+   "mean": 1.33,
+   "sd": 0.043
+  },
+  "latency_p95_s": {
+   "mean": 2.7,
+   "sd": 0.0889
+  },
+  "latency_mean_s": {
+   "mean": 1.456,
+   "sd": 0.0261
+  },
+  "jain_fairness": {
+   "mean": 0.8986,
+   "sd": 0.0074
+  }
+ },
+ {
+  "scenario": "quota",
+  "condition": "lkgp",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9997,
+   "sd": 0.0008
+  },
+  "calls_per_request": {
+   "mean": 1.0324,
+   "sd": 0.006
+  },
+  "failed_calls_per_request": {
+   "mean": 0.0328,
+   "sd": 0.0065
+  },
+  "latency_p50_s": {
+   "mean": 0.954,
+   "sd": 0.0391
+  },
+  "latency_p95_s": {
+   "mean": 1.888,
+   "sd": 0.1045
+  },
+  "latency_mean_s": {
+   "mean": 1.052,
+   "sd": 0.0415
+  },
+  "jain_fairness": {
+   "mean": 0.5438,
+   "sd": 0.0493
+  }
+ },
+ {
+  "scenario": "outage",
+  "condition": "nomemory",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9997,
+   "sd": 0.0008
+  },
+  "calls_per_request": {
+   "mean": 1.2904,
+   "sd": 0.0077
+  },
+  "failed_calls_per_request": {
+   "mean": 0.2908,
+   "sd": 0.0081
+  },
+  "latency_p50_s": {
+   "mean": 1.364,
+   "sd": 0.027
+  },
+  "latency_p95_s": {
+   "mean": 2.422,
+   "sd": 0.0779
+  },
+  "latency_mean_s": {
+   "mean": 1.466,
+   "sd": 0.0336
+  },
+  "jain_fairness": {
+   "mean": 0.679,
+   "sd": 0.0067
+  }
+ },
+ {
+  "scenario": "outage",
+  "condition": "fixed60",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9989,
+   "sd": 0.0024
+  },
+  "calls_per_request": {
+   "mean": 1.086,
+   "sd": 0.0085
+  },
+  "failed_calls_per_request": {
+   "mean": 0.087,
+   "sd": 0.0098
+  },
+  "latency_p50_s": {
+   "mean": 1.252,
+   "sd": 0.0342
+  },
+  "latency_p95_s": {
+   "mean": 2.378,
+   "sd": 0.0733
+  },
+  "latency_mean_s": {
+   "mean": 1.352,
+   "sd": 0.0277
+  },
+  "jain_fairness": {
+   "mean": 0.735,
+   "sd": 0.0221
+  }
+ },
+ {
+  "scenario": "outage",
+  "condition": "priority",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9997,
+   "sd": 0.0008
+  },
+  "calls_per_request": {
+   "mean": 1.0622,
+   "sd": 0.0077
+  },
+  "failed_calls_per_request": {
+   "mean": 0.0624,
+   "sd": 0.0081
+  },
+  "latency_p50_s": {
+   "mean": 1.22,
+   "sd": 0.0632
+  },
+  "latency_p95_s": {
+   "mean": 2.324,
+   "sd": 0.1172
+  },
+  "latency_mean_s": {
+   "mean": 1.308,
+   "sd": 0.054
+  },
+  "jain_fairness": {
+   "mean": 0.7696,
+   "sd": 0.0232
+  }
+ },
+ {
+  "scenario": "outage",
+  "condition": "round-robin",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9993,
+   "sd": 0.001
+  },
+  "calls_per_request": {
+   "mean": 1.0572,
+   "sd": 0.0091
+  },
+  "failed_calls_per_request": {
+   "mean": 0.058,
+   "sd": 0.0101
+  },
+  "latency_p50_s": {
+   "mean": 1.276,
+   "sd": 0.0439
+  },
+  "latency_p95_s": {
+   "mean": 2.686,
+   "sd": 0.1337
+  },
+  "latency_mean_s": {
+   "mean": 1.412,
+   "sd": 0.0432
+  },
+  "jain_fairness": {
+   "mean": 0.8336,
+   "sd": 0.0082
+  }
+ },
+ {
+  "scenario": "outage",
+  "condition": "lkgp",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9993,
+   "sd": 0.0009
+  },
+  "calls_per_request": {
+   "mean": 1.0396,
+   "sd": 0.0122
+  },
+  "failed_calls_per_request": {
+   "mean": 0.0402,
+   "sd": 0.0129
+  },
+  "latency_p50_s": {
+   "mean": 1.132,
+   "sd": 0.0581
+  },
+  "latency_p95_s": {
+   "mean": 2.43,
+   "sd": 0.2245
+  },
+  "latency_mean_s": {
+   "mean": 1.268,
+   "sd": 0.076
+  },
+  "jain_fairness": {
+   "mean": 0.8724,
+   "sd": 0.0747
+  }
+ },
+ {
+  "scenario": "mixed",
+  "condition": "nomemory",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9993,
+   "sd": 0.0009
+  },
+  "calls_per_request": {
+   "mean": 1.4966,
+   "sd": 0.0295
+  },
+  "failed_calls_per_request": {
+   "mean": 0.497,
+   "sd": 0.0296
+  },
+  "latency_p50_s": {
+   "mean": 1.342,
+   "sd": 0.0164
+  },
+  "latency_p95_s": {
+   "mean": 31.758,
+   "sd": 0.2441
+  },
+  "latency_mean_s": {
+   "mean": 3.794,
+   "sd": 0.2875
+  },
+  "jain_fairness": {
+   "mean": 0.4892,
+   "sd": 0.0242
+  }
+ },
+ {
+  "scenario": "mixed",
+  "condition": "fixed60",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9814,
+   "sd": 0.0218
+  },
+  "calls_per_request": {
+   "mean": 1.1286,
+   "sd": 0.0184
+  },
+  "failed_calls_per_request": {
+   "mean": 0.147,
+   "sd": 0.005
+  },
+  "latency_p50_s": {
+   "mean": 1.338,
+   "sd": 0.0179
+  },
+  "latency_p95_s": {
+   "mean": 31.536,
+   "sd": 0.1466
+  },
+  "latency_mean_s": {
+   "mean": 3.678,
+   "sd": 0.0779
+  },
+  "jain_fairness": {
+   "mean": 0.6432,
+   "sd": 0.0296
+  }
+ },
+ {
+  "scenario": "mixed",
+  "condition": "priority",
+  "n": 5,
+  "success_rate": {
+   "mean": 0.9986,
+   "sd": 0.0014
+  },
+  "calls_per_request": {
+   "mean": 1.257,
+   "sd": 0.0176
+  },
+  "failed_calls_per_request": {
+   "mean": 0.2584,
+   "sd": 0.0172
+  },
+  "latency_p50_s": {
+   "mean": 1.31,
+   "sd": 0.0255
+  },
+  "latency_p95_s": {
+   "mean": 31.684,
+   "sd": 0.1937
+  },
+  "latency_mean_s": {
+   "mean": 3.88,
+   "sd": 0.3515
+  },
+  "jain_fairness": {
+   "mean": 0.4946,
+   "sd": 0.0139
+  }
+ },
+ {
+  "scenario": "mixed",
+  "condition": "round-robin",
+  "n": 5,
+  "success_rate": {
+   "mean": 1,
+   "sd": 0
+  },
+  "calls_per_request": {
+   "mean": 1.0918,
+   "sd": 0.01
+  },
+  "failed_calls_per_request": {
+   "mean": 0.0918,
+   "sd": 0.01
+  },
+  "latency_p50_s": {
+   "mean": 1.434,
+   "sd": 0.0472
+  },
+  "latency_p95_s": {
+   "mean": 31.364,
+   "sd": 0.171
+  },
+  "latency_mean_s": {
+   "mean": 3.478,
+   "sd": 0.2146
+  },
+  "jain_fairness": {
+   "mean": 0.6578,
+   "sd": 0.0153
+  }
+ },
+ {
+  "scenario": "mixed",
+  "condition": "lkgp",
+  "n": 5,
+  "success_rate": {
+   "mean": 1,
+   "sd": 0
+  },
+  "calls_per_request": {
+   "mean": 1.097,
+   "sd": 0.0214
+  },
+  "failed_calls_per_request": {
+   "mean": 0.097,
+   "sd": 0.0214
+  },
+  "latency_p50_s": {
+   "mean": 1.584,
+   "sd": 0.0568
+  },
+  "latency_p95_s": {
+   "mean": 9.056,
+   "sd": 12.2634
+  },
+  "latency_mean_s": {
+   "mean": 2.748,
+   "sd": 0.2538
+  },
+  "jain_fairness": {
+   "mean": 0.4932,
+   "sd": 0.067
+  }
+ }
+]

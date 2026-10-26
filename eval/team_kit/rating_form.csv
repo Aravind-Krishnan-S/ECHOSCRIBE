@@ -1,0 +1,3 @@
+rater_id,session_id,note_label,mode,accuracy_1to5,completeness_1to5,unsupported_content_1to5,attribution_1to5,usefulness_1to5,unsupported_sentence_count,comments
+R1,S01,A,therapy,,,,,,,
+R1,S01,B,therapy,,,,,,,

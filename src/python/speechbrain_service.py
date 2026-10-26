@@ -26,6 +26,25 @@ if not hasattr(torchaudio, 'list_audio_backends'):
     torchaudio.list_audio_backends = lambda: ['soundfile']
 if not hasattr(torchaudio, 'set_audio_backend'):
     torchaudio.set_audio_backend = lambda backend: None
+
+# ─── huggingface_hub Compatibility Patch ───
+# huggingface_hub 1.0+ removed arguments SpeechBrain 1.0.x still passes to hf_hub_download()
+# (use_auth_token, local_dir_use_symlinks, force_filename) and reports a missing file with its own
+# exception instead of requests' HTTPError, which SpeechBrain expects when it probes for the
+# optional custom.py. Adapt both directions before SpeechBrain imports the function.
+import huggingface_hub
+import requests
+_hf_hub_download = huggingface_hub.hf_hub_download
+def _hf_hub_download_compat(*args, use_auth_token=None, local_dir_use_symlinks=None, force_filename=None, **kwargs):
+    if use_auth_token is not None and 'token' not in kwargs:
+        kwargs['token'] = use_auth_token if use_auth_token is not True else None
+    try:
+        return _hf_hub_download(*args, **kwargs)
+    except Exception as e:
+        if type(e).__name__ in ('EntryNotFoundError', 'RemoteEntryNotFoundError') or '404' in str(e):
+            raise requests.exceptions.HTTPError(f"404 Client Error: {e}") from e
+        raise
+huggingface_hub.hf_hub_download = _hf_hub_download_compat
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware

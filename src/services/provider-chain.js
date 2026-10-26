@@ -363,14 +363,15 @@ function scrub(message, key) {
  *        avoidFamily moves that vendor's targets to the end (cross-vendor verification)
  * @returns {Promise<{ result, provider: string, family: string, strategy: string, attempts: object[] }>}
  */
-async function runChain(slot, invoke, { chains, avoidFamily } = {}) {
+async function runChain(slot, invoke, { chains, avoidFamily, timeoutMs: minTimeoutMs } = {}) {
     const def = SLOTS[slot];
     if (!def) throw new Error(`Unknown provider slot "${slot}"`);
 
     const userCombo = def.userConfigurable && chains && chains[slot];
     const { entries, strategy } = userCombo || getServerChain(slot);
     const comboName = `${userCombo ? 'user' : 'server'}:${slot}`;
-    const timeoutMs = Number(process.env[`ROLE_TIMEOUT_${slot}`]) || def.timeoutMs;
+    // Long sessions: callers pass a duration-scaled minimum so an hour of audio is not cut off
+    const timeoutMs = Math.max(Number(process.env[`ROLE_TIMEOUT_${slot}`]) || def.timeoutMs, minTimeoutMs || 0);
     let ordered = strategies.orderTargets(strategy, entries.map(e => ({ id: poolId(e), entry: e })), comboName);
     if (avoidFamily) {
         ordered = [...ordered.filter(t => t.entry.family !== avoidFamily), ...ordered.filter(t => t.entry.family === avoidFamily)];

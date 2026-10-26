@@ -30,3 +30,7 @@ build/
 
 # Design tooling output
 .taste-skill/
+
+# Evaluation datasets (downloaded)
+eval/data/
+eval/.venv/
