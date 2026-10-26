@@ -112,6 +112,11 @@ function parseChainString(str, slot) {
     return usable(mergeEntries(entries));
 }
 
+/** True when an OmniRoute key is configured — the gateway then owns model switching. */
+function omniRouteEnabled() {
+    return legacyKeys('omniroute').length > 0;
+}
+
 function referenceChain(slot) {
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     // Llama 3.3 70B (used in the paper's evaluation) has been retired by Groq; gpt-oss-120b replaces it
@@ -123,6 +128,23 @@ function referenceChain(slot) {
     const deepgram = { family: 'deepgram', model: deepgramModel, keys: legacyKeys('deepgram') };
     const sb = { family: 'speechbrain', model: 'ecapa-tdnn', keys: [] };
 
+    // OmniRoute mode: one OmniRoute call per role and OmniRoute's combos do the model
+    // switching. Diarization stays on the local SpeechBrain service; when it is down the
+    // pipeline splits the transcript into speakers with an OmniRoute text call instead.
+    if (omniRouteEnabled()) {
+        const omni = (model) => ({ family: 'omniroute', model, keys: legacyKeys('omniroute') });
+        const chatModel = (s) => process.env[`OMNIROUTE_MODEL_${s}`] || process.env.OMNIROUTE_MODEL || 'auto';
+        const omniRoute = {
+            STT: [omni(process.env.OMNIROUTE_MODEL_STT || 'groq/whisper-large-v3')],
+            DIARIZE: [sb],
+            ROLE_LABEL: [omni(chatModel('ROLE_LABEL'))],
+            NOTE_SYNTH: [omni(chatModel('NOTE_SYNTH'))],
+            PROFILE_GEN: [omni(chatModel('PROFILE_GEN'))],
+        };
+        return usable(omniRoute[slot]);
+    }
+
+    // Direct mode (no OmniRoute key): the in-house ordered fallback across vendors
     const reference = {
         STT: [gemini, deepgram, { family: 'groq', model: groqSttModel, keys: legacyKeys('groq') }],
         DIARIZE: [sb, deepgram, gemini],
@@ -143,7 +165,7 @@ function getServerChain(slot) {
             console.error(`[ProviderChain] ${err.message} — using reference configuration`);
         }
     }
-    return { entries: referenceChain(slot), source: 'reference' };
+    return { entries: referenceChain(slot), source: omniRouteEnabled() ? 'omniroute' : 'reference' };
 }
 
 // ─── Per-user overrides (Provider Settings panel) ───
@@ -302,6 +324,7 @@ module.exports = {
     SLOTS,
     runChain,
     getServerChain,
+    omniRouteEnabled,
     parseChainString,
     parseUserChains,
     attachProviderChains,

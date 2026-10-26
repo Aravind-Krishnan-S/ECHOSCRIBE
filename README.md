@@ -30,6 +30,24 @@
 
 ## 🧪 AI Provider Architecture
 
+### OmniRoute mode (default when `OMNIROUTE_API_KEY` is set)
+
+AI calls go through a self-hosted [OmniRoute](https://github.com/diegosouzapw/OmniRoute) gateway, and **OmniRoute
+does the model switching** (quota, rate limits, outages) using the combos you build in its dashboard. EchoScribe makes
+one call per role:
+
+| Role | Goes to | Model (env) |
+|---|---|---|
+| STT | OmniRoute `/v1/audio/transcriptions` | `OMNIROUTE_MODEL_STT` (default `groq/whisper-large-v3`) |
+| DIARIZE | Local SpeechBrain; if it is down, the transcript is split into speakers by an OmniRoute text call | — |
+| ROLE_LABEL · NOTE_SYNTH · PROFILE_GEN | OmniRoute `/v1/chat/completions` | `OMNIROUTE_MODEL_<SLOT>` or `OMNIROUTE_MODEL` (default `auto`) |
+
+Setup: `npm install -g omniroute && omniroute` (or Docker), open the dashboard at http://localhost:20128, connect
+your providers, create combos (e.g. `echoscribe-notes` = Gemini Flash → gpt-oss-120b), copy a key from
+**Endpoints**, and set `OMNIROUTE_API_KEY` (plus the model/combo names) in `.env`.
+
+### Direct mode (no OmniRoute key)
+
 Provider selection is a runtime setting, not code. Each processing **role** walks an ordered
 **provider chain** until one entry succeeds; when every entry fails the API returns
 **HTTP 503** with a structured list of the providers attempted.

@@ -154,7 +154,8 @@ registerFamily('groq', {
 
             // Whisper models (e.g. whisper-large-v3) served by Groq
             async transcribeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
-                const ext = mime.extension(String(mimeType).split(';')[0]) || 'webm';
+                const found = mime.extension(String(mimeType).split(';')[0]) || 'webm';
+                const ext = found === 'mpga' ? 'mp3' : found;
                 const result = await client.audio.transcriptions.create({
                     file: await Groq.toFile(buffer, `audio.${ext}`),
                     model,
@@ -169,6 +170,77 @@ registerFamily('groq', {
                 if (!list.data.some(m => m.id === model)) {
                     throw new Error(`Model "${model}" is not available for this Groq key`);
                 }
+            },
+        };
+    },
+});
+
+// ─── OmniRoute (self-hosted OpenAI-compatible gateway) ───
+// https://github.com/diegosouzapw/OmniRoute — one endpoint in front of many providers.
+// The model may be a concrete model (e.g. "groq/whisper-large-v3") or an OmniRoute combo
+// such as "auto"; OmniRoute then does the model switching (quota, rate-limit, outage).
+
+registerFamily('omniroute', {
+    label: 'OmniRoute gateway',
+    capabilities: ['chat', 'transcribe'],
+    create({ apiKey, model }) {
+        const mime = require('mime-types');
+        const baseUrl = (process.env.OMNIROUTE_URL || 'http://localhost:20128/v1').replace(/\/+$/, '');
+
+        async function request(path, init = {}) {
+            const headers = { 'Authorization': `Bearer ${apiKey}`, ...init.headers };
+            if (!(init.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+            const res = await fetch(baseUrl + path, { ...init, headers });
+            const body = await res.text();
+            if (!res.ok) {
+                const err = new Error(`OmniRoute ${res.status}: ${body.slice(0, 300)}`);
+                err.status = res.status;
+                throw err;
+            }
+            return body ? JSON.parse(body) : {};
+        }
+
+        async function chatCompletion(systemPrompt, userPrompt, { json = false, temperature = 0.3, maxTokens = 8000 } = {}) {
+            const payload = {
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                temperature,
+                max_tokens: maxTokens,
+            };
+            if (json) payload.response_format = { type: 'json_object' };
+
+            let data;
+            try {
+                data = await request('/chat/completions', { method: 'POST', body: JSON.stringify(payload) });
+            } catch (err) {
+                // Some upstream models behind the gateway reject JSON mode; the prompts already demand JSON
+                if (!json || err.status !== 400 || !/response_format|json/i.test(err.message)) throw err;
+                delete payload.response_format;
+                data = await request('/chat/completions', { method: 'POST', body: JSON.stringify(payload) });
+            }
+            return data.choices?.[0]?.message?.content || '';
+        }
+
+        return {
+            chatCompletion,
+
+            // OpenAI-style multipart transcription; OmniRoute routes it to Whisper, Deepgram, etc.
+            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+                const type = String(mimeType || 'audio/webm').split(';')[0];
+                const form = new FormData();
+                const ext = mime.extension(type) || 'webm';
+                form.append('file', new Blob([buffer], { type }), `audio.${ext === 'mpga' ? 'mp3' : ext}`);
+                form.append('model', model);
+                form.append('language', lang);
+                const data = await request('/audio/transcriptions', { method: 'POST', body: form });
+                return data.text || '';
+            },
+
+            async testConnection() {
+                await request('/models');
             },
         };
     },

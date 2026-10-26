@@ -83,9 +83,16 @@ const transcribe = asyncHandler(async (req, res) => {
             : await transcribeAudio(audioBuffer, mimeType, lang, { chains });
         const transcribedText = sttResult.text;
 
-        // ─── Handle empty diarization if ALL diarization failed ───
+        // ─── No audio diarization: split the transcript into speakers with the text model ───
         if (diarizedTurns.length === 0 && transcribedText) {
-            diarizedTurns = [{ speaker: '0', start: 0, end: 1, text: transcribedText }];
+            const textTurns = await diarizeTranscript(transcribedText, { chains });
+            diarizedTurns = textTurns.map((t, idx) => ({
+                speaker: String(Math.max(0, (Number(t.speaker) || 1) - 1)), // Person 1/2 → speaker_0/1
+                start: idx,
+                end: idx + 1,
+                text: t.text || '',
+            }));
+            diarizationProvider = textTurns.length > 1 ? 'Transcript-based (ROLE_LABEL model)' : 'None (STT only)';
         }
 
         // ─── Fill empty SpeechBrain turns with STT transcript ───

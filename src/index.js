@@ -134,7 +134,10 @@ if (require.main === module) {
 
         // Log the resolved provider chain for each role
         try {
-            const { describeServerChains } = require('./services/provider-chain');
+            const { describeServerChains, omniRouteEnabled } = require('./services/provider-chain');
+            console.log(omniRouteEnabled()
+                ? `[ProviderChain] OmniRoute mode — model switching handled by OmniRoute at ${process.env.OMNIROUTE_URL || 'http://localhost:20128/v1'}`
+                : '[ProviderChain] ⚠️ OMNIROUTE_API_KEY not set — using the direct in-house fallback chain');
             for (const [slot, c] of Object.entries(describeServerChains())) {
                 const list = c.entries.map(e => `${e.family}:${e.model}${e.keyCount > 1 ? ` ×${e.keyCount} keys` : ''}`).join(' → ') || '(none configured)';
                 console.log(`[ProviderChain] ${slot.padEnd(11)} ${list}  [${c.source}]`);
