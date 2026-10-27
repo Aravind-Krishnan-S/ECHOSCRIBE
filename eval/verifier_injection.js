@@ -13,10 +13,12 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 
 const writer = process.argv[2];
+const limit = Number(process.argv[3]) || Infinity;   // Groq's daily token cap limits how many notes it can verify in one day
 if (!['gemini', 'groq'].includes(writer)) throw new Error('writer must be gemini or groq');
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
-process.env.ROLE_CHAIN_VERIFY = `groq:${GROQ_MODEL},gemini:${GEMINI_MODEL}`;
+const GEMINI_ROTATION = (process.env.GEMINI_MODELS || GEMINI_MODEL).split(',').map(m => m.trim()).filter(Boolean);
+process.env.ROLE_CHAIN_VERIFY = [`groq:${GROQ_MODEL}`, ...GEMINI_ROTATION.map(m => `gemini:${m}`)].join(',');
 process.env.ROLE_TIMEOUT_VERIFY = '240000';
 
 const grounding = require('../src/services/grounding');
@@ -59,7 +61,7 @@ function perturbNegation(text) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-    for (const note of notes) {
+    for (const note of notes.slice(0, limit)) {
         if (done.has(note.file)) continue;
         const item = aci.find(a => a.file === note.file);
         const { turns } = grounding.numberTranscript(toTranscript(item.src));

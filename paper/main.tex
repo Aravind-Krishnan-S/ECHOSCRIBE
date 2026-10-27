@@ -1,6 +1,10 @@
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
-\usepackage[utf8]{inputenc}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+\fi
+% T1 Times under pdfLaTeX (Overleaf) and XeTeX (Tectonic) alike, as IEEEtran expects
 \usepackage[T1]{fontenc}
 \usepackage{cite}
 \usepackage{amsmath,amssymb}
@@ -95,6 +99,13 @@ Roles are resolved without voice enrolment. For each speaker the system computes
 The labelled transcript is numbered into turns $T_1\dots T_n$. \role{NOTE\_SYNTH} must end every sentence of the note sections, and of the risk notes, with the turns that support it (``\dots poor sleep for two weeks [T4, T6]''), and must write ``Not discussed'' rather than an uncited sentence. Citations are parsed into per-sentence evidence and removed from the displayed text. \role{VERIFY} then receives each sentence with only its cited turns and labels it \emph{supported}, \emph{partial} (adds a detail the turns lack) or \emph{unsupported}. The router is asked to avoid the writer's vendor, so verification is cross-vendor whenever a second vendor is configured.
 
 If the unsupported fraction exceeds $\tau=0.2$, the note is regenerated with the writer's vendor moved to the end of the combo, re-verified, and the draft with fewer unsupported sentences is kept. The interface shows each sentence's evidence on hover and marks partial and unsupported sentences for the reviewer (Fig.~\ref{fig:ui}).
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/ui_summary.png}{\includegraphics[width=\columnwidth]{figures/ui_summary.png}}{\fbox{\parbox[c][42mm][c]{0.94\columnwidth}{\centering\footnotesize Screenshot of the session summary (pending)}}}
+\caption{Session summary in the EchoScribe interface. Hovering a sentence highlights the transcript turns it cites; partially supported and unsupported sentences are marked for review, and the risk panel shows whether the two screening models agree.}
+\label{fig:ui}
+\end{figure}
 
 \subsection{Risk screen with a second opinion}
 In therapy mode the writer also screens for suicidal ideation and self-harm; in mentoring mode, for burnout and severe distress. A second vendor repeats the screen independently and cites its evidence turns. The flag is raised if either model raises it, favouring sensitivity, and disagreement is shown as ``models disagree --- review the transcript''. The screen is a model judgement, not a validated instrument such as the C-SSRS or PHQ-9~\cite{posner2011cssrs,kroenke2001phq9}; language models are known to vary in suicide-risk judgements~\cite{levkovich2023}, and the interface states that the clinician remains responsible for risk assessment.

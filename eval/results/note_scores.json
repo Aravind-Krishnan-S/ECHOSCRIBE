@@ -1,0 +1,99 @@
+{
+ "E2_note_quality": {
+  "gemini": {
+   "n": 40,
+   "rouge1": 0.4538,
+   "rouge2": 0.169,
+   "rougeLsum": 0.4247,
+   "seconds_per_note": 39.47,
+   "writer": "Google Gemini (gemini-3.1-flash-lite)"
+  },
+  "groq": {
+   "n": 24,
+   "rouge1": 0.4591,
+   "rouge2": 0.1457,
+   "rougeLsum": 0.4189,
+   "seconds_per_note": 50.7042,
+   "writer": "Groq (openai/gpt-oss-120b)"
+  }
+ },
+ "E3_grounding": {
+  "gemini": {
+   "notes": 40,
+   "verifier": "Groq (openai/gpt-oss-120b)",
+   "sentences_per_note": 18.2,
+   "cited": 0.956,
+   "supported": 0.7455,
+   "partial": 0.0646,
+   "unsupported": 0.0578,
+   "notes_over_gate": 1,
+   "mean_unsupported_ratio": 0.0532
+  },
+  "groq": {
+   "notes": 24,
+   "verifier": null,
+   "sentences_per_note": 16.6,
+   "cited": 0.9698,
+   "supported": 0.7864,
+   "partial": 0.1407,
+   "unsupported": 0.0729,
+   "notes_over_gate": 1,
+   "mean_unsupported_ratio": 0.0731
+  },
+  "cascade": {
+   "gemini_first": {
+    "notes": 24,
+    "escalated": 0,
+    "switched_writer": 0,
+    "mean_unsupported_before": 0.0492,
+    "mean_unsupported_after": 0.0492,
+    "notes_over_gate_after": 0
+   },
+   "groq_first": {
+    "notes": 24,
+    "escalated": 1,
+    "switched_writer": 1,
+    "mean_unsupported_before": 0.07,
+    "mean_unsupported_after": 0.0553,
+    "notes_over_gate_after": 0
+   }
+  },
+  "planted_errors": {}
+ },
+ "E4_roles": {
+  "dialogues": 40,
+  "stats": {
+   "n": 40,
+   "correct": 38,
+   "accuracy": 0.95,
+   "ci95": [
+    0.835,
+    0.986
+   ]
+  },
+  "llm": {
+   "n": 40,
+   "correct": 37,
+   "accuracy": 0.925,
+   "ci95": [
+    0.801,
+    0.974
+   ]
+  },
+  "combined": {
+   "n": 40,
+   "correct": 39,
+   "accuracy": 0.975,
+   "ci95": [
+    0.871,
+    0.996
+   ]
+  },
+  "patient_speaks_more": {
+   "stats": 1,
+   "llm": 1,
+   "combined": 1,
+   "n": 2
+  }
+ }
+}

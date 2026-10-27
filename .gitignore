@@ -34,3 +34,8 @@ build/
 # Evaluation datasets (downloaded)
 eval/data/
 eval/.venv/
+eval/results/*.log
+paper/*.png
+paper/*.txt
+paper/compile.out
+paper/main.log

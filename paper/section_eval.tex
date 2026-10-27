@@ -1,0 +1,91 @@
+\section{Evaluation}\label{sec:eval}
+All experiments are scripted in the public repository (\texttt{eval/}) and every number below is generated from their result files.
+
+\subsection{Setup}
+\textbf{Data.} Note generation, verification and role identification use the 40 test dialogues of ACI-Bench (test1, CC~BY~4.0)~\cite{yim2023aci}, whose doctor--patient visits have reference notes; no public corpus of therapy or mentoring sessions with reference notes exists. Speech experiments use 12 simulated two-person conversations (12.5~min) built from LibriSpeech test-clean~\cite{panayotov2015librispeech}: ten alternating utterances from a mixed-gender speaker pair with 0.3--0.9~s gaps, exact reference turns, and three conditions, clean and with babble plus pink noise at 5~dB and 0~dB SNR.
+\textbf{Models.} Gemini models~\cite{gemini2023} are used in rotation across three keys; gpt-oss-120b~\cite{openai2025gptoss} and Whisper large-v3~\cite{radford2023whisper} are served by Groq. The model that served each request is logged.
+\textbf{Metrics.} ROUGE~\cite{lin2004rouge} and BERTScore~\cite{zhang2020bertscore} against reference notes; WER after text normalisation; DER with a 0.25~s collar~\cite{bredin2017metrics}; and cpWER, the speaker-attributed WER of CHiME-6~\cite{watanabe2020chime6}, which scores every speaker-separation path including those without timings. Intervals are Wilson 95\%.
+
+\subsection{Router under injected faults}
+We drive the router's own code with simulated vendors on a virtual clock: one hour of Poisson traffic at 10 requests/min against a preferred vendor (two keys), a fallback vendor (two keys) and a second fallback, in three scenarios: a per-key quota below the offered load (\emph{quota}); a 15-minute outage of the preferred vendor (\emph{outage}); and a revoked key, a quota and a fallback that times out 20\% of the time (\emph{mixed}). We compare walking the chain on every request with no memory, the fixed 60~s suspension of our earlier design, and the router with three strategies (5 seeds each, Table~\ref{tab:router}).
+
+\begin{table}[t]
+\caption{Router under injected faults (mean of 5 seeds): success rate, failed provider calls per request, and 95th-percentile latency (s).}
+\label{tab:router}
+\centering\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrrrrrrrr@{}}
+\toprule
+ & \multicolumn{3}{c}{Quota} & \multicolumn{3}{c}{Outage} & \multicolumn{3}{c}{Mixed} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(l){8-10}
+Policy & Succ. & Fail & p95 & Succ. & Fail & p95 & Succ. & Fail & p95 \\
+\midrule
+No memory   & \ResRouterQuotaNomemorySuccess & \ResRouterQuotaNomemoryFailed & \ResRouterQuotaNomemoryPninetyfive & \ResRouterOutageNomemorySuccess & \ResRouterOutageNomemoryFailed & \ResRouterOutageNomemoryPninetyfive & \ResRouterMixedNomemorySuccess & \ResRouterMixedNomemoryFailed & \ResRouterMixedNomemoryPninetyfive \\
+Fixed 60 s  & \ResRouterQuotaFixedSuccess & \ResRouterQuotaFixedFailed & \ResRouterQuotaFixedPninetyfive & \ResRouterOutageFixedSuccess & \ResRouterOutageFixedFailed & \ResRouterOutageFixedPninetyfive & \ResRouterMixedFixedSuccess & \ResRouterMixedFixedFailed & \ResRouterMixedFixedPninetyfive \\
+Priority    & \ResRouterQuotaPrioritySuccess & \ResRouterQuotaPriorityFailed & \ResRouterQuotaPriorityPninetyfive & \ResRouterOutagePrioritySuccess & \ResRouterOutagePriorityFailed & \ResRouterOutagePriorityPninetyfive & \ResRouterMixedPrioritySuccess & \ResRouterMixedPriorityFailed & \ResRouterMixedPriorityPninetyfive \\
+Round-robin & \ResRouterQuotaRoundrobinSuccess & \ResRouterQuotaRoundrobinFailed & \ResRouterQuotaRoundrobinPninetyfive & \ResRouterOutageRoundrobinSuccess & \ResRouterOutageRoundrobinFailed & \ResRouterOutageRoundrobinPninetyfive & \ResRouterMixedRoundrobinSuccess & \ResRouterMixedRoundrobinFailed & \ResRouterMixedRoundrobinPninetyfive \\
+LKGP        & \ResRouterQuotaLkgpSuccess & \ResRouterQuotaLkgpFailed & \ResRouterQuotaLkgpPninetyfive & \ResRouterOutageLkgpSuccess & \ResRouterOutageLkgpFailed & \ResRouterOutageLkgpPninetyfive & \ResRouterMixedLkgpSuccess & \ResRouterMixedLkgpFailed & \ResRouterMixedLkgpPninetyfive \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+No policy changes success much where a healthy fallback exists, so the differences lie in wasted calls and latency. The last-known-good strategy stops returning to a vendor that keeps timing out and reduces 95th-percentile latency in the mixed scenario from \ResRouterMixedPriorityPninetyfive~s to \ResRouterMixedLkgpPninetyfive~s; round-robin wastes the fewest calls and spreads load most evenly (Jain index~\cite{jain1984fairness} \ResRouterQuotaRoundrobinJain\ under quota pressure). Exponential cooldown alone is not uniformly better than a fixed suspension: under a persistent per-minute quota its 5~s first step re-probes an exhausted key (\ResRouterQuotaPriorityFailed\ against \ResRouterQuotaFixedFailed\ failed calls per request), while the fixed rule can suspend every option at once and lost requests in the mixed scenario (\ResRouterMixedFixedSuccess\ success). Priority keeps the clinician's preferred model at the cost of probing; LKGP minimises latency but can stay on a fallback model after the preferred one recovers.
+
+\subsection{Evidence-linked notes and cross-vendor verification}
+Each of the two writers produced a SOAP note with turn citations for the test dialogues, and the other vendor verified every sentence (Table~\ref{tab:notes}). Citation coverage was \ResGroundGemCited\ (Gemini) and \ResGroundGroqCited\ (gpt-oss-120b); \ResGroundGemSupported\ and \ResGroundGroqSupported\ of sentences were judged fully supported and \ResGroundGemUnsupported\ and \ResGroundGroqUnsupported\ unsupported. With the gate at $\tau=0.2$, \ResCascadeEscalated\ of \ResCascadeNotes\ Gemini-first notes would have been regenerated. ROUGE against ACI-Bench reference notes measures overlap with a differently structured visit note and is reported for comparability, not as a quality ceiling.
+
+\begin{table}[t]
+\caption{Notes on ACI-Bench test1: overlap with reference notes and cross-vendor verification of every sentence.}
+\label{tab:notes}
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Writer (verifier) & Gemini (gpt-oss) & gpt-oss (Gemini) \\
+\midrule
+Notes & \ResNoteGemN & \ResNoteGroqN \\
+ROUGE-1 / 2 / L & \ResNoteGemRougeOne\,/\,\ResNoteGemRougeTwo\,/\,\ResNoteGemRougeL & \ResNoteGroqRougeOne\,/\,\ResNoteGroqRougeTwo\,/\,\ResNoteGroqRougeL \\
+BERTScore F1 & \ResNoteGemBert & \ResNoteGroqBert \\
+Sentences per note & \ResGroundGemSentences & \ResGroundGroqSentences \\
+Sentences with citations & \ResGroundGemCited & \ResGroundGroqCited \\
+Supported / partial & \ResGroundGemSupported\,/\,\ResGroundGemPartial & \ResGroundGroqSupported\,/\,\ResGroundGroqPartial \\
+Unsupported & \ResGroundGemUnsupported & \ResGroundGroqUnsupported \\
+Notes over gate ($\tau$=0.2) & \ResGroundGemOverGate & \ResGroundGroqOverGate \\
+\midrule
+Planted errors caught: number & \ResInjGemNum & \ResInjGroqNum \\
+\quad negation & \ResInjGemNeg & \ResInjGroqNeg \\
+\quad borrowed sentence & \ResInjGemFab & \ResInjGroqFab \\
+False alarms on unchanged & \ResInjGemFa & \ResInjGroqFa \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Does the verifier catch errors?} Model-judged support is only useful if the judge detects real errors. We planted three kinds of error into sentences the verifier had accepted: a changed number, a flipped negation, and a sentence borrowed from another dialogue's note with the original citations; other accepted sentences were kept as controls. Across \ResInjPlantedN\ planted errors the verifier flagged \ResInjRecallPct\ as partial or unsupported, with \ResInjFaPct\ false alarms on \ResInjControlN\ unchanged sentences (Table~\ref{tab:notes}, bottom). Controls were sentences this verifier had already accepted, so the false-alarm rate measures consistency rather than precision on fresh sentences.
+
+\subsection{Role identification}
+With doctor and patient labels replaced by random speaker identifiers, the eight statistics alone named the clinician correctly in \ResRoleStatsCorrect\ of \ResRoleN\ dialogues (\ResRoleStats), the model alone in \ResRoleLlmCorrect\ (\ResRoleLlm), and their combination, as deployed, in \ResRoleCombinedCorrect\ (\ResRoleCombined). Only \ResRoleHardN\ dialogues had the patient speaking more than the doctor, too few to test the case the statistics are meant for; this is part of the role-play protocol below.
+
+\subsection{Speech recognition and speaker attribution}
+\begin{table}[t]
+\caption{Simulated two-person conversations (12 $\times$ 3 conditions): WER of speech-to-text with and without SepFormer, DER of SpeechBrain clustering, and speaker-attributed cpWER of each separation path (\%).}
+\label{tab:speech}
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & Clean & 5 dB & 0 dB \\
+\midrule
+WER Gemini, raw / enhanced & \ResAudioWerGemRawClean\,/\,\ResAudioWerGemEnhClean & \ResAudioWerGemRawFive\,/\,\ResAudioWerGemEnhFive & \ResAudioWerGemRawZero\,/\,\ResAudioWerGemEnhZero \\
+WER Whisper, raw / enhanced & \ResAudioWerGroqRawClean\,/\,\ResAudioWerGroqEnhClean & \ResAudioWerGroqRawFive\,/\,\ResAudioWerGroqEnhFive & \ResAudioWerGroqRawZero\,/\,\ResAudioWerGroqEnhZero \\
+DER SpeechBrain, raw / enh. & \ResAudioDerSbRawClean\,/\,\ResAudioDerSbEnhClean & \ResAudioDerSbRawFive\,/\,\ResAudioDerSbEnhFive & \ResAudioDerSbRawZero\,/\,\ResAudioDerSbEnhZero \\
+\midrule
+cpWER SpeechBrain + STT & \ResAudioCpSbRawClean & \ResAudioCpSbRawFive & \ResAudioCpSbRawZero \\
+cpWER cloud audio diarization & \ResAudioCpGemAudioClean & \ResAudioCpGemAudioFive & \ResAudioCpGemAudioZero \\
+cpWER transcript-based split & \ResAudioCpTextClean & \ResAudioCpTextFive & \ResAudioCpTextZero \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:speech} reports the speech results. \input{section_eval_speech_text.tex}
+
+Processing cost per minute of audio on a laptop CPU was \ResLatSbEnh~s for SepFormer enhancement with diarization (windowed, bounded memory), \ResLatSbDiar~s for diarization alone, \ResLatSttGroq~s for Whisper on Groq and \ResLatSttGem~s for Gemini speech-to-text.
