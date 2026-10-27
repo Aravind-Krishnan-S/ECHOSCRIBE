@@ -184,6 +184,58 @@ registerFamily('groq', {
     },
 });
 
+// ─── Mistral (chat) ───
+// https://docs.mistral.ai — OpenAI-style chat completions with JSON mode.
+// Note: the free Experiment tier requires opting in to data being used for training.
+
+registerFamily('mistral', {
+    label: 'Mistral',
+    capabilities: ['chat'],
+    create({ apiKey, model }) {
+        const BASE = (process.env.MISTRAL_BASE_URL || 'https://api.mistral.ai/v1').replace(/\/+$/, '');
+
+        async function request(path, init = {}) {
+            const res = await fetch(BASE + path, {
+                ...init,
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...init.headers },
+            });
+            const body = await res.text();
+            if (!res.ok) {
+                const err = new Error(`Mistral ${res.status}: ${body.slice(0, 300)}`);
+                err.status = res.status;
+                throw err;
+            }
+            return body ? JSON.parse(body) : {};
+        }
+
+        async function chatCompletion(systemPrompt, userPrompt, { json = false, temperature = 0.3, maxTokens = 8000 } = {}) {
+            const payload = {
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                temperature,
+                max_tokens: maxTokens,
+            };
+            if (json) payload.response_format = { type: 'json_object' };
+            const data = await request('/chat/completions', { method: 'POST', body: JSON.stringify(payload) });
+            const content = data.choices?.[0]?.message?.content;
+            // Some models return content as an array of parts
+            return Array.isArray(content) ? content.map(p => p.text || '').join('') : (content || '');
+        }
+
+        return {
+            chatCompletion,
+            async testConnection() {
+                const list = await request('/models');
+                const ids = (list.data || []).map(m => m.id);
+                if (ids.length && !ids.includes(model)) throw new Error(`Model "${model}" is not available for this Mistral key`);
+            },
+        };
+    },
+});
+
 // ─── Deepgram (audio only) ───
 
 registerFamily('deepgram', {

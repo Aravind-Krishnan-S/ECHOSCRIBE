@@ -135,16 +135,18 @@ function referenceTargets(slot) {
     const groq = targets('groq', modelList('GROQ_MODELS', 'GROQ_MODEL', 'openai/gpt-oss-120b'));
     const groqStt = targets('groq', modelList('GROQ_STT_MODELS', 'GROQ_STT_MODEL', 'whisper-large-v3'));
     const deepgram = targets('deepgram', modelList('DEEPGRAM_MODELS', 'DEEPGRAM_MODEL', 'nova-2'));
+    const mistral = targets('mistral', modelList('MISTRAL_MODELS', 'MISTRAL_MODEL', 'mistral-small-latest'));
     const sb = [{ family: 'speechbrain', model: 'ecapa-tdnn', keys: [] }];
 
+    // Vendors without keys are dropped by usable(), so this works with any subset configured
     const reference = {
         STT: [...gemini, ...deepgram, ...groqStt],
         DIARIZE: [...sb, ...deepgram, ...gemini],
-        ROLE_LABEL: [...groq, ...gemini],
-        NOTE_SYNTH: [...gemini, ...groq],
-        PROFILE_GEN: [...gemini, ...groq],
-        // Opposite order to NOTE_SYNTH so the checker is normally a different vendor from the writer
-        VERIFY: [...groq, ...gemini],
+        ROLE_LABEL: [...groq, ...mistral, ...gemini],
+        NOTE_SYNTH: [...gemini, ...mistral, ...groq],
+        PROFILE_GEN: [...gemini, ...mistral, ...groq],
+        // Writer-first order reversed so the checker is normally a different vendor from the writer
+        VERIFY: [...mistral, ...groq, ...gemini],
     };
     return usable(reference[slot]);
 }

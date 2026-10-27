@@ -12,6 +12,7 @@ import type { ComboTarget, ModelSettings as ModelSettingsT, SlotId } from '../..
 const KEY_FAMILIES = [
   { key: 'gemini', label: 'Google Gemini', example: 'gemini-3.5-flash', help: 'Create a key at aistudio.google.com' },
   { key: 'groq', label: 'Groq', example: 'openai/gpt-oss-120b', help: 'Create a key at console.groq.com' },
+  { key: 'mistral', label: 'Mistral', example: 'mistral-small-latest', help: 'Create a key at console.mistral.ai' },
   { key: 'deepgram', label: 'Deepgram', example: 'nova-2', help: 'Speech-to-text and speaker separation only' },
 ]
 const TASKS: SlotId[] = ['STT', 'ROLE_LABEL', 'NOTE_SYNTH', 'PROFILE_GEN', 'VERIFY']
