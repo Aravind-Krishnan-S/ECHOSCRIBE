@@ -365,11 +365,12 @@ function scrub(message, key) {
  * @param {string} slot      — STT | DIARIZE | ROLE_LABEL | NOTE_SYNTH | PROFILE_GEN
  * @param {(adapter, pool) => Promise<any>} invoke — performs the task with one adapter;
  *        throw (including on unparseable output) to move on.
- * @param {{ chains?: object, avoidFamily?: string }} opts — per-request user combos (req.providerChains);
- *        avoidFamily moves that vendor's targets to the end (cross-vendor verification)
+ * @param {{ chains?: object, avoidFamily?: string, avoidModel?: string }} opts — per-request user combos (req.providerChains);
+ *        avoidFamily/avoidModel order independent checkers first: other vendors, then other models of the
+ *        same vendor, then the avoided model itself (cross-vendor, else cross-model verification)
  * @returns {Promise<{ result, provider: string, family: string, strategy: string, attempts: object[] }>}
  */
-async function runChain(slot, invoke, { chains, avoidFamily, timeoutMs: minTimeoutMs } = {}) {
+async function runChain(slot, invoke, { chains, avoidFamily, avoidModel, timeoutMs: minTimeoutMs } = {}) {
     const def = SLOTS[slot];
     if (!def) throw new Error(`Unknown provider slot "${slot}"`);
 
@@ -380,7 +381,8 @@ async function runChain(slot, invoke, { chains, avoidFamily, timeoutMs: minTimeo
     const timeoutMs = Math.max(Number(process.env[`ROLE_TIMEOUT_${slot}`]) || def.timeoutMs, minTimeoutMs || 0);
     let ordered = strategies.orderTargets(strategy, entries.map(e => ({ id: poolId(e), entry: e })), comboName);
     if (avoidFamily) {
-        ordered = [...ordered.filter(t => t.entry.family !== avoidFamily), ...ordered.filter(t => t.entry.family === avoidFamily)];
+        const rank = t => (t.entry.family !== avoidFamily ? 0 : avoidModel && t.entry.model !== avoidModel ? 1 : 2);
+        ordered = [0, 1, 2].flatMap(r => ordered.filter(t => rank(t) === r));
     }
     const attempts = [];
 
@@ -415,7 +417,7 @@ async function runChain(slot, invoke, { chains, avoidFamily, timeoutMs: minTimeo
                 if (attempts.length > 1) {
                     console.log(`[Router] ${slot} (${strategy}) served by ${pool.name} after ${attempts.length - 1} failed attempt(s)`);
                 }
-                return { result, provider: pool.name, family: pool.family, strategy, attempts };
+                return { result, provider: pool.name, family: pool.family, model: pool.model, strategy, attempts };
             } catch (err) {
                 const kind = pool.reportError(k, err);
                 attempts.push({ provider: pool.name, key: k.id, outcome: kind, error: scrub(err.message, k.key) });

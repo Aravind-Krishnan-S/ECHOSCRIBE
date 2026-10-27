@@ -62,6 +62,11 @@ for w, key in (("gemini", "Gem"), ("groq", "Groq")):
     put(f"ResGround{key}Partial", pct(r.get("partial")))
     put(f"ResGround{key}Unsupported", pct(r.get("unsupported")))
     put(f"ResGround{key}OverGate", r.get("notes_over_gate"))
+    put(f"ResGround{key}Notes", r.get("notes"))
+    rel = r.get("verification") or {}
+    put(f"ResVer{key}CrossVendor", rel.get("cross_vendor", 0) if r else None)
+    put(f"ResVer{key}CrossModel", rel.get("cross_model", 0) if r else None)
+    put(f"ResVer{key}Excluded", (rel.get("self", 0) + rel.get("unverified", 0)) if r else None)
     if r.get("notes"):
         all_sent += r["sentences_per_note"] * r["notes"]
         all_sup += r["supported"] * r["sentences_per_note"] * r["notes"]

@@ -102,8 +102,12 @@ If the unsupported fraction exceeds $\tau=0.2$, the note is regenerated with the
 
 \begin{figure}[t]
 \centering
-\IfFileExists{figures/ui_summary.png}{\includegraphics[width=\columnwidth]{figures/ui_summary.png}}{\fbox{\parbox[c][42mm][c]{0.94\columnwidth}{\centering\footnotesize Screenshot of the session summary (pending)}}}
-\caption{Session summary in the EchoScribe interface. Hovering a sentence highlights the transcript turns it cites; partially supported and unsupported sentences are marked for review, and the risk panel shows whether the two screening models agree.}
+{\footnotesize\textbf{(a)}}\\[1pt]
+\includegraphics[width=0.92\columnwidth]{figures/ui_bar.png}\\[3pt]
+\includegraphics[width=0.92\columnwidth]{figures/ui_objective.png}\\[4pt]
+{\footnotesize\textbf{(b)}}\\[1pt]
+\includegraphics[width=0.92\columnwidth]{figures/ui_transcript.png}
+\caption{EchoScribe's session summary on a role-played therapy session (real pipeline output; transcript invented). (a)~The verification bar counts sentences the second vendor judged supported, partly supported or unsupported; in the Objective section, dotted underlines mark partly supported sentences and superscripts give cited turns. (b)~Hovering the second Objective sentence highlights the turns it cites (T4, T6, T8) in the transcript.}
 \label{fig:ui}
 \end{figure}
 

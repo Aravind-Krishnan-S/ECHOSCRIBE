@@ -1,6 +1,6 @@
 """eval/score_notes.py — score E2/E3/E4.
 
-E2  note quality: ROUGE-1/2/L (stemmed) and BERTScore F1 (roberta-large, baseline-rescaled) of each writer's
+E2  note quality: ROUGE-1/2/L (stemmed) and BERTScore F1 (distilbert-base-uncased, baseline-rescaled) of each writer's
     SOAP note against the ACI-Bench reference note.
 E3  grounding: sentences per note, citation coverage, verifier labels; the verification-gated cascade
     (gate 0.2) computed from the two writers' runs: if the first writer's note exceeds the gate, the
@@ -65,22 +65,42 @@ for w, notes in writers.items():
     }
     if not skip_bert:
         from bert_score import score as bscore
-        _, _, f1 = bscore(preds, refs, lang="en", rescale_with_baseline=True, verbose=False)
+        _, _, f1 = bscore(preds, refs, model_type="distilbert-base-uncased", lang="en", rescale_with_baseline=True, verbose=False)
         row["bertscore_f1"] = round(float(f1.mean()), 4)
     e2[w] = row
 out["E2_note_quality"] = e2
 
 # ── E3: grounding and cascade ──
+def vendor(provider):
+    return (provider or "").split(" (")[0]
+
+
+def relation(note):
+    """How a note was checked: by another vendor, by another model of the same vendor, by itself, or not at all."""
+    v, w = note.get("verifier"), note.get("writer")
+    if not v:
+        return "unverified"
+    if v == w:
+        return "self"
+    return "cross_vendor" if vendor(v) != vendor(w) else "cross_model"
+
+
 e3 = {}
 for w, notes in writers.items():
     if not notes:
         continue
+    rel = {}
+    for n in notes.values():
+        rel[relation(n)] = rel.get(relation(n), 0) + 1
+    # Only independently verified notes count toward the support figures
+    notes = {f: n for f, n in notes.items() if relation(n) in ("cross_vendor", "cross_model")}
+    writers[w] = notes
     s = [n["summary"] for n in notes.values() if n.get("summary")]
     tot = lambda k: sum(x[k] for x in s)
     n = tot("statements")
     e3[w] = {
         "notes": len(s),
-        "verifier": next(iter(notes.values()))["verifier"],
+        "verification": rel,
         "sentences_per_note": round(n / len(s), 1),
         "cited": round(tot("cited") / n, 4),
         "supported": round(tot("supported") / n, 4),

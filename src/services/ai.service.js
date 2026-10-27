@@ -158,7 +158,7 @@ Return ONLY valid JSON with this exact structure:
     }, { chains, avoidFamily });
 
     // Split each section into cited sentences, strip the markers, then verify with another vendor
-    const ground = async (raw, writerFamily) => {
+    const ground = async (raw, writerFamily, writerModel) => {
         const note = normalizeAnalysis(raw, mode, text, wordCount);
         const sections = {};
         const flat = [];
@@ -173,14 +173,14 @@ Return ONLY valid JSON with this exact structure:
         }
         if (!GROUNDING_ENABLED) return { note, sections, summary: null, verifier: null };
 
-        const verified = await grounding.verifyStatements(flat, numbered.turns, { chains, avoidFamily: writerFamily });
+        const verified = await grounding.verifyStatements(flat, numbered.turns, { chains, avoidFamily: writerFamily, avoidModel: writerModel });
         if (verified) flat.forEach((st, k) => Object.assign(st, verified.verdicts[k]));
         else flat.forEach(st => { st.label = 'unverified'; });
         return { note, sections, summary: grounding.summarize(sections), verifier: verified ? verified.provider : null };
     };
 
     const first = await generate();
-    let chosen = { gen: first, grounded: await ground(first.result, first.family) };
+    let chosen = { gen: first, grounded: await ground(first.result, first.family, first.model) };
     const cascade = { escalated: false };
 
     // Verification-gated cascade: too many unsupported sentences -> one retry on a different vendor
@@ -188,7 +188,7 @@ Return ONLY valid JSON with this exact structure:
     if (GROUNDING_ENABLED && ratio !== null && ratio !== undefined && ratio > GROUNDING_GATE) {
         try {
             const second = await generate(first.family);
-            const groundedSecond = await ground(second.result, second.family);
+            const groundedSecond = await ground(second.result, second.family, second.model);
             const ratio2 = groundedSecond.summary && groundedSecond.summary.unsupported_ratio !== null ? groundedSecond.summary.unsupported_ratio : 1;
             cascade.escalated = true;
             cascade.reason = `${Math.round(ratio * 100)}% of sentences unsupported (gate ${Math.round(GROUNDING_GATE * 100)}%)`;
@@ -216,7 +216,7 @@ Return ONLY valid JSON with this exact structure:
     };
 
     if (RISK_SECOND_OPINION) {
-        parsedData.risk_assessment.consensus = await secondOpinionRisk(numbered.prompt, mode, parsedData.risk_assessment, chosen.gen.family, chains);
+        parsedData.risk_assessment.consensus = await secondOpinionRisk(numbered.prompt, mode, parsedData.risk_assessment, chosen.gen.family, chains, chosen.gen.model);
     }
     return parsedData;
 }
@@ -237,7 +237,7 @@ function riskFlag(risk, mode) {
  * Independent risk screen by a second vendor. The flag is raised if either model raises it
  * (sensitivity first); disagreement is surfaced as "needs review" rather than resolved silently.
  */
-async function secondOpinionRisk(numberedTranscript, mode, primaryRisk, writerFamily, chains) {
+async function secondOpinionRisk(numberedTranscript, mode, primaryRisk, writerFamily, chains, writerModel) {
     const therapy = mode !== 'Mentoring';
     const schema = therapy
         ? '{"suicidal_ideation": false, "self_harm_risk": "low|moderate|high", "evidence_turns": [3, 7], "notes": "one sentence"}'
@@ -253,7 +253,7 @@ async function secondOpinionRisk(numberedTranscript, mode, primaryRisk, writerFa
                 `Read the numbered transcript and judge only ${focus}. Cite the turns you relied on.\n\nTRANSCRIPT:\n"""\n${numberedTranscript}\n"""\n\nReturn ONLY valid JSON: ${schema}`,
                 { json: true, temperature: 0 });
             return parseJsonResponse(reply);
-        }, { chains, avoidFamily: writerFamily });
+        }, { chains, avoidFamily: writerFamily, avoidModel: writerModel });
 
         const a = riskFlag(primaryRisk, mode);
         const b = riskFlag(result, mode);

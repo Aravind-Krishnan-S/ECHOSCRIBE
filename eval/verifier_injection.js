@@ -18,7 +18,9 @@ if (!['gemini', 'groq'].includes(writer)) throw new Error('writer must be gemini
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 const GEMINI_ROTATION = (process.env.GEMINI_MODELS || GEMINI_MODEL).split(',').map(m => m.trim()).filter(Boolean);
-process.env.ROLE_CHAIN_VERIFY = [`groq:${GROQ_MODEL}`, ...GEMINI_ROTATION.map(m => `gemini:${m}`)].join(',');
+// Gemini models only; the writer's own model is never used as its verifier (avoidModel below)
+process.env.ROLE_CHAIN_VERIFY = GEMINI_ROTATION.map(m => `gemini:${m}`).join(',');
+void GROQ_MODEL;
 process.env.ROLE_TIMEOUT_VERIFY = '240000';
 
 const grounding = require('../src/services/grounding');
@@ -26,7 +28,13 @@ const aci = require('./data/aci-bench/data/challenge_data_json/clinicalnlp_taskB
 const notes = fs.readFileSync(path.join(__dirname, 'results', `aci_notes_${writer}.jsonl`), 'utf8')
     .split('\n').filter(Boolean).map(l => JSON.parse(l));
 const outFile = path.join(__dirname, 'results', `injection_${writer}.jsonl`);
-const done = new Set(fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).file) : []);
+// Drop earlier rows whose verifier was the note writer's own model; they are redone
+const writerOf = Object.fromEntries(notes.map(n => [n.file, n.writer]));
+const kept = fs.existsSync(outFile)
+    ? fs.readFileSync(outFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(r => r.verifier !== writerOf[r.file])
+    : [];
+fs.writeFileSync(outFile, kept.map(r => JSON.stringify(r)).join('\n') + (kept.length ? '\n' : ''));
+const done = new Set(kept.map(r => r.file));
 
 let seed = 7;
 const rand = () => ((seed = (seed * 1664525 + 1013904223) % 2 ** 32) / 2 ** 32);
@@ -85,7 +93,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
         let verified = null;
         for (let attempt = 1; attempt <= 4 && !verified; attempt++) {
-            verified = await grounding.verifyStatements(shuffled.map(i => ({ text: i.text, turns: i.turns })), turns, { avoidFamily: writer });
+            const writerModel = (String(note.writer).match(/\(([^)]+)\)/) || [])[1];
+            verified = await grounding.verifyStatements(shuffled.map(i => ({ text: i.text, turns: i.turns })), turns, { avoidFamily: writer, avoidModel: writerModel });
+            if (verified && verified.provider === note.writer) verified = null; // never let a model check its own note
             if (!verified) await sleep(30_000 * attempt);
         }
         if (!verified) { console.log(`${note.file} verification failed`); continue; }

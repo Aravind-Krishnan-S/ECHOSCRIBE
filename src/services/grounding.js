@@ -91,7 +91,7 @@ function extractStatements(sectionText, maxTurn) {
  * Ask a VERIFY model (preferably from a different vendor than the writer) to judge each statement.
  * Returns { verdicts: [{ label, reason }], provider } or null if verification could not run.
  */
-async function verifyStatements(statements, turns, { chains, avoidFamily } = {}) {
+async function verifyStatements(statements, turns, { chains, avoidFamily, avoidModel } = {}) {
     if (!statements.length) return { verdicts: [], provider: null, family: null };
     const byId = new Map(turns.map(t => [t.id, t]));
 
@@ -115,20 +115,20 @@ ${items}
 Return ONLY valid JSON: {"verdicts":[{"id":"S1","label":"supported|partial|unsupported","reason":"short reason"}, ...]} with one entry per statement, in order.`;
 
     try {
-        const { result, provider, family } = await runChain('VERIFY', async (adapter) => {
+        const { result, provider, family, model } = await runChain('VERIFY', async (adapter) => {
             const reply = await adapter.chatCompletion(system, user, { json: true, temperature: 0 });
             const parsed = JSON.parse(String(reply).replace(/```json|```/g, '').trim());
             const verdicts = Array.isArray(parsed.verdicts) ? parsed.verdicts : [];
             if (verdicts.length < statements.length * 0.8) throw new Error('Verifier skipped statements');
             return verdicts;
-        }, { chains, avoidFamily });
+        }, { chains, avoidFamily, avoidModel });
 
         const labels = statements.map((_, i) => {
             const v = result.find(x => String(x.id).toUpperCase() === `S${i + 1}`) || result[i] || {};
             const label = ['supported', 'partial', 'unsupported'].includes(v.label) ? v.label : 'unverified';
             return { label, reason: String(v.reason || '').slice(0, 240) };
         });
-        return { verdicts: labels, provider, family };
+        return { verdicts: labels, provider, family, model };
     } catch (err) {
         console.warn('[Grounding] Verification unavailable:', err.message);
         return null;

@@ -34,7 +34,7 @@ export interface Onboarding {
   viewed_note?: boolean
 }
 
-export type SlotId = 'STT' | 'DIARIZE' | 'ROLE_LABEL' | 'NOTE_SYNTH' | 'PROFILE_GEN'
+export type SlotId = 'STT' | 'DIARIZE' | 'ROLE_LABEL' | 'NOTE_SYNTH' | 'PROFILE_GEN' | 'VERIFY'
 
 export interface ComboTarget { family: string; model: string }
 export interface ModelSettings {
@@ -55,6 +55,13 @@ export interface Patient {
 
 export interface Turn { role: string; start: number; end: number; words?: number; text?: string; speaker?: string | number }
 
+export interface GroundedSentence {
+  text: string
+  turns: number[]
+  label?: 'supported' | 'partial' | 'unsupported' | 'unverified' | 'edited'
+  reason?: string
+}
+
 export interface Analysis {
   soap?: { subjective: string; objective: string; assessment: string; plan: string }
   grow?: { goal: string; reality: string; options: string; way_forward: string }
@@ -64,6 +71,25 @@ export interface Analysis {
     academic_burnout?: boolean
     severe_distress_risk?: string
     notes?: string
+    consensus?: {
+      second_opinion?: Record<string, unknown> & { evidence_turns?: number[]; notes?: string }
+      second_provider?: string
+      agree?: boolean
+      flagged?: boolean
+      needs_review?: boolean
+      error?: string
+    }
+  }
+  grounding?: {
+    turns: { id: number; role: string }[]
+    sections: Record<string, GroundedSentence[]>
+    summary: {
+      statements: number; cited: number; supported: number; partial: number; unsupported: number; unverified: number
+      supported_ratio: number | null; unsupported_ratio: number | null
+    } | null
+    verifier: string | null
+    gate: number
+    cascade?: { escalated: boolean; reason?: string; kept?: string; candidates?: { provider: string; unsupported_ratio: number }[] }
   }
   auto_booking?: { needs_follow_up: boolean; suggested_timeframe: string; reason: string }
   referral_form?: { referral_needed: boolean; specialty_or_service: string; reason: string }
