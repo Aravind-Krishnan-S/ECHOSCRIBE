@@ -126,8 +126,9 @@ function modelList(listVar, singleVar, fallback) {
 }
 
 function referenceTargets(slot) {
-    // Several models per vendor (GEMINI_MODELS=a,b,c) become consecutive targets sharing the vendor's
-    // keys; under the priority strategy they take turns (routing/strategies.js), each with its own quota.
+    // Several models per vendor (GEMINI_MODELS=a,b,c) become consecutive targets sharing the vendor's keys.
+    // Under priority the first model is used with its keys taking turns; the next model is tried only when
+    // every key of the current one is cooling down, rejected or the model itself is failing.
     const targets = (family, models) => models.map(model => ({ family, model, keys: legacyKeys(family) }));
     const gemini = targets('gemini', modelList('GEMINI_MODELS', 'GEMINI_MODEL', 'gemini-2.0-flash'));
     // Llama 3.3 70B (used in the paper's first evaluation) has been retired by Groq; gpt-oss-120b replaces it
