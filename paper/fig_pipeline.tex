@@ -29,7 +29,7 @@
 \draw[alt] (stt.south) |- (text.east);
 
 % ── row 2: note writing, verification, gate, risk ──
-\node[role=25mm, below=19mm of roles] (writer) {\textbf{NOTE\_SYNTH}\\SOAP / GROW with\\{[}T\#{]} citations};
+\node[role=25mm] (writer) at (roles |- 0,-58mm) {\textbf{NOTE\_SYNTH}\\SOAP / GROW with\\{[}T\#{]} citations};
 \node[role=25mm, left=9mm of writer] (verify) {\textbf{VERIFY}\\independent model\\labels each sentence};
 \node[decision, left=7mm of verify] (gate) {unsupported\\$>\tau$?};
 \node[role=24mm, below=6mm of verify] (risk) {\textbf{second-opinion}\\risk screen\\(independent model)};

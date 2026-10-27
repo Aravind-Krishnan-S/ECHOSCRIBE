@@ -1,0 +1,419 @@
+{
+ "id": "7d3c2f1a-0000-4000-8000-000000000001",
+ "created_at": "2026-10-27T08:26:33.152Z",
+ "transcript": "Therapist:\n    Welcome back. Last time we agreed you would keep a sleep diary. How did that go?\n\nPatient:\n    I kept it most nights. I am getting about four hours a night since my manager moved the performance review forward to next Friday.\n\nTherapist:\n    Four hours is very little. What keeps you awake?\n\nPatient:\n    I go over every mistake I made at work. Then I check my email at two in the morning, which makes it worse.\n\nTherapist:\n    You mentioned last week that the worry gets heavier at night. Where does it go when it is at its worst?\n\nPatient:\n    Honestly, a couple of nights I thought everyone would be better off without me. It passes by the morning.\n\nTherapist:\n    Thank you for telling me. When you have that thought, have you thought about ending your life or about how you would do it?\n\nPatient:\n    No. No plan, nothing like that. It is more that I feel like a burden. My sister would be devastated, I would never do that to her.\n\nTherapist:\n    I am glad you told me, and I want us to make a safety plan today, including who you would call. Is that all right?\n\nPatient:\n    Yes. I would call my sister. She lives ten minutes away.\n\nTherapist:\n    Good. For sleep, let us try a fixed wind-down: no email after nine, and the breathing exercise from our second session.\n\nPatient:\n    The breathing helped on Monday. I fell asleep before midnight for the first time in weeks.\n\nTherapist:\n    That is real progress. Shall we meet again next Tuesday, before the review?\n\nPatient:\n    Tuesday works. I think having the plan written down will help.",
+ "summary": "Patient reports sleeping approximately four hours per night since their work performance review was moved forward to next Friday. Patient states that night-time anxiety involves ruminating over work mistakes and checking email at 2:00 AM. Patient reported passive thoughts that everyone would be better off without them on a couple of nights, though these thoughts pass by morning. Patient explicitly denied suicidal plan or intent, identifying their sister as a strong protective factor. Patient noted that breathing exercises helped them fall asleep before midnight on Monday. Patient agreed that having a written safety plan will be helpful.",
+ "analysis_json": {
+  "soap": {
+   "subjective": "Patient reports sleeping approximately four hours per night since their work performance review was moved forward to next Friday. Patient states that night-time anxiety involves ruminating over work mistakes and checking email at 2:00 AM. Patient reported passive thoughts that everyone would be better off without them on a couple of nights, though these thoughts pass by morning. Patient explicitly denied suicidal plan or intent, identifying their sister as a strong protective factor. Patient noted that breathing exercises helped them fall asleep before midnight on Monday. Patient agreed that having a written safety plan will be helpful.",
+   "objective": "Patient engaged collaboratively throughout the session to review sleep habits and establish safety steps. Patient spoke candidly about anxiety, sleep difficulties, and transient passive suicidal ideation. Patient demonstrated positive receptivity to behavioral techniques and protective family support.",
+   "assessment": "Patient presents with insomnia and acute anxiety triggered by an upcoming work performance review. Patient exhibits passive suicidal ideation without intent or plan, mitigated by strong protective factors including close family ties. Patient demonstrates good insight and positive therapeutic response to cognitive-behavioral tools like breathing exercises and sleep hygiene protocols.",
+   "plan": "Complete and document a personalized safety plan including contact information for patient's sister. Implement a structured sleep hygiene routine with no email use after 9:00 PM and utilization of learned breathing exercises. Re-evaluate progress and risk in the next session scheduled for next Tuesday prior to the work review."
+  },
+  "risk_assessment": {
+   "suicidal_ideation": true,
+   "self_harm_risk": "low",
+   "notes": "Patient endorsed passive thoughts that everyone would be better off without them, but denied suicidal intent or plan. Sister lives ten minutes away and acts as a strong protective factor. Safety planning was initiated during the session.",
+   "consensus": {
+    "second_opinion": {
+     "suicidal_ideation": true,
+     "self_harm_risk": "low",
+     "evidence_turns": [
+      6
+     ],
+     "notes": "Patient expressed fleeting thoughts of being better off dead but no plan or intent."
+    },
+    "second_provider": "Groq (openai/gpt-oss-120b)",
+    "agree": true,
+    "flagged": true,
+    "needs_review": false
+   }
+  },
+  "auto_booking": {
+   "needs_follow_up": true,
+   "suggested_timeframe": "next Tuesday",
+   "reason": "Follow-up session prior to the client's work performance review to monitor sleep hygiene and review safety plan."
+  },
+  "referral_form": {
+   "referral_needed": false,
+   "specialty_or_service": "None",
+   "reason": "Not discussed"
+  },
+  "patient_communication": {
+   "instructions_english": "Thank you for sharing openly today. Please focus on your evening routine this week by turning off work emails after 9:00 PM and practicing your breathing exercise to help with sleep. Keep your written safety plan in an easily accessible spot, and remember that you can call your sister if you feel overwhelmed. I look forward to seeing you next Tuesday before your review.",
+   "instructions_translated": "Thank you for sharing openly today. Please focus on your evening routine this week by turning off work emails after 9:00 PM and practicing your breathing exercise to help with sleep. Keep your written safety plan in an easily accessible spot, and remember that you can call your sister if you feel overwhelmed. I look forward to seeing you next Tuesday before your review."
+  },
+  "diagnostic_impressions": [
+   "Work-related acute stress and anxiety",
+   "Insomnia secondary to anxiety",
+   "Passive suicidal ideation"
+  ],
+  "interventions_used": [
+   "Sleep diary review",
+   "Sleep hygiene psychoeducation",
+   "Relaxation techniques (Breathing exercises)",
+   "Suicide risk assessment",
+   "Safety planning"
+  ],
+  "medication_changes": [],
+  "progress_indicators": [
+   "Fell asleep before midnight on Monday using breathing exercises",
+   "Maintained sleep diary for most nights",
+   "Active participation in safety planning"
+  ],
+  "emotional_tone": "Anxious",
+  "topics": [
+   "Sleep diary and insomnia",
+   "Work performance review stress",
+   "Late-night rumination and email checking",
+   "Passive suicidal thoughts and safety planning",
+   "Family support"
+  ],
+  "confidence_score": 0.95,
+  "counselingStats": {
+   "name": "Unknown",
+   "age": "Unknown",
+   "presentingProblem": "Insomnia and anxiety related to an upcoming work performance review",
+   "reasonForCounseling": "Managing work-related stress, poor sleep, and overwhelming late-night thoughts",
+   "lastMajorProgress": "Fell asleep before midnight on Monday using breathing exercises",
+   "currentEmotionalState": "Anxious"
+  },
+  "wordCount": 274,
+  "originalText": "Therapist:\n    Welcome back. Last time we agreed you would keep a sleep diary. How did that go?\n\nPatient:\n    I kept it most nights. I am getting about four hours a night since my manager moved the performance review forward to next Friday.\n\nTherapist:\n    Four hours is very little. What keeps you awake?\n\nPatient:\n    I go over every mistake I made at work. Then I check my email at two in the morning, which makes it worse.\n\nTherapist:\n    You mentioned last week that the worry gets heavier at night. Where does it go when it is at its worst?\n\nPatient:\n    Honestly, a couple of nights I thought everyone would be better off without me. It passes by the morning.\n\nTherapist:\n    Thank you for telling me. When you have that thought, have you thought about ending your life or about how you would do it?\n\nPatient:\n    No. No plan, nothing like that. It is more that I feel like a burden. My sister would be devastated, I would never do that to her.\n\nTherapist:\n    I am glad you told me, and I want us to make a safety plan today, including who you would call. Is that all right?\n\nPatient:\n    Yes. I would call my sister. She lives ten minutes away.\n\nTherapist:\n    Good. For sleep, let us try a fixed wind-down: no email after nine, and the breathing exercise from our second session.\n\nPatient:\n    The breathing helped on Monday. I fell asleep before midnight for the first time in weeks.\n\nTherapist:\n    That is real progress. Shall we meet again next Tuesday, before the review?\n\nPatient:\n    Tuesday works. I think having the plan written down will help.",
+  "_provider": "Google Gemini (gemini-3.6-flash)",
+  "_providerAttempts": [
+   {
+    "provider": "Google Gemini (gemini-3.5-flash)",
+    "key": "AIzaSy…e4",
+    "outcome": "error",
+    "error": "[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+   },
+   {
+    "provider": "Google Gemini (gemini-3-flash-preview)",
+    "key": "AIzaSy…e4",
+    "outcome": "timeout",
+    "error": "Provider timed out after 120s"
+   },
+   {
+    "provider": "Google Gemini (gemini-3.6-flash)",
+    "key": "AIzaSy…e4",
+    "outcome": "success"
+   }
+  ],
+  "grounding": {
+   "turns": [
+    {
+     "id": 1,
+     "role": "Therapist"
+    },
+    {
+     "id": 2,
+     "role": "Patient"
+    },
+    {
+     "id": 3,
+     "role": "Therapist"
+    },
+    {
+     "id": 4,
+     "role": "Patient"
+    },
+    {
+     "id": 5,
+     "role": "Therapist"
+    },
+    {
+     "id": 6,
+     "role": "Patient"
+    },
+    {
+     "id": 7,
+     "role": "Therapist"
+    },
+    {
+     "id": 8,
+     "role": "Patient"
+    },
+    {
+     "id": 9,
+     "role": "Therapist"
+    },
+    {
+     "id": 10,
+     "role": "Patient"
+    },
+    {
+     "id": 11,
+     "role": "Therapist"
+    },
+    {
+     "id": 12,
+     "role": "Patient"
+    },
+    {
+     "id": 13,
+     "role": "Therapist"
+    },
+    {
+     "id": 14,
+     "role": "Patient"
+    }
+   ],
+   "sections": {
+    "subjective": [
+     {
+      "text": "Patient reports sleeping approximately four hours per night since their work performance review was moved forward to next Friday.",
+      "turns": [
+       2
+      ],
+      "label": "supported",
+      "reason": "Patient's report of ~4 hours sleep since review move matches T2"
+     },
+     {
+      "text": "Patient states that night-time anxiety involves ruminating over work mistakes and checking email at 2:00 AM.",
+      "turns": [
+       4
+      ],
+      "label": "supported",
+      "reason": "Ruminating over mistakes and checking email at 2 AM are stated in T4"
+     },
+     {
+      "text": "Patient reported passive thoughts that everyone would be better off without them on a couple of nights, though these thoughts pass by morning.",
+      "turns": [
+       6
+      ],
+      "label": "supported",
+      "reason": "Passive thoughts and their passing by morning are quoted in T6"
+     },
+     {
+      "text": "Patient explicitly denied suicidal plan or intent, identifying their sister as a strong protective factor.",
+      "turns": [
+       8
+      ],
+      "label": "supported",
+      "reason": "Denial of plan/intent and sister as protective factor are in T8"
+     },
+     {
+      "text": "Patient noted that breathing exercises helped them fall asleep before midnight on Monday.",
+      "turns": [
+       12
+      ],
+      "label": "supported",
+      "reason": "Breathing helped and sleep before midnight on Monday are in T12"
+     },
+     {
+      "text": "Patient agreed that having a written safety plan will be helpful.",
+      "turns": [
+       14
+      ],
+      "label": "supported",
+      "reason": "Patient says written plan will help in T14"
+     }
+    ],
+    "objective": [
+     {
+      "text": "Patient engaged collaboratively throughout the session to review sleep habits and establish safety steps.",
+      "turns": [
+       2,
+       10,
+       14
+      ],
+      "label": "partial",
+      "reason": "Sleep and safety plan statements are cited, but overall collaborative engagement throughout session is not explicitly shown"
+     },
+     {
+      "text": "Patient spoke candidly about anxiety, sleep difficulties, and transient passive suicidal ideation.",
+      "turns": [
+       4,
+       6,
+       8
+      ],
+      "label": "partial",
+      "reason": "Anxiety and passive ideation are cited; sleep difficulties are not directly referenced in the cited turns"
+     },
+     {
+      "text": "Patient demonstrated positive receptivity to behavioral techniques and protective family support.",
+      "turns": [
+       8,
+       10,
+       12
+      ],
+      "label": "supported",
+      "reason": "Positive response to breathing exercise and sister support are documented in T8‑T12"
+     }
+    ],
+    "assessment": [
+     {
+      "text": "Patient presents with insomnia and acute anxiety triggered by an upcoming work performance review.",
+      "turns": [
+       2,
+       4
+      ],
+      "label": "supported",
+      "reason": "Short sleep (insomnia) and anxiety linked to upcoming review are evident in T2 and T4"
+     },
+     {
+      "text": "Patient exhibits passive suicidal ideation without intent or plan, mitigated by strong protective factors including close family ties.",
+      "turns": [
+       6,
+       8,
+       10
+      ],
+      "label": "supported",
+      "reason": "Passive ideation without plan/intent and protective family ties are all in T6‑T10"
+     },
+     {
+      "text": "Patient demonstrates good insight and positive therapeutic response to cognitive-behavioral tools like breathing exercises and sleep hygiene protocols.",
+      "turns": [
+       11,
+       12
+      ],
+      "label": "partial",
+      "reason": "Therapeutic response to breathing is shown; good insight is not explicitly stated"
+     }
+    ],
+    "plan": [
+     {
+      "text": "Complete and document a personalized safety plan including contact information for patient's sister.",
+      "turns": [
+       9,
+       10,
+       14
+      ],
+      "label": "unsupported",
+      "reason": "Statement is a directive, not a factual claim supported by the transcript"
+     },
+     {
+      "text": "Implement a structured sleep hygiene routine with no email use after 9:00 PM and utilization of learned breathing exercises.",
+      "turns": [
+       11
+      ],
+      "label": "unsupported",
+      "reason": "Statement is an implementation instruction, not directly evidenced"
+     },
+     {
+      "text": "Re-evaluate progress and risk in the next session scheduled for next Tuesday prior to the work review.",
+      "turns": [
+       13,
+       14
+      ],
+      "label": "partial",
+      "reason": "Scheduling for next Tuesday before review is cited, but explicit mention of re‑evaluating progress/risk is not"
+     }
+    ]
+   },
+   "summary": {
+    "statements": 15,
+    "cited": 15,
+    "supported": 9,
+    "partial": 4,
+    "unsupported": 2,
+    "unverified": 0,
+    "supported_ratio": 0.6,
+    "unsupported_ratio": 0.133
+   },
+   "verifier": "Groq (openai/gpt-oss-120b)",
+   "gate": 0.2,
+   "cascade": {
+    "escalated": false
+   }
+  },
+  "conversation": {
+   "turns": [
+    {
+     "role": "Therapist",
+     "start": 0,
+     "end": 1,
+     "words": 16
+    },
+    {
+     "role": "Patient",
+     "start": 1,
+     "end": 2,
+     "words": 24
+    },
+    {
+     "role": "Therapist",
+     "start": 2,
+     "end": 3,
+     "words": 9
+    },
+    {
+     "role": "Patient",
+     "start": 3,
+     "end": 4,
+     "words": 23
+    },
+    {
+     "role": "Therapist",
+     "start": 4,
+     "end": 5,
+     "words": 21
+    },
+    {
+     "role": "Patient",
+     "start": 5,
+     "end": 6,
+     "words": 19
+    },
+    {
+     "role": "Therapist",
+     "start": 6,
+     "end": 7,
+     "words": 24
+    },
+    {
+     "role": "Patient",
+     "start": 7,
+     "end": 8,
+     "words": 27
+    },
+    {
+     "role": "Therapist",
+     "start": 8,
+     "end": 9,
+     "words": 25
+    },
+    {
+     "role": "Patient",
+     "start": 9,
+     "end": 10,
+     "words": 11
+    },
+    {
+     "role": "Therapist",
+     "start": 10,
+     "end": 11,
+     "words": 21
+    },
+    {
+     "role": "Patient",
+     "start": 11,
+     "end": 12,
+     "words": 16
+    },
+    {
+     "role": "Therapist",
+     "start": 12,
+     "end": 13,
+     "words": 13
+    },
+    {
+     "role": "Patient",
+     "start": 13,
+     "end": 14,
+     "words": 11
+    }
+   ],
+   "providers": {
+    "stt": null,
+    "diarization": null,
+    "roles": null
+   },
+   "durationSec": null
+  }
+ },
+ "patient_id": "7d3c2f1a-0000-4000-8000-0000000000aa",
+ "audio_url": null,
+ "session_mode": "Therapy"
+}

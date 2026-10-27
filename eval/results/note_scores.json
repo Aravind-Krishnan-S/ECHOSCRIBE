@@ -6,59 +6,167 @@
    "rouge2": 0.169,
    "rougeLsum": 0.4247,
    "seconds_per_note": 39.47,
-   "writer": "Google Gemini (gemini-3.1-flash-lite)"
+   "writer": "Google Gemini (gemini-3.1-flash-lite)",
+   "bertscore_f1": 0.4805
   },
   "groq": {
-   "n": 24,
-   "rouge1": 0.4591,
-   "rouge2": 0.1457,
-   "rougeLsum": 0.4189,
-   "seconds_per_note": 50.7042,
-   "writer": "Groq (openai/gpt-oss-120b)"
+   "n": 40,
+   "rouge1": 0.459,
+   "rouge2": 0.1416,
+   "rougeLsum": 0.4174,
+   "seconds_per_note": 49.855,
+   "writer": "Groq (openai/gpt-oss-120b)",
+   "bertscore_f1": 0.4274
   }
  },
  "E3_grounding": {
   "gemini": {
-   "notes": 40,
-   "verifier": "Groq (openai/gpt-oss-120b)",
+   "notes": 38,
+   "verification": {
+    "cross_vendor": 15,
+    "cross_model": 23,
+    "self": 2
+   },
    "sentences_per_note": 18.2,
-   "cited": 0.956,
-   "supported": 0.7455,
-   "partial": 0.0646,
-   "unsupported": 0.0578,
+   "cited": 0.9537,
+   "supported": 0.8336,
+   "partial": 0.0941,
+   "unsupported": 0.0724,
    "notes_over_gate": 1,
-   "mean_unsupported_ratio": 0.0532
+   "mean_unsupported_ratio": 0.0678
   },
   "groq": {
-   "notes": 24,
-   "verifier": null,
-   "sentences_per_note": 16.6,
-   "cited": 0.9698,
-   "supported": 0.7864,
-   "partial": 0.1407,
-   "unsupported": 0.0729,
-   "notes_over_gate": 1,
-   "mean_unsupported_ratio": 0.0731
+   "notes": 39,
+   "verification": {
+    "unverified": 1,
+    "cross_vendor": 39
+   },
+   "sentences_per_note": 16.7,
+   "cited": 0.9723,
+   "supported": 0.7692,
+   "partial": 0.1615,
+   "unsupported": 0.0692,
+   "notes_over_gate": 4,
+   "mean_unsupported_ratio": 0.0673
   },
   "cascade": {
    "gemini_first": {
-    "notes": 24,
-    "escalated": 0,
-    "switched_writer": 0,
-    "mean_unsupported_before": 0.0492,
-    "mean_unsupported_after": 0.0492,
+    "notes": 37,
+    "escalated": 1,
+    "switched_writer": 1,
+    "mean_unsupported_before": 0.0668,
+    "mean_unsupported_after": 0.0578,
     "notes_over_gate_after": 0
    },
    "groq_first": {
-    "notes": 24,
-    "escalated": 1,
-    "switched_writer": 1,
-    "mean_unsupported_before": 0.07,
-    "mean_unsupported_after": 0.0553,
+    "notes": 37,
+    "escalated": 4,
+    "switched_writer": 4,
+    "mean_unsupported_before": 0.0698,
+    "mean_unsupported_after": 0.0461,
     "notes_over_gate_after": 0
    }
   },
-  "planted_errors": {}
+  "planted_errors": {
+   "gemini": {
+    "notes": 20,
+    "verifier": "Google Gemini (gemini-3.5-flash)",
+    "NUM": {
+     "n": 20,
+     "detected": 19,
+     "recall": 0.95,
+     "ci95": [
+      0.764,
+      0.991
+     ]
+    },
+    "NEG": {
+     "n": 12,
+     "detected": 12,
+     "recall": 1.0,
+     "ci95": [
+      0.757,
+      1.0
+     ]
+    },
+    "FAB": {
+     "n": 20,
+     "detected": 20,
+     "recall": 1.0,
+     "ci95": [
+      0.839,
+      1.0
+     ]
+    },
+    "ALL_PLANTED": {
+     "n": 52,
+     "detected": 51,
+     "recall": 0.981,
+     "ci95": [
+      0.899,
+      0.997
+     ]
+    },
+    "CONTROL": {
+     "n": 60,
+     "false_alarms": 4,
+     "rate": 0.067,
+     "ci95": [
+      0.026,
+      0.159
+     ]
+    }
+   },
+   "groq": {
+    "notes": 23,
+    "verifier": "Google Gemini (gemini-3.5-flash)",
+    "NUM": {
+     "n": 21,
+     "detected": 20,
+     "recall": 0.952,
+     "ci95": [
+      0.773,
+      0.992
+     ]
+    },
+    "NEG": {
+     "n": 13,
+     "detected": 13,
+     "recall": 1.0,
+     "ci95": [
+      0.772,
+      1.0
+     ]
+    },
+    "FAB": {
+     "n": 23,
+     "detected": 23,
+     "recall": 1.0,
+     "ci95": [
+      0.857,
+      1.0
+     ]
+    },
+    "ALL_PLANTED": {
+     "n": 57,
+     "detected": 56,
+     "recall": 0.982,
+     "ci95": [
+      0.907,
+      0.997
+     ]
+    },
+    "CONTROL": {
+     "n": 69,
+     "false_alarms": 8,
+     "rate": 0.116,
+     "ci95": [
+      0.06,
+      0.212
+     ]
+    }
+   }
+  }
  },
  "E4_roles": {
   "dialogues": 40,

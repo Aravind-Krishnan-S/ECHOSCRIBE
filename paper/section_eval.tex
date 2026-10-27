@@ -14,6 +14,7 @@ We drive the router's own code with simulated vendors on a virtual clock: one ho
 \label{tab:router}
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lrrrrrrrrr@{}}
 \toprule
  & \multicolumn{3}{c}{Quota} & \multicolumn{3}{c}{Outage} & \multicolumn{3}{c}{Mixed} \\
@@ -26,7 +27,7 @@ Priority    & \ResRouterQuotaPrioritySuccess & \ResRouterQuotaPriorityFailed & \
 Round-robin & \ResRouterQuotaRoundrobinSuccess & \ResRouterQuotaRoundrobinFailed & \ResRouterQuotaRoundrobinPninetyfive & \ResRouterOutageRoundrobinSuccess & \ResRouterOutageRoundrobinFailed & \ResRouterOutageRoundrobinPninetyfive & \ResRouterMixedRoundrobinSuccess & \ResRouterMixedRoundrobinFailed & \ResRouterMixedRoundrobinPninetyfive \\
 LKGP        & \ResRouterQuotaLkgpSuccess & \ResRouterQuotaLkgpFailed & \ResRouterQuotaLkgpPninetyfive & \ResRouterOutageLkgpSuccess & \ResRouterOutageLkgpFailed & \ResRouterOutageLkgpPninetyfive & \ResRouterMixedLkgpSuccess & \ResRouterMixedLkgpFailed & \ResRouterMixedLkgpPninetyfive \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 No policy changes success much where a healthy fallback exists, so the differences lie in wasted calls and latency. The last-known-good strategy stops returning to a vendor that keeps timing out and reduces 95th-percentile latency in the mixed scenario from \ResRouterMixedPriorityPninetyfive~s to \ResRouterMixedLkgpPninetyfive~s; round-robin wastes the fewest calls and spreads load most evenly (Jain index~\cite{jain1984fairness} \ResRouterQuotaRoundrobinJain\ under quota pressure). Exponential cooldown alone is not uniformly better than a fixed suspension: under a persistent per-minute quota its 5~s first step re-probes an exhausted key (\ResRouterQuotaPriorityFailed\ against \ResRouterQuotaFixedFailed\ failed calls per request), while the fixed rule can suspend every option at once and lost requests in the mixed scenario (\ResRouterMixedFixedSuccess\ success). Priority keeps the clinician's preferred model at the cost of probing; LKGP minimises latency but can stay on a fallback model after the preferred one recovers.
