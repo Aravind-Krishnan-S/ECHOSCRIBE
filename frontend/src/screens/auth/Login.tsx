@@ -32,8 +32,8 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <h1 className="text-[24px] leading-8 font-semibold m-0">Sign in</h1>
-      <p className="text-muted mt-1 mb-6">Welcome back to EchoScribe.</p>
+      <h1 className="text-[36px] leading-[40px] font-bold tracking-[-0.035em] m-0">Sign in</h1>
+      <p className="text-muted mt-2 mb-8">Welcome back to EchoScribe.</p>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <Field label="Email">
           {p => <input {...p} className="input" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} />}
@@ -42,11 +42,11 @@ export default function Login() {
           {p => <input {...p} className="input" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} />}
         </Field>
         {error && <p className="field-error -mt-1" role="alert">{error}</p>}
-        <button className="btn btn-primary btn-lg mt-2" disabled={pending || !email || !password}>
+        <button className="btn btn-primary btn-lg mt-2 w-full" disabled={pending || !email || !password}>
           {pending && <Spinner />} Sign in
         </button>
       </form>
-      <p className="text-muted mt-6 mb-0">New to EchoScribe? <Link to="/signup" className="link">Create an account</Link></p>
+      <p className="text-muted mt-8 pt-5 border-t border-rule mb-0">New to EchoScribe? <Link to="/signup" className="link">Create an account</Link></p>
     </AuthLayout>
   )
 }

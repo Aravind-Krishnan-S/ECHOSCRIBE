@@ -128,7 +128,7 @@ function UserRow({ name, email, avatar, title, onLogout }: { name: string; email
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div role="menu" className="glass absolute bottom-[calc(100%+6px)] left-0 right-0 rounded-[4px] p-1 z-40 text-ink"
+          <motion.div role="menu" className="layer absolute bottom-[calc(100%+6px)] left-0 right-0 rounded-[4px] p-1 z-40 text-ink"
             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 2 }} transition={{ duration: 0.14 }}>
             <Link role="menuitem" to="/settings/profile" className="menu-item" onClick={() => setOpen(false)}><User size={16} />Profile</Link>
             <Link role="menuitem" to="/settings/general" className="menu-item" onClick={() => setOpen(false)}><Settings size={16} />Settings</Link>

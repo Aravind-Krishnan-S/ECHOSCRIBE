@@ -77,7 +77,7 @@ export function Spinner({ size = 14 }: { size?: number }) {
   )
 }
 
-/* ─── Dialog: glass, focus-trapped, Escape to close ─── */
+/* ─── Dialog: a paper layer, focus-trapped, Escape to close ─── */
 export function Dialog({ open, onClose, title, description, children, footer, width = 520 }: {
   open: boolean
   onClose: () => void
@@ -118,20 +118,20 @@ export function Dialog({ open, onClose, title, description, children, footer, wi
           <div className="absolute inset-0 bg-[rgba(18,20,23,0.32)]" onClick={onClose} aria-hidden />
           <motion.div
             ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}
-            className="glass relative w-full rounded-t-[6px] sm:rounded-[6px] max-h-[92vh] overflow-auto"
+            className="layer relative w-full rounded-t-[6px] sm:rounded-[6px] max-h-[92vh] overflow-auto"
             style={{ maxWidth: width }}
             initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="flex items-start justify-between gap-4 px-6 pt-6">
               <div>
-                <h2 id={titleId} className="text-[18px] leading-6 font-semibold">{title}</h2>
+                <h2 id={titleId} className="text-[20px] leading-7 font-bold tracking-[-0.02em]">{title}</h2>
                 {description && <p className="text-muted mt-1">{description}</p>}
               </div>
               <button className="btn btn-ghost btn-icon btn-sm -mr-2 -mt-1" onClick={onClose} aria-label="Close"><X size={16} /></button>
             </div>
             {children && <div className="px-6 pt-5 pb-2">{children}</div>}
-            {footer && <div className="flex flex-wrap justify-end gap-2 px-6 py-5">{footer}</div>}
+            {footer && <div className="flex flex-wrap justify-end gap-2 px-6 py-4 mt-3 border-t border-rule">{footer}</div>}
           </motion.div>
         </motion.div>
       )}
@@ -159,7 +159,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <motion.div key={t.id} layout
               initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="glass pointer-events-auto rounded-[4px] px-4 py-2.5 flex items-center gap-2 text-[14px]">
+              className="layer pointer-events-auto rounded-[4px] px-4 py-2.5 flex items-center gap-2 text-[14px]">
               {t.tone === 'success' && <Check size={15} className="text-positive flex-none" />}
               {t.tone === 'error' && <AlertCircle size={15} className="text-negative flex-none" />}
               <span>{t.message}</span>

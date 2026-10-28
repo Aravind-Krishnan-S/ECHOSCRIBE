@@ -84,7 +84,7 @@ export default function ProfileSettings() {
 
   return (
     <div>
-      <h1 className="m-0 mb-6 text-[24px] font-semibold">Profile</h1>
+      <h1 className="m-0 mb-8 text-[32px] leading-9 font-bold tracking-[-0.03em]">Profile</h1>
 
       <SettingsSection title="Photo and name" description="Shown in the app and on PDF exports.">
         <div className="flex items-center gap-4 mb-5">
@@ -126,16 +126,16 @@ export default function ProfileSettings() {
       <SettingsSection title="Role" description="Decides which workspaces you see. Switching away hides a workspace but keeps its data.">
         <div role="radiogroup" aria-label="Role" className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {ROLES.map(r => (
-            <label key={r.id} className={`flex flex-col gap-0.5 rounded-[6px] border p-3 cursor-pointer transition-colors ${form.role === r.id ? 'border-accent bg-accent-tint' : 'border-border bg-raised hover:border-control'}`}>
+            <label key={r.id} className={`flex flex-col gap-0.5 rounded-[4px] border p-3 cursor-pointer transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${form.role === r.id ? 'border-accent bg-accent-tint' : 'border-border bg-raised hover:border-ink'}`}>
               <input type="radio" name="role" value={r.id} checked={form.role === r.id} onChange={set('role')} className="sr-only" />
-              <span className="font-medium">{r.label}</span>
+              <span className="font-semibold">{r.label}</span>
               <span className="text-[12px] text-muted">{r.hint}</span>
             </label>
           ))}
         </div>
       </SettingsSection>
 
-      <div className="flex justify-end gap-2 py-4 sticky bottom-0">
+      <div className="flex justify-end gap-2 py-4 sticky bottom-0 bg-ground border-t border-ink">
         <button className="btn btn-secondary" disabled={!dirty || saving} onClick={() => setForm(toForm(profile))}>Discard</button>
         <button className="btn btn-primary" disabled={!dirty || saving || !form.full_name.trim()} onClick={save}>{saving && <Spinner />}Save changes</button>
       </div>

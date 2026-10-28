@@ -59,7 +59,7 @@ export default function Clients() {
                   <tr>
                     <th scope="col">Name</th>
                     <th scope="col" className="hidden sm:table-cell">Age · gender</th>
-                    <th scope="col">Last session</th>
+                    <th scope="col" className="hidden sm:table-cell">Last session</th>
                     <th scope="col" className="text-right">Sessions</th>
                   </tr>
                 </thead>
@@ -77,7 +77,7 @@ export default function Clients() {
                           </Link>
                         </td>
                         <td className="hidden sm:table-cell text-muted">{[p.age ? `${p.age}` : null, p.gender].filter(Boolean).join(' · ') || '—'}</td>
-                        <td className="text-muted whitespace-nowrap">{st?.last ? relativeDay(st.last) : 'No sessions yet'}</td>
+                        <td className="hidden sm:table-cell text-muted whitespace-nowrap">{st?.last ? relativeDay(st.last) : 'No sessions yet'}</td>
                         <td className="text-right num font-semibold">{st?.count || 0}</td>
                       </tr>
                     )

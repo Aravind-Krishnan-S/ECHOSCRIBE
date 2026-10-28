@@ -195,20 +195,22 @@ function TourOverlay({ step, rect, index, total, onNext, onBack, onSkip }: {
         <defs>
           <mask id="tour-hole">
             <rect width="100%" height="100%" fill="white" />
-            {hole && <motion.rect animate={{ x: hole.x, y: hole.y, width: hole.w, height: hole.h }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} rx="14" fill="black" />}
+            {hole && <motion.rect animate={{ x: hole.x, y: hole.y, width: hole.w, height: hole.h }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} rx="2" fill="black" />}
           </mask>
         </defs>
-        <rect width="100%" height="100%" fill="rgba(31,32,29,0.38)" mask="url(#tour-hole)" />
-        {hole && <motion.rect animate={{ x: hole.x, y: hole.y, width: hole.w, height: hole.h }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          rx="14" fill="none" stroke="white" strokeOpacity=".9" strokeWidth="2" />}
+        <rect width="100%" height="100%" fill="rgba(18,20,23,0.45)" mask="url(#tour-hole)" />
+        {hole && <motion.rect animate={{ x: hole.x, y: hole.y, width: hole.w, height: hole.h }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          rx="2" fill="none" stroke="var(--accent)" strokeWidth="3" />}
       </svg>
 
       <motion.div role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-body"
-        className="glass absolute rounded-[6px] p-5" style={style}
+        className="layer absolute rounded-none p-5 border-t-4 !border-t-accent" style={style}
         key={step.id}
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
-        <p className="text-[12px] text-muted m-0 num">Step {index + 1} of {total}</p>
-        <h2 id="tour-title" className="text-[17px] leading-6 font-semibold mt-1 mb-1.5">{step.title}</h2>
+        <div className="flex gap-[2px] mb-3" aria-label={`Step ${index + 1} of ${total}`} role="img">
+          {Array.from({ length: total }, (_, i) => <span key={i} className={`h-1 flex-1 ${i <= index ? 'bg-accent' : 'bg-surface-2'}`} />)}
+        </div>
+        <h2 id="tour-title" className="text-[18px] leading-6 font-bold tracking-[-0.02em] mt-0 mb-1.5">{step.title}</h2>
         <p id="tour-body" className="text-[14px] leading-[21px] m-0">{step.body}</p>
         <div className="flex items-center gap-2 mt-4">
           <button className="btn btn-ghost btn-sm -ml-2" onClick={onSkip}>Skip tour</button>

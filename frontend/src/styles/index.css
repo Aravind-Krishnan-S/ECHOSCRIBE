@@ -61,15 +61,11 @@
   --radius-control: 4px;
   --radius-field: 4px;
 
-  --ceramic: none;
   /* floating layers (menus, dialogs, toasts): one real shadow with offset and blur */
   --float: 0 12px 32px -8px rgba(18, 20, 23, 0.22), 0 2px 6px rgba(18, 20, 23, 0.08);
-  --glass-bg: #ffffff;
-  --glass-border: var(--border);
 
   /* type */
   --font: "Archivo Variable", "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --font-serif: var(--font);
 
   /* motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -98,7 +94,6 @@
 
 @theme inline {
   --font-sans: var(--font);
-  --font-serif: var(--font);
   --color-ground: var(--ground);
   --color-chrome: var(--chrome);
   --color-surface: var(--surface);
@@ -144,7 +139,6 @@ h1, h2, h3 { letter-spacing: -0.015em; text-wrap: balance; }
 ::selection { background: var(--accent-tint-2); color: var(--text); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 .num { font-variant-numeric: tabular-nums; }
-.serif { font-family: var(--font); font-weight: 600; letter-spacing: -0.02em; }
 input, textarea { caret-color: var(--accent); }
 a { text-underline-offset: 3px; }
 
@@ -175,8 +169,8 @@ a { text-underline-offset: 3px; }
   }
   .panel-inner { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-inner); }
 
-  /* floating layers: solid paper with a real shadow (the old glass) */
-  .glass { background: var(--ground); border: 1px solid var(--border); box-shadow: var(--float); }
+  /* floating layers (menus, dialogs, toasts, tour): solid paper with one real shadow */
+  .layer { background: var(--ground); border: 1px solid var(--border); box-shadow: var(--float); }
 
   /* the line's colour field */
   .field-accent { background: var(--accent); color: var(--on-accent); }

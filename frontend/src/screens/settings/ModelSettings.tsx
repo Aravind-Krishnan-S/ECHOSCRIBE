@@ -41,7 +41,7 @@ export default function ModelSettings() {
   const providers = useProviders()
   return (
     <div>
-      <h1 className="m-0 mb-1 text-[32px] leading-9 font-bold tracking-[-0.03em]">Models & API keys</h1>
+      <h1 className="m-0 mb-2 text-[32px] leading-9 font-bold tracking-[-0.03em]">Models & API keys</h1>
       <p className="m-0 mb-8 text-muted max-w-[640px]">Connect any of the providers below. Each task tries its models in order and moves on when one fails; several keys for one model take turns before the next model is tried.</p>
       {providers.isLoading ? <Skel h={240} /> : providers.error ? <ErrorState message="Couldn't load the provider list." onRetry={() => providers.refetch()} /> : (
         <>
@@ -164,7 +164,7 @@ function ConnectedProviders() {
       <tbody>
         {connected.map(f => (
           <tr key={f.key}>
-            <td className="font-semibold align-top w-[200px]">{f.label}</td>
+            <td className="font-semibold align-top sm:w-[200px]">{f.label}</td>
             <td>
               <ul className="list-none m-0 p-0 flex flex-col gap-1">
                 {locals.filter(k => k.family === f.key).map(k => (
@@ -175,7 +175,7 @@ function ConnectedProviders() {
                   <li key={k.id} className="flex items-center gap-2"><CloudUpload size={13} className="text-muted" /><span className="num">••••{k.last4}</span><span className="text-[12px] text-muted">synced</span>
                     <button className="btn btn-ghost btn-icon btn-sm ml-auto" aria-label={`Remove synced ${f.label} key`} onClick={() => removeSynced.mutate(k.id)}><X size={14} /></button></li>
                 ))}
-                {f.serverKeys > 0 && <li className="flex items-center gap-2 h-[30px]"><Server size={13} className="text-muted" /><span className="num">{f.serverKeys} {f.serverKeys === 1 ? 'key' : 'keys'}</span><span className="text-[12px] text-muted">server .env</span></li>}
+                {f.serverKeys > 0 && <li className="flex items-center gap-2 h-[30px] whitespace-nowrap"><Server size={13} className="text-muted" /><span className="num">{f.serverKeys} {f.serverKeys === 1 ? 'key' : 'keys'}</span><span className="text-[12px] text-muted">server .env</span></li>}
               </ul>
             </td>
           </tr>

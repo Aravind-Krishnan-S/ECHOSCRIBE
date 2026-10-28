@@ -29,7 +29,7 @@ export default function GeneralSettings() {
 
   return (
     <div>
-      <h1 className="m-0 mb-6 text-[24px] font-semibold">General</h1>
+      <h1 className="m-0 mb-8 text-[32px] leading-9 font-bold tracking-[-0.03em]">General</h1>
 
       {both && (
         <SettingsSection title="Workspace on sign-in" description="Skip the workspace picker by opening one directly.">
@@ -88,9 +88,9 @@ export default function GeneralSettings() {
 
 function Row({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex items-center justify-between gap-4 border-t border-rule pt-4 first:border-t-0 first:pt-0">
       <div>
-        <p className="m-0 font-medium">{title}</p>
+        <p className="m-0 font-semibold">{title}</p>
         <p className="m-0 text-[13px] text-muted">{description}</p>
       </div>
       {children}
