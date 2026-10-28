@@ -11,59 +11,57 @@
   },
   "groq": {
    "n": 40,
-   "rouge1": 0.459,
-   "rouge2": 0.1416,
-   "rougeLsum": 0.4174,
-   "seconds_per_note": 49.855,
+   "rouge1": 0.4697,
+   "rouge2": 0.1445,
+   "rougeLsum": 0.4276,
+   "seconds_per_note": 51.7275,
    "writer": "Groq (openai/gpt-oss-120b)",
-   "bertscore_f1": 0.4274
+   "bertscore_f1": 0.4407
   }
  },
  "E3_grounding": {
   "gemini": {
-   "notes": 38,
+   "notes": 40,
    "verification": {
     "cross_vendor": 15,
-    "cross_model": 23,
-    "self": 2
+    "cross_model": 25
    },
    "sentences_per_note": 18.2,
-   "cited": 0.9537,
-   "supported": 0.8336,
-   "partial": 0.0941,
-   "unsupported": 0.0724,
+   "cited": 0.956,
+   "supported": 0.8391,
+   "partial": 0.0922,
+   "unsupported": 0.0688,
    "notes_over_gate": 1,
-   "mean_unsupported_ratio": 0.0678
+   "mean_unsupported_ratio": 0.0644
   },
   "groq": {
-   "notes": 39,
+   "notes": 40,
    "verification": {
-    "unverified": 1,
-    "cross_vendor": 39
+    "cross_vendor": 40
    },
-   "sentences_per_note": 16.7,
-   "cited": 0.9723,
-   "supported": 0.7692,
-   "partial": 0.1615,
-   "unsupported": 0.0692,
+   "sentences_per_note": 16.8,
+   "cited": 0.9733,
+   "supported": 0.7697,
+   "partial": 0.1634,
+   "unsupported": 0.0669,
    "notes_over_gate": 4,
-   "mean_unsupported_ratio": 0.0673
+   "mean_unsupported_ratio": 0.0657
   },
   "cascade": {
    "gemini_first": {
-    "notes": 37,
+    "notes": 40,
     "escalated": 1,
     "switched_writer": 1,
-    "mean_unsupported_before": 0.0668,
-    "mean_unsupported_after": 0.0578,
+    "mean_unsupported_before": 0.0644,
+    "mean_unsupported_after": 0.0561,
     "notes_over_gate_after": 0
    },
    "groq_first": {
-    "notes": 37,
+    "notes": 40,
     "escalated": 4,
     "switched_writer": 4,
-    "mean_unsupported_before": 0.0698,
-    "mean_unsupported_after": 0.0461,
+    "mean_unsupported_before": 0.0657,
+    "mean_unsupported_after": 0.0438,
     "notes_over_gate_after": 0
    }
   },

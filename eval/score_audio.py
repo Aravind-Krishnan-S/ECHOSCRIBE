@@ -95,6 +95,53 @@ def mean(xs):
     return sum(xs) / len(xs) if xs else None
 
 
+def assign_words(words, turns):
+    """Word-timestamp attribution, as in src/services/alignment.js: each word goes to the turn
+    containing its midpoint, or the nearer turn when it falls in a gap."""
+    turns = sorted(({**t, "text": ""} for t in turns), key=lambda t: t["start"])
+    buckets = [[] for _ in turns]
+    i = 0
+    for w in words:
+        text = str(w.get("word", "")).strip()
+        if not text:
+            continue
+        mid = (float(w["start"]) + float(w.get("end", w["start"]))) / 2
+        while i < len(turns) - 1 and turns[i]["end"] < mid and turns[i + 1]["start"] <= mid:
+            i += 1
+        k = i
+        if i + 1 < len(turns) and mid > turns[i]["end"] and turns[i + 1]["start"] - mid < mid - turns[i]["end"]:
+            k = i + 1
+        buckets[k].append(text)
+    out = []
+    for t, b in zip(turns, buckets):
+        if not b:
+            continue
+        if out and out[-1]["speaker"] == t["speaker"]:
+            out[-1]["text"] += " " + " ".join(b)
+            out[-1]["end"] = t["end"]
+        else:
+            out.append({**t, "text": " ".join(b)})
+    return out
+
+
+# Whisper (Groq) transcripts with word timestamps, from eval/stt_words.js
+WORDS = {}
+words_file = ROOT / "results" / "stt_words.jsonl"
+if words_file.exists():
+    for line in words_file.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            w = json.loads(line)
+            WORDS[(w["id"], w["cond"])] = w
+
+# pyannote community-1 (the current app), run by eval/pyannote_eval.py on the original recordings
+PYA = {}
+pya_file = ROOT / "results" / "pyannote_eval.jsonl"
+if pya_file.exists():
+    for line in pya_file.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            p = json.loads(line)
+            PYA.setdefault((p["id"], p["cond"]), {})["gpu" if p["device"].startswith("cuda") else "cpu"] = p
+
 results = defaultdict(lambda: defaultdict(list))
 latency = defaultdict(list)
 for r in rows:
@@ -113,6 +160,24 @@ for r in rows:
         results[c]["DER speechbrain_enh"].append(der(meta["turns"], r["sb_enh"], r["id"]))
         if r["stt"].get("gemini_enh"):
             results[c]["cpWER speechbrain_enh+gemini_enh"].append(cpwer(meta["turns"], align(r["stt"]["gemini_enh"], r["sb_enh"])))
+        w = WORDS.get((r["id"], c))
+        if w and w["words"]:
+            results[c]["cpWER speechbrain_raw+groq_words"].append(cpwer(meta["turns"], assign_words(w["words"], r["sb_raw"])))
+        if r["stt"].get("groq_raw"):
+            results[c]["cpWER speechbrain_raw+groq"].append(cpwer(meta["turns"], align(r["stt"]["groq_raw"], r["sb_raw"])))
+    pya = PYA.get((r["id"], c), {})
+    p = pya.get("gpu") or pya.get("cpu")
+    if p:
+        results[c]["DER pyannote"].append(der(meta["turns"], p["turns"], r["id"]))
+        for k, name in (("gemini_raw", "gemini"), ("groq_raw", "groq")):
+            if r["stt"].get(k):
+                results[c][f"cpWER pyannote+{name}"].append(cpwer(meta["turns"], align(r["stt"][k], p["turns"])))
+        w = WORDS.get((r["id"], c))
+        if w and w["words"]:
+            results[c]["cpWER pyannote+groq_words"].append(cpwer(meta["turns"], assign_words(w["words"], p["turns"])))
+            results[c]["WER groq_words"].append(wer_counts(ref_text, w["text"])[0] / wer_counts(ref_text, w["text"])[1])
+        for dev, row in pya.items():
+            latency[f"pyannote_{dev}"].append(row["seconds"] / row["duration"] * 60)
     if r.get("gemini_diar"):
         results[c]["cpWER gemini_audio_diar"].append(cpwer(meta["turns"], r["gemini_diar"]))
     if r.get("text_diar"):

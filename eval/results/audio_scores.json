@@ -1,138 +1,224 @@
 {
  "clean": {
+  "DER pyannote": {
+   "mean": 0.0929,
+   "n": 12
+  },
   "DER speechbrain_enh": {
-   "mean": 0.2227,
-   "n": 1
+   "mean": 0.2725,
+   "n": 12
   },
   "DER speechbrain_raw": {
-   "mean": 0.2227,
-   "n": 1
+   "mean": 0.231,
+   "n": 12
   },
   "WER gemini_enh": {
-   "mean": 0.0,
-   "n": 1
+   "mean": 0.0402,
+   "n": 11
   },
   "WER gemini_raw": {
-   "mean": 0.0,
-   "n": 1
+   "mean": 0.059,
+   "n": 11
   },
   "WER groq_enh": {
-   "mean": 0.011,
-   "n": 1
+   "mean": 0.0294,
+   "n": 12
   },
   "WER groq_raw": {
-   "mean": 0.0,
-   "n": 1
+   "mean": 0.0214,
+   "n": 12
+  },
+  "WER groq_words": {
+   "mean": 0.0214,
+   "n": 12
   },
   "cpWER gemini_audio_diar": {
-   "mean": 0.0,
-   "n": 1
+   "mean": 0.1779,
+   "n": 12
+  },
+  "cpWER pyannote+gemini": {
+   "mean": 0.2527,
+   "n": 11
+  },
+  "cpWER pyannote+groq": {
+   "mean": 0.2137,
+   "n": 12
+  },
+  "cpWER pyannote+groq_words": {
+   "mean": 0.0265,
+   "n": 12
   },
   "cpWER speechbrain_enh+gemini_enh": {
-   "mean": 0.3297,
-   "n": 1
+   "mean": 0.4336,
+   "n": 11
   },
   "cpWER speechbrain_raw+gemini": {
-   "mean": 0.3297,
-   "n": 1
+   "mean": 0.3407,
+   "n": 11
+  },
+  "cpWER speechbrain_raw+groq": {
+   "mean": 0.3369,
+   "n": 12
+  },
+  "cpWER speechbrain_raw+groq_words": {
+   "mean": 0.21,
+   "n": 12
   },
   "cpWER transcript_diar": {
-   "mean": 0.0,
-   "n": 1
+   "mean": 0.3844,
+   "n": 11
   }
  },
  "snr5": {
+  "DER pyannote": {
+   "mean": 0.1291,
+   "n": 12
+  },
   "DER speechbrain_enh": {
-   "mean": 0.2227,
-   "n": 1
+   "mean": 0.1937,
+   "n": 12
   },
   "DER speechbrain_raw": {
-   "mean": 0.2719,
-   "n": 1
+   "mean": 0.2513,
+   "n": 12
   },
   "WER gemini_enh": {
-   "mean": 0.3956,
-   "n": 1
+   "mean": 0.2692,
+   "n": 11
   },
   "WER gemini_raw": {
-   "mean": 0.3407,
-   "n": 1
+   "mean": 0.1693,
+   "n": 11
   },
   "WER groq_enh": {
-   "mean": 0.3956,
-   "n": 1
+   "mean": 0.289,
+   "n": 12
   },
   "WER groq_raw": {
-   "mean": 0.2967,
-   "n": 1
+   "mean": 0.1351,
+   "n": 12
+  },
+  "WER groq_words": {
+   "mean": 0.1351,
+   "n": 12
   },
   "cpWER gemini_audio_diar": {
-   "mean": 0.4286,
-   "n": 1
+   "mean": 0.3708,
+   "n": 11
+  },
+  "cpWER pyannote+gemini": {
+   "mean": 0.503,
+   "n": 11
+  },
+  "cpWER pyannote+groq": {
+   "mean": 0.4707,
+   "n": 12
+  },
+  "cpWER pyannote+groq_words": {
+   "mean": 0.1974,
+   "n": 12
   },
   "cpWER speechbrain_enh+gemini_enh": {
-   "mean": 0.7143,
-   "n": 1
+   "mean": 0.4884,
+   "n": 11
   },
   "cpWER speechbrain_raw+gemini": {
-   "mean": 0.6923,
-   "n": 1
+   "mean": 0.4973,
+   "n": 11
+  },
+  "cpWER speechbrain_raw+groq": {
+   "mean": 0.448,
+   "n": 12
+  },
+  "cpWER speechbrain_raw+groq_words": {
+   "mean": 0.2711,
+   "n": 12
   },
   "cpWER transcript_diar": {
-   "mean": 0.6154,
-   "n": 1
+   "mean": 0.3487,
+   "n": 11
   }
  },
  "snr0": {
+  "DER pyannote": {
+   "mean": 0.2258,
+   "n": 12
+  },
   "DER speechbrain_enh": {
-   "mean": 0.3344,
-   "n": 1
+   "mean": 0.2628,
+   "n": 12
   },
   "DER speechbrain_raw": {
-   "mean": 0.4064,
-   "n": 1
+   "mean": 0.2494,
+   "n": 12
   },
   "WER gemini_enh": {
-   "mean": 0.5165,
-   "n": 1
+   "mean": 0.6497,
+   "n": 12
   },
   "WER gemini_raw": {
-   "mean": 0.7143,
-   "n": 1
+   "mean": 0.4552,
+   "n": 11
   },
   "WER groq_enh": {
-   "mean": 0.7473,
-   "n": 1
+   "mean": 0.7094,
+   "n": 12
   },
   "WER groq_raw": {
-   "mean": 0.6044,
-   "n": 1
+   "mean": 0.3599,
+   "n": 12
+  },
+  "WER groq_words": {
+   "mean": 0.3819,
+   "n": 12
   },
   "cpWER gemini_audio_diar": {
-   "mean": 0.5165,
-   "n": 1
+   "mean": 0.5926,
+   "n": 11
+  },
+  "cpWER pyannote+gemini": {
+   "mean": 0.6988,
+   "n": 11
+  },
+  "cpWER pyannote+groq": {
+   "mean": 0.6877,
+   "n": 12
+  },
+  "cpWER pyannote+groq_words": {
+   "mean": 0.532,
+   "n": 12
   },
   "cpWER speechbrain_enh+gemini_enh": {
-   "mean": 0.7582,
-   "n": 1
+   "mean": 0.779,
+   "n": 12
   },
   "cpWER speechbrain_raw+gemini": {
-   "mean": 0.7912,
-   "n": 1
+   "mean": 0.6525,
+   "n": 11
+  },
+  "cpWER speechbrain_raw+groq": {
+   "mean": 0.6005,
+   "n": 12
+  },
+  "cpWER speechbrain_raw+groq_words": {
+   "mean": 0.4693,
+   "n": 12
   },
   "cpWER transcript_diar": {
-   "mean": 0.8132,
-   "n": 1
+   "mean": 0.6198,
+   "n": 11
   }
  },
  "latency_s_per_audio_min": {
-  "stt_gemini": 29.46,
-  "stt_groq": 1.36,
-  "sb_diarize": 7.93,
-  "sb_enhance_diarize": 57.77,
-  "stt_gemini_enh": 13.37,
-  "stt_groq_enh": 1.42,
-  "gemini_diarize": 27.64,
-  "text_diarize": 164.74
+  "pyannote_gpu": 2.12,
+  "pyannote_cpu": 21.98,
+  "stt_gemini": 67.31,
+  "stt_groq": 10.18,
+  "sb_diarize": 12.97,
+  "sb_enhance_diarize": 78.25,
+  "stt_gemini_enh": 72.93,
+  "stt_groq_enh": 13.15,
+  "gemini_diarize": 57.36,
+  "text_diarize": 65.02
  }
 }

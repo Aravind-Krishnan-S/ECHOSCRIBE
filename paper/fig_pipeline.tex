@@ -12,9 +12,9 @@
   lbl/.style={font=\sffamily\scriptsize, text=black!70},
   group/.style={draw=black!35, rounded corners=5pt, dashed, inner sep=5pt}
 ]
-% ── row 1: audio → speaker separation → STT → roles ──
+% ── row 1: original recording → speaker separation and STT → roles (no denoising) ──
 \node[stage=15mm] (audio) {Session\\audio};
-\node[role=27mm, right=7mm of audio] (sb) {\textbf{DIARIZE}\\SpeechBrain: SepFormer\\+ ECAPA-TDNN};
+\node[role=27mm, right=7mm of audio] (sb) {\textbf{DIARIZE}\\pyannote community-1\\(local, GPU)};
 \node[role=27mm, below=3mm of sb] (cloud) {cloud audio\\diarization};
 \node[role=27mm, below=3mm of cloud] (text) {transcript-based\\speaker split};
 \node[role=22mm, right=7mm of sb] (stt) {\textbf{STT}\\speech-to-text};
@@ -22,10 +22,11 @@
 \node[group, fit=(sb)(cloud)(text), label={[lbl]below:fallback order}] (diargrp) {};
 
 \draw[flow] (audio) -- (sb);
+\draw[flow] (audio.north) |- ++(0,7mm) -| node[lbl, pos=0.25, above] {original recording} (stt.north);
 \draw[alt] (sb) -- (cloud);
 \draw[alt] (cloud) -- (text);
-\draw[flow] (sb) -- node[lbl, above] {clean audio} (stt);
-\draw[flow] (stt) -- node[lbl, above] {turns} (roles);
+\draw[flow] (sb) -- node[lbl, above] {turns} (stt);
+\draw[flow] (stt) -- node[lbl, above] {text} (roles);
 \draw[alt] (stt.south) |- (text.east);
 
 % ── row 2: note writing, verification, gate, risk ──

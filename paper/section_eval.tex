@@ -33,7 +33,7 @@ LKGP        & \ResRouterQuotaLkgpSuccess & \ResRouterQuotaLkgpFailed & \ResRoute
 No policy changes success much where a healthy fallback exists, so the differences lie in wasted calls and latency. The last-known-good strategy stops returning to a vendor that keeps timing out and reduces 95th-percentile latency in the mixed scenario from \ResRouterMixedPriorityPninetyfive~s to \ResRouterMixedLkgpPninetyfive~s; round-robin wastes the fewest calls and spreads load most evenly (Jain index~\cite{jain1984fairness} \ResRouterQuotaRoundrobinJain\ under quota pressure). Exponential cooldown alone is not uniformly better than a fixed suspension: under a persistent per-minute quota its 5~s first step re-probes an exhausted key (\ResRouterQuotaPriorityFailed\ against \ResRouterQuotaFixedFailed\ failed calls per request), while the fixed rule can suspend every option at once and lost requests in the mixed scenario (\ResRouterMixedFixedSuccess\ success). Priority keeps the clinician's preferred model at the cost of probing; LKGP minimises latency but can stay on a fallback model after the preferred one recovers.
 
 \subsection{Evidence-linked notes and independent verification}
-Each of the two writers produced a SOAP note with turn citations for the 40 test dialogues, and a model other than the writer verified every sentence (Table~\ref{tab:notes}). Because the Groq free tier's daily token cap was reached during the runs, verification of Gemini-written notes was cross-vendor for \ResVerGemCrossVendor\ notes and cross-model (another Gemini model) for \ResVerGemCrossModel; for gpt-oss-written notes it was cross-vendor for \ResVerGroqCrossVendor\ and cross-model for \ResVerGroqCrossModel. Notes the writer's own model had checked during a quota fallback (\ResVerGemExcluded\ and \ResVerGroqExcluded\ after re-verification) are excluded from the support figures. Citation coverage was \ResGroundGemCited\ (Gemini) and \ResGroundGroqCited\ (gpt-oss-120b); \ResGroundGemSupported\ and \ResGroundGroqSupported\ of sentences were judged fully supported and \ResGroundGemUnsupported\ and \ResGroundGroqUnsupported\ unsupported. With the gate at $\tau=0.2$, \ResCascadeEscalated\ of \ResCascadeNotes\ Gemini-first notes would have been regenerated. ROUGE against ACI-Bench reference notes measures overlap with a differently structured visit note and is reported for comparability, not as a quality ceiling.
+Each of the two writers produced a SOAP note with turn citations for the 40 test dialogues, and a model other than the writer verified every sentence (Table~\ref{tab:notes}). Because the Groq free tier's daily token cap was reached during the runs, verification of Gemini-written notes was cross-vendor for \ResVerGemCrossVendor\ notes and cross-model (another Gemini model) for \ResVerGemCrossModel; for gpt-oss-written notes it was cross-vendor for \ResVerGroqCrossVendor\ and cross-model for \ResVerGroqCrossModel. Notes that the writer's own model had checked during a quota fallback were re-verified by another model, and one gpt-oss note that came back empty was regenerated, so all notes are counted. Citation coverage was \ResGroundGemCited\ (Gemini) and \ResGroundGroqCited\ (gpt-oss-120b); \ResGroundGemSupported\ and \ResGroundGroqSupported\ of sentences were judged fully supported and \ResGroundGemUnsupported\ and \ResGroundGroqUnsupported\ unsupported. With the gate at $\tau=0.2$, \ResCascadeEscalated\ of \ResCascadeNotes\ Gemini-first notes would have been regenerated. ROUGE against ACI-Bench reference notes measures overlap with a differently structured visit note and is reported for comparability, not as a quality ceiling.
 
 \begin{table}[t]
 \caption{Notes on ACI-Bench test1: overlap with reference notes and independent verification of every sentence.}
@@ -68,25 +68,28 @@ With doctor and patient labels replaced by random speaker identifiers, the eight
 
 \subsection{Speech recognition and speaker attribution}
 \begin{table}[t]
-\caption{Simulated two-person conversations (12 $\times$ 3 conditions): WER of speech-to-text with and without SepFormer, DER of SpeechBrain clustering, and speaker-attributed cpWER of each separation path (\%).}
+\caption{Simulated two-person conversations (12 $\times$ 3 conditions, \%). Top: recognition with and without SepFormer denoising, and speaker separation (DER). Bottom: speaker-attributed cpWER of each path; the first row is the submitted design, the bold row the current one.}
 \label{tab:speech}
 \centering\footnotesize
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
  & Clean & 5 dB & 0 dB \\
 \midrule
-WER Gemini, raw / enhanced & \ResAudioWerGemRawClean\,/\,\ResAudioWerGemEnhClean & \ResAudioWerGemRawFive\,/\,\ResAudioWerGemEnhFive & \ResAudioWerGemRawZero\,/\,\ResAudioWerGemEnhZero \\
-WER Whisper, raw / enhanced & \ResAudioWerGroqRawClean\,/\,\ResAudioWerGroqEnhClean & \ResAudioWerGroqRawFive\,/\,\ResAudioWerGroqEnhFive & \ResAudioWerGroqRawZero\,/\,\ResAudioWerGroqEnhZero \\
-DER SpeechBrain, raw / enh. & \ResAudioDerSbRawClean\,/\,\ResAudioDerSbEnhClean & \ResAudioDerSbRawFive\,/\,\ResAudioDerSbEnhFive & \ResAudioDerSbRawZero\,/\,\ResAudioDerSbEnhZero \\
+WER Whisper, original / denoised & \ResAudioWerGroqRawClean\,/\,\ResAudioWerGroqEnhClean & \ResAudioWerGroqRawFive\,/\,\ResAudioWerGroqEnhFive & \ResAudioWerGroqRawZero\,/\,\ResAudioWerGroqEnhZero \\
+WER Gemini, original / denoised & \ResAudioWerGemRawClean\,/\,\ResAudioWerGemEnhClean & \ResAudioWerGemRawFive\,/\,\ResAudioWerGemEnhFive & \ResAudioWerGemRawZero\,/\,\ResAudioWerGemEnhZero \\
+DER pyannote / SpeechBrain & \ResAudioDerPyaClean\,/\,\ResAudioDerSbRawClean & \ResAudioDerPyaFive\,/\,\ResAudioDerSbRawFive & \ResAudioDerPyaZero\,/\,\ResAudioDerSbRawZero \\
 \midrule
-cpWER SpeechBrain + STT & \ResAudioCpSbRawClean & \ResAudioCpSbRawFive & \ResAudioCpSbRawZero \\
-cpWER cloud audio diarization & \ResAudioCpGemAudioClean & \ResAudioCpGemAudioFive & \ResAudioCpGemAudioZero \\
-cpWER transcript-based split & \ResAudioCpTextClean & \ResAudioCpTextFive & \ResAudioCpTextZero \\
+SepFormer + SpeechBrain + Gemini & \ResAudioCpSbEnhClean & \ResAudioCpSbEnhFive & \ResAudioCpSbEnhZero \\
+pyannote + Whisper, by duration & \ResAudioCpPyaPropClean & \ResAudioCpPyaPropFive & \ResAudioCpPyaPropZero \\
+\textbf{pyannote + Whisper, by word time} & \textbf{\ResAudioCpPyaWordsClean} & \textbf{\ResAudioCpPyaWordsFive} & \textbf{\ResAudioCpPyaWordsZero} \\
+SpeechBrain + Whisper, by word time & \ResAudioCpSbWordsClean & \ResAudioCpSbWordsFive & \ResAudioCpSbWordsZero \\
+Cloud audio diarization (Gemini) & \ResAudioCpGemAudioClean & \ResAudioCpGemAudioFive & \ResAudioCpGemAudioZero \\
+Transcript-based split & \ResAudioCpTextClean & \ResAudioCpTextFive & \ResAudioCpTextZero \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Table~\ref{tab:speech} reports the speech results. \input{section_eval_speech_text.tex}
 
-Processing cost per minute of audio on a laptop CPU was \ResLatSbEnh~s for SepFormer enhancement with diarization (windowed, bounded memory), \ResLatSbDiar~s for diarization alone, \ResLatSttGroq~s for Whisper on Groq and \ResLatSttGem~s for Gemini speech-to-text.
+Per minute of audio, pyannote took \ResLatPyaGpu~s on a laptop GPU (RTX~4050) and \ResLatPyaCpu~s on its CPU, against \ResLatSbEnh~s for the first design's SepFormer enhancement with SpeechBrain diarization; Whisper on Groq took \ResLatSttGroq~s and Gemini speech-to-text \ResLatSttGem~s.
