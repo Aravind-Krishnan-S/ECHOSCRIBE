@@ -87,9 +87,11 @@ const CATALOG = [
         ],
     },
     {
-        key: 'openrouter', label: 'OpenRouter', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1',
+        key: 'openrouter', label: 'OpenRouter (free models only)', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1',
         keyUrl: 'openrouter.ai/settings/keys', group: 'Inference platforms', capabilities: ['chat'],
-        models: [{ id: 'openai/gpt-oss-120b', caps: ['chat'] }, { id: 'meta-llama/llama-3.3-70b-instruct', caps: ['chat'] }],
+        // Only ":free" models are ever called, so the account is never charged (see freeOnly in the registry)
+        freeOnly: true,
+        models: [{ id: 'nvidia/nemotron-3-ultra-550b-a55b:free', caps: ['chat'] }, { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', caps: ['chat'] }],
     },
     {
         key: 'together', label: 'Together AI', kind: 'openai', baseUrl: 'https://api.together.xyz/v1',

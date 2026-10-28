@@ -122,7 +122,7 @@ function parseChainString(str, slot) {
 /** "a,b" list from <FAMILY>_MODELS, else the single <FAMILY>_MODEL, else the default. */
 function modelList(listVar, singleVar, fallback) {
     const list = String(process.env[listVar] || '').split(',').map(m => m.trim()).filter(Boolean);
-    return list.length ? list : [process.env[singleVar] || fallback];
+    return list.length ? list : String(process.env[singleVar] || fallback).split(',').map(m => m.trim()).filter(Boolean);
 }
 
 function referenceTargets(slot) {
@@ -136,6 +136,9 @@ function referenceTargets(slot) {
     const groqStt = targets('groq', modelList('GROQ_STT_MODELS', 'GROQ_STT_MODEL', 'whisper-large-v3'));
     const deepgram = targets('deepgram', modelList('DEEPGRAM_MODELS', 'DEEPGRAM_MODEL', 'nova-2'));
     const mistral = targets('mistral', modelList('MISTRAL_MODELS', 'MISTRAL_MODEL', 'mistral-small-latest'));
+    // Free models only (enforced in the registry); used as another vendor for checking and roles
+    const openrouter = targets('openrouter', modelList('OPENROUTER_MODELS', 'OPENROUTER_MODEL',
+        'nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'));
     const local = [{ family: 'pyannote', model: 'community-1', keys: [] }];
 
     // Vendors without keys are dropped by usable(), so this works with any subset configured
@@ -143,11 +146,11 @@ function referenceTargets(slot) {
         // Whisper first: it returns word timestamps for speaker attribution (Gemini does not)
         STT: [...groqStt, ...gemini, ...deepgram],
         DIARIZE: [...local, ...deepgram, ...gemini],
-        ROLE_LABEL: [...groq, ...mistral, ...gemini],
+        ROLE_LABEL: [...groq, ...mistral, ...openrouter, ...gemini],
         NOTE_SYNTH: [...gemini, ...mistral, ...groq],
         PROFILE_GEN: [...gemini, ...mistral, ...groq],
         // Writer-first order reversed so the checker is normally a different vendor from the writer
-        VERIFY: [...mistral, ...groq, ...gemini],
+        VERIFY: [...mistral, ...groq, ...openrouter, ...gemini],
     };
     return usable(reference[slot]);
 }

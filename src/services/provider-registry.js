@@ -284,8 +284,18 @@ function audioFile(buffer, mimeType) {
 }
 
 // OpenAI-compatible APIs: OpenAI, Mistral, xAI, DeepSeek, OpenRouter, Together, Ollama, …
+/** A provider marked freeOnly (OpenRouter) may only call its zero-price ":free" models. */
+function assertFree(entry, model) {
+    if (entry.freeOnly && !/:free$/.test(String(model || ''))) {
+        const err = new Error(`${entry.label}: "${model}" is a paid model; only ":free" models are allowed`);
+        err.status = 400;
+        throw err;
+    }
+}
+
 function openAiCompatible(entry) {
     return ({ apiKey, model }) => {
+        assertFree(entry, model);
         const base = baseUrlFor(entry);
         const auth = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 
@@ -496,6 +506,7 @@ async function listModels(familyKey, apiKey) {
     if (!lister || entry.noModelList || (entry.requiresKey !== false && !apiKey)) return { models: suggested, live: false };
     const raw = await lister(entry, apiKey);
     const live = raw
+        .filter(m => !entry.freeOnly || /:free$/.test(String(m.id)))
         .map(m => ({ id: m.id, caps: classifyModel(entry.key, m.id, m.meta) }))
         .filter(m => m.id && m.caps.length);
     // Suggested models first (known good), then the rest of the live list alphabetically
