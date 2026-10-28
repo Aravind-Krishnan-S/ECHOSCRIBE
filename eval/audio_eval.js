@@ -1,6 +1,6 @@
 /* eval/audio_eval.js — E5/E6: speech-to-text and speaker separation on simulated conversations.
 
-   Usage: node eval/audio_eval.js [limit]   (SpeechBrain service must be running on SPEECHBRAIN_URL)
+   Usage: node eval/audio_eval.js [limit]   (baseline SpeechBrain service, eval/baselines/speechbrain, must be running on SPEECHBRAIN_URL)
    For each conversation x condition (clean, snr5, snr0) it records:
      stt.<model>_raw / stt.<model>_enh   transcripts from Gemini and Groq Whisper, on the raw audio and on
                                          SepFormer-enhanced audio
@@ -22,7 +22,7 @@ process.env.ROLE_TIMEOUT_STT = '300000';
 process.env.ROLE_TIMEOUT_ROLE_LABEL = '240000';
 
 const ai = require('../src/services/ai.service');
-const sb = require('../src/services/speechbrain-client');
+const sb = require('./baselines/speechbrain/speechbrain-client');
 const { getFamily } = require('../src/services/provider-registry');
 
 const DIR = path.join(__dirname, 'data', 'conversations');

@@ -3,7 +3,12 @@
      probeDuration()  — length of a recording in seconds
      toCompactOpus()  — 16 kHz mono Opus at 24 kbit/s: about 11 MB per hour, under the inline-audio
                         limits of the cloud speech models (Gemini ~20 MB, Groq Whisper 25 MB),
-                        so sessions of up to about two hours go to the cloud in one request. */
+                        so sessions of up to about two hours go to the cloud in one request.
+     toWav16k()       — 16 kHz mono 16-bit WAV, the input of the local diarization service.
+     cleanForListening() — a quieter-background copy for the clinician to replay (FFmpeg's FFT
+                        denoiser, band limits and loudness normalisation). Transcription and
+                        diarization always use the original recording: denoising before speech
+                        recognition raised word error rates in our measurements. */
 
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -63,4 +68,29 @@ async function toCompactOpus(buffer, mimeType) {
     }
 }
 
-module.exports = { probeDuration, toCompactOpus, available: () => !!FFMPEG };
+async function transcode(buffer, ext, args) {
+    if (!FFMPEG) throw new Error('ffmpeg is not available');
+    const input = tmpFile('bin');
+    const output = tmpFile(ext);
+    fs.writeFileSync(input, buffer);
+    try {
+        await run(['-hide_banner', '-y', '-i', input, '-vn', ...args, output]);
+        return fs.readFileSync(output);
+    } finally {
+        fs.unlink(input, () => { });
+        fs.unlink(output, () => { });
+    }
+}
+
+/** 16 kHz mono 16-bit PCM WAV. */
+function toWav16k(buffer) {
+    return transcode(buffer, 'wav', ['-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le']);
+}
+
+/** Listening copy with background noise reduced, as mono Opus. */
+async function cleanForListening(buffer) {
+    const filters = 'highpass=f=80,lowpass=f=7500,afftdn=nr=18:nf=-35:tn=1,loudnorm=I=-18:TP=-2:LRA=11';
+    return { buffer: await transcode(buffer, 'ogg', ['-ac', '1', '-ar', '24000', '-af', filters, '-c:a', 'libopus', '-b:a', '48k']), mimeType: 'audio/ogg' };
+}
+
+module.exports = { probeDuration, toCompactOpus, toWav16k, cleanForListening, available: () => !!FFMPEG };

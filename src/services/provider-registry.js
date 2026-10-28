@@ -5,7 +5,7 @@
    exposes create({ apiKey, model }) which returns an adapter object with any of:
      chatCompletion(systemPrompt, userPrompt, opts)        → string     (text roles)
      transcribeAudioBuffer(buffer, mimeType, opts)          → string     (STT role)
-     diarizeAudioBuffer(buffer, mimeType, opts)             → { turns, enhancedBuffer? } (DIARIZE role)
+     diarizeAudioBuffer(buffer, mimeType, opts)             → { turns } (DIARIZE role)
      testConnection()                                       → void (throws on bad key)
 
    Downstream pipeline code never imports a vendor SDK directly — it only asks
@@ -14,7 +14,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Groq = require('groq-sdk');
 const { createClient: createDeepgramClient } = require('@deepgram/sdk');
-const speechbrain = require('./speechbrain-client');
 
 const CAPABILITIES = ['chat', 'transcribe', 'diarize'];
 
@@ -33,6 +32,9 @@ function registerFamily(key, definition) {
         label: definition.label || key,
         capabilities: caps,
         requiresKey: definition.requiresKey !== false,
+        group: definition.group || 'Other',
+        keyUrl: definition.keyUrl || null,
+        listModels: definition.listModels || null,
         create: definition.create,
     });
 }
@@ -47,6 +49,8 @@ function listFamilies() {
         label: f.label,
         capabilities: f.capabilities,
         requiresKey: f.requiresKey,
+        group: f.group,
+        keyUrl: f.keyUrl,
     }));
 }
 
@@ -161,16 +165,14 @@ registerFamily('groq', {
         return {
             chatCompletion,
 
-            // Whisper models (e.g. whisper-large-v3) served by Groq
-            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+            // Whisper models (e.g. whisper-large-v3) served by Groq; words=true adds word timestamps
+            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en', words = false } = {}) {
                 const found = mime.extension(String(mimeType).split(';')[0]) || 'webm';
                 const ext = found === 'mpga' ? 'mp3' : found;
-                const result = await client.audio.transcriptions.create({
-                    file: await Groq.toFile(buffer, `audio.${ext}`),
-                    model,
-                    language: lang,
-                });
-                return result.text || '';
+                const params = { file: await Groq.toFile(buffer, `audio.${ext}`), model, language: lang };
+                if (words) Object.assign(params, { response_format: 'verbose_json', timestamp_granularities: ['word'] });
+                const result = await client.audio.transcriptions.create(params);
+                return words ? { text: result.text || '', words: result.words || [] } : (result.text || '');
             },
 
             async testConnection() {
@@ -179,58 +181,6 @@ registerFamily('groq', {
                 if (!list.data.some(m => m.id === model)) {
                     throw new Error(`Model "${model}" is not available for this Groq key`);
                 }
-            },
-        };
-    },
-});
-
-// ─── Mistral (chat) ───
-// https://docs.mistral.ai — OpenAI-style chat completions with JSON mode.
-// Note: the free Experiment tier requires opting in to data being used for training.
-
-registerFamily('mistral', {
-    label: 'Mistral',
-    capabilities: ['chat'],
-    create({ apiKey, model }) {
-        const BASE = (process.env.MISTRAL_BASE_URL || 'https://api.mistral.ai/v1').replace(/\/+$/, '');
-
-        async function request(path, init = {}) {
-            const res = await fetch(BASE + path, {
-                ...init,
-                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...init.headers },
-            });
-            const body = await res.text();
-            if (!res.ok) {
-                const err = new Error(`Mistral ${res.status}: ${body.slice(0, 300)}`);
-                err.status = res.status;
-                throw err;
-            }
-            return body ? JSON.parse(body) : {};
-        }
-
-        async function chatCompletion(systemPrompt, userPrompt, { json = false, temperature = 0.3, maxTokens = 8000 } = {}) {
-            const payload = {
-                model,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt },
-                ],
-                temperature,
-                max_tokens: maxTokens,
-            };
-            if (json) payload.response_format = { type: 'json_object' };
-            const data = await request('/chat/completions', { method: 'POST', body: JSON.stringify(payload) });
-            const content = data.choices?.[0]?.message?.content;
-            // Some models return content as an array of parts
-            return Array.isArray(content) ? content.map(p => p.text || '').join('') : (content || '');
-        }
-
-        return {
-            chatCompletion,
-            async testConnection() {
-                const list = await request('/models');
-                const ids = (list.data || []).map(m => m.id);
-                if (ids.length && !ids.includes(model)) throw new Error(`Model "${model}" is not available for this Mistral key`);
             },
         };
     },
@@ -260,9 +210,11 @@ registerFamily('deepgram', {
         }
 
         return {
-            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en', words = false } = {}) {
                 const result = await transcribeFile(buffer, { language: lang });
-                return result.results.channels[0].alternatives[0].transcript;
+                const alt = result.results.channels[0].alternatives[0];
+                if (!words) return alt.transcript;
+                return { text: alt.transcript, words: (alt.words || []).map(w => ({ word: w.punctuated_word || w.word, start: w.start, end: w.end })) };
             },
 
             async diarizeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
@@ -288,33 +240,269 @@ registerFamily('deepgram', {
     },
 });
 
-// ─── SpeechBrain (local microservice, DIARIZE only, no key) ───
+// ─── pyannote (local speech service, DIARIZE only, no key) ───
 
-registerFamily('speechbrain', {
-    label: 'SpeechBrain (local service)',
+registerFamily('pyannote', {
+    label: 'pyannote (this computer)',
     capabilities: ['diarize'],
     requiresKey: false,
+    group: 'On this computer',
     create() {
+        const localSpeech = require('./local-speech');
         return {
             async diarizeAudioBuffer(buffer, mimeType, { numSpeakers = 2 } = {}) {
-                if (!(await speechbrain.isAvailable())) {
-                    throw new Error('SpeechBrain service not available');
-                }
-                const sbResult = await speechbrain.processAudioBuffer(buffer, numSpeakers);
-                return {
-                    turns: (sbResult.turns || []).map(t => ({
-                        speaker: t.speaker, start: t.start, end: t.end, text: t.text || '',
-                    })),
-                    enhancedBuffer: sbResult.enhanced_audio_b64
-                        ? Buffer.from(sbResult.enhanced_audio_b64, 'base64')
-                        : null,
-                };
+                return { turns: await localSpeech.diarize(buffer, { numSpeakers }) };
             },
             async testConnection() {
-                if (!(await speechbrain.isAvailable())) throw new Error('SpeechBrain service not available');
+                if (!(await localSpeech.isAvailable())) throw new Error('Local speech service not available');
             },
         };
     },
 });
 
-module.exports = { registerFamily, getFamily, listFamilies, CAPABILITIES };
+// ─── Catalogue: every other organisation (see provider-catalog.js) ───
+
+const { CATALOG, classifyModel, baseUrlFor } = require('./provider-catalog');
+
+/** fetch that throws an Error carrying the HTTP status, so the router can classify it. */
+async function httpJson(url, init = {}, vendor = 'Provider') {
+    const res = await fetch(url, init);
+    const body = await res.text();
+    if (!res.ok) {
+        const err = new Error(`${vendor} ${res.status}: ${body.slice(0, 300)}`);
+        err.status = res.status;
+        throw err;
+    }
+    try { return body ? JSON.parse(body) : {}; } catch { return { text: body }; }
+}
+
+function audioFile(buffer, mimeType) {
+    const mime = require('mime-types');
+    const found = mime.extension(String(mimeType || '').split(';')[0]) || 'webm';
+    const ext = found === 'mpga' ? 'mp3' : found;
+    return { blob: new Blob([buffer], { type: String(mimeType || 'audio/webm').split(';')[0] }), name: `audio.${ext}` };
+}
+
+// OpenAI-compatible APIs: OpenAI, Mistral, xAI, DeepSeek, OpenRouter, Together, Ollama, …
+function openAiCompatible(entry) {
+    return ({ apiKey, model }) => {
+        const base = baseUrlFor(entry);
+        const auth = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+
+        async function chatCompletion(systemPrompt, userPrompt, { json = false, temperature = 0.3, maxTokens = 8000 } = {}) {
+            const payload = {
+                model,
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+                temperature,
+                max_tokens: maxTokens,
+            };
+            if (json) payload.response_format = { type: 'json_object' };
+            const send = () => httpJson(`${base}/chat/completions`, {
+                method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            }, entry.label);
+            let data;
+            try {
+                data = await send();
+            } catch (err) {
+                // Not every compatible API supports JSON mode; callers parse JSON from plain replies too
+                if (!json || err.status !== 400 || !/response_format|json/i.test(err.message)) throw err;
+                delete payload.response_format;
+                data = await send();
+            }
+            const content = data.choices?.[0]?.message?.content;
+            return Array.isArray(content) ? content.map(p => p.text || '').join('') : (content || '');
+        }
+
+        async function transcribeAudioBuffer(buffer, mimeType, { lang = 'en', words = false } = {}) {
+            const send = (withWords) => {
+                const { blob, name } = audioFile(buffer, mimeType);
+                const form = new FormData();
+                form.append('file', blob, name);
+                form.append('model', model);
+                if (lang) form.append('language', lang);
+                if (withWords) { form.append('response_format', 'verbose_json'); form.append('timestamp_granularities[]', 'word'); }
+                return httpJson(`${base}/audio/transcriptions`, { method: 'POST', headers: auth, body: form }, entry.label);
+            };
+            if (!words) return (await send(false)).text || '';
+            // Not every compatible model offers word timestamps; fall back to plain text when it refuses
+            const data = await send(true).catch(err => (err.status === 400 ? send(false) : Promise.reject(err)));
+            return { text: data.text || '', words: Array.isArray(data.words) ? data.words : [] };
+        }
+
+        return {
+            chatCompletion,
+            transcribeAudioBuffer,
+            async testConnection() {
+                if (entry.noModelList) { await chatCompletion('Reply with OK.', 'OK?', { maxTokens: 5 }); return; }
+                const list = await httpJson(`${base}/models`, { headers: auth }, entry.label);
+                const ids = (list.data || []).map(m => m.id);
+                if (ids.length && model && !ids.includes(model)) throw new Error(`Model "${model}" is not available for this ${entry.label} key`);
+            },
+        };
+    };
+}
+
+function anthropicAdapter(entry) {
+    return ({ apiKey, model }) => {
+        const base = baseUrlFor(entry);
+        const headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' };
+        return {
+            async chatCompletion(systemPrompt, userPrompt, { json = false, temperature = 0.3, maxTokens = 8000 } = {}) {
+                const data = await httpJson(`${base}/messages`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({
+                        model, max_tokens: maxTokens, temperature,
+                        system: json ? `${systemPrompt}\n\nRespond with valid JSON only.` : systemPrompt,
+                        messages: [{ role: 'user', content: userPrompt }],
+                    }),
+                }, entry.label);
+                return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+            },
+            async testConnection() {
+                await httpJson(`${base}/models?limit=1`, { headers }, entry.label);
+            },
+        };
+    };
+}
+
+/** Group consecutive same-speaker items into turns; speaker labels become 0, 1, … */
+function toTurns(items) {
+    const index = new Map();
+    const turns = [];
+    for (const it of items) {
+        const text = String(it.text || '');
+        if (!text.trim()) continue;
+        if (!index.has(it.speaker)) index.set(it.speaker, index.size);
+        const speaker = index.get(it.speaker);
+        const last = turns[turns.length - 1];
+        if (last && last.speaker === speaker && it.join) { last.text += text; last.end = it.end; continue; }
+        turns.push({ speaker, start: it.start, end: it.end, text });
+    }
+    return turns.map(t => ({ ...t, text: t.text.trim() }));
+}
+
+function assemblyAiAdapter(entry) {
+    return ({ apiKey, model }) => {
+        const base = 'https://api.assemblyai.com/v2';
+        const headers = { authorization: apiKey };
+        async function run(buffer, lang, diarize) {
+            const up = await httpJson(`${base}/upload`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/octet-stream' }, body: buffer }, entry.label);
+            const job = await httpJson(`${base}/transcript`, {
+                method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ audio_url: up.upload_url, speech_model: model, speaker_labels: diarize, speakers_expected: diarize ? 2 : undefined, language_code: lang }),
+            }, entry.label);
+            for (;;) {
+                const t = await httpJson(`${base}/transcript/${job.id}`, { headers }, entry.label);
+                if (t.status === 'completed') return t;
+                if (t.status === 'error') throw new Error(`AssemblyAI: ${t.error}`);
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        }
+        return {
+            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+                return (await run(buffer, lang, false)).text || '';
+            },
+            async diarizeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+                const t = await run(buffer, lang, true);
+                return { turns: toTurns((t.utterances || []).map(u => ({ speaker: u.speaker, start: u.start / 1000, end: u.end / 1000, text: u.text }))) };
+            },
+            async testConnection() {
+                await httpJson(`${base}/transcript?limit=1`, { headers }, entry.label);
+            },
+        };
+    };
+}
+
+function elevenLabsAdapter(entry) {
+    return ({ apiKey, model }) => {
+        const headers = { 'xi-api-key': apiKey };
+        async function run(buffer, mimeType, lang, diarize) {
+            const { blob, name } = audioFile(buffer, mimeType);
+            const form = new FormData();
+            form.append('file', blob, name);
+            form.append('model_id', model);
+            if (lang) form.append('language_code', lang);
+            form.append('diarize', diarize ? 'true' : 'false');
+            if (diarize) form.append('num_speakers', '2');
+            return httpJson('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers, body: form }, entry.label);
+        }
+        return {
+            async transcribeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+                return (await run(buffer, mimeType, lang, false)).text || '';
+            },
+            async diarizeAudioBuffer(buffer, mimeType, { lang = 'en' } = {}) {
+                const r = await run(buffer, mimeType, lang, true);
+                const words = (r.words || []).filter(w => w.type !== 'audio_event');
+                return { turns: toTurns(words.map(w => ({ speaker: w.speaker_id || 'speaker_0', start: w.start, end: w.end, text: w.text, join: true }))) };
+            },
+            async testConnection() {
+                await httpJson('https://api.elevenlabs.io/v1/user', { headers }, entry.label);
+            },
+        };
+    };
+}
+
+// Live model lists per kind; each returns [{ id, meta }]
+const MODEL_LISTERS = {
+    async openai(entry, apiKey) {
+        const data = await httpJson(`${baseUrlFor(entry)}/models`, { headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {} }, entry.label);
+        return (data.data || data.models || []).map(m => ({ id: m.id || m.name, meta: m }));
+    },
+    async anthropic(entry, apiKey) {
+        const data = await httpJson(`${baseUrlFor(entry)}/models?limit=100`, { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } }, entry.label);
+        return (data.data || []).map(m => ({ id: m.id, meta: m }));
+    },
+    async gemini(entry, apiKey) {
+        const data = await httpJson(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${encodeURIComponent(apiKey)}`, {}, entry.label);
+        return (data.models || []).map(m => ({ id: String(m.name).replace(/^models\//, ''), meta: m }));
+    },
+    async groq(entry, apiKey) {
+        const data = await httpJson('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${apiKey}` } }, entry.label);
+        return (data.data || []).filter(m => m.active !== false).map(m => ({ id: m.id, meta: m }));
+    },
+    async deepgram(entry, apiKey) {
+        const data = await httpJson('https://api.deepgram.com/v1/models', { headers: { Authorization: `Token ${apiKey}` } }, entry.label);
+        return [...new Set((data.stt || []).filter(m => m.batch !== false).map(m => m.canonical_name))].map(id => ({ id, meta: {} }));
+    },
+};
+
+const FACTORIES = { openai: openAiCompatible, anthropic: anthropicAdapter, assemblyai: assemblyAiAdapter, elevenlabs: elevenLabsAdapter };
+
+for (const entry of CATALOG) {
+    const existing = families.get(entry.key);
+    if (existing) {
+        Object.assign(existing, { label: entry.label, group: entry.group, keyUrl: entry.keyUrl });
+        continue;
+    }
+    registerFamily(entry.key, {
+        label: entry.label,
+        group: entry.group,
+        keyUrl: entry.keyUrl,
+        capabilities: entry.capabilities,
+        requiresKey: entry.requiresKey !== false,
+        create: FACTORIES[entry.kind](entry),
+    });
+}
+
+/**
+ * Models one organisation offers, each with what it can do. Uses the live list when the key allows it,
+ * otherwise the catalogue's suggestions. Returns { models: [{ id, caps }], live }.
+ */
+async function listModels(familyKey, apiKey) {
+    const entry = CATALOG.find(c => c.key === familyKey);
+    if (!entry) return { models: [], live: false };
+    const suggested = entry.models.map(m => ({ id: m.id, caps: m.caps }));
+    const lister = MODEL_LISTERS[entry.kind];
+    if (!lister || entry.noModelList || (entry.requiresKey !== false && !apiKey)) return { models: suggested, live: false };
+    const raw = await lister(entry, apiKey);
+    const live = raw
+        .map(m => ({ id: m.id, caps: classifyModel(entry.key, m.id, m.meta) }))
+        .filter(m => m.id && m.caps.length);
+    // Suggested models first (known good), then the rest of the live list alphabetically
+    const ids = new Set(live.map(m => m.id));
+    const first = suggested.filter(m => ids.has(m.id));
+    const rest = live.filter(m => !first.some(f => f.id === m.id)).sort((a, b) => a.id.localeCompare(b.id));
+    return { models: [...first, ...rest], live: true };
+}
+
+module.exports = { registerFamily, getFamily, listFamilies, listModels, CAPABILITIES };

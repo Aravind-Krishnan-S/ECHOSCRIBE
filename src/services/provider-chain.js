@@ -16,7 +16,7 @@
         Omitting the key (family:model) uses that family's keys from the legacy variables
         (GEMINI_API_KEYS, GROQ_API_KEY, DEEPGRAM_API_KEY, ...).
         Repeating the same family:model with different keys forms a multi-key pool.
-     3. The shipped reference configuration (Gemini / Groq / Deepgram / SpeechBrain).
+     3. The shipped reference configuration (Gemini / Groq / Deepgram / local pyannote).
    The strategy comes from the user's settings, ROLE_STRATEGY_<SLOT>, ROUTING_STRATEGY, or "priority". */
 
 const { AppError } = require('../middleware/errorHandler');
@@ -136,12 +136,13 @@ function referenceTargets(slot) {
     const groqStt = targets('groq', modelList('GROQ_STT_MODELS', 'GROQ_STT_MODEL', 'whisper-large-v3'));
     const deepgram = targets('deepgram', modelList('DEEPGRAM_MODELS', 'DEEPGRAM_MODEL', 'nova-2'));
     const mistral = targets('mistral', modelList('MISTRAL_MODELS', 'MISTRAL_MODEL', 'mistral-small-latest'));
-    const sb = [{ family: 'speechbrain', model: 'ecapa-tdnn', keys: [] }];
+    const local = [{ family: 'pyannote', model: 'community-1', keys: [] }];
 
     // Vendors without keys are dropped by usable(), so this works with any subset configured
     const reference = {
-        STT: [...gemini, ...deepgram, ...groqStt],
-        DIARIZE: [...sb, ...deepgram, ...gemini],
+        // Whisper first: it returns word timestamps for speaker attribution (Gemini does not)
+        STT: [...groqStt, ...gemini, ...deepgram],
+        DIARIZE: [...local, ...deepgram, ...gemini],
         ROLE_LABEL: [...groq, ...mistral, ...gemini],
         NOTE_SYNTH: [...gemini, ...mistral, ...groq],
         PROFILE_GEN: [...gemini, ...mistral, ...groq],
@@ -322,10 +323,11 @@ async function attachProviderChains(req, res, next) {
     try {
         const { localKeys, combos: headerCombos } = parseHeader(req.get('x-provider-chain'));
         const { modelSettings, syncedKeys } = await loadUserRouting(req);
+        req.userProviderKeys = mergeKeyMaps(localKeys, syncedKeys);
         req.providerChains = buildUserCombos({
             headerCombos,
             modelSettings,
-            userKeys: mergeKeyMaps(localKeys, syncedKeys),
+            userKeys: req.userProviderKeys,
         });
         next();
     } catch (err) {
@@ -471,5 +473,6 @@ module.exports = {
     attachProviderChains,
     invalidateUserChains,
     describeServerChains,
+    legacyKeys,
     ProviderChainError,
 };

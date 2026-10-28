@@ -190,4 +190,22 @@ const updateSession = asyncHandler(async (req, res) => {
     res.json(data);
 });
 
-module.exports = { summarize, saveSession, getHistory, getSession, updateSession, deleteSession: deleteSessionHandler };
+// GET /api/session/:id/audio?mode=Therapy[&clean=1] — the saved recording for listening again.
+// clean=1 returns a copy with background noise reduced (FFmpeg); the note was made from the original.
+const getSessionAudio = asyncHandler(async (req, res) => {
+    const session = await dbService.getSessionById(req.supabaseToken, req.params.id, req.user.id, req.query.mode);
+    if (!session?.audio_url) throw new AppError('No recording was saved with this session.', 404);
+    const upstream = await fetch(session.audio_url);
+    if (!upstream.ok) throw new AppError('The saved recording could not be read.', 502);
+    let buffer = Buffer.from(await upstream.arrayBuffer());
+    let type = upstream.headers.get('content-type') || 'audio/webm';
+    if (req.query.clean === '1') {
+        const cleaned = await require('../services/audio-prep').cleanForListening(buffer);
+        buffer = cleaned.buffer;
+        type = cleaned.mimeType;
+    }
+    res.set({ 'Content-Type': type, 'Content-Length': buffer.length, 'Cache-Control': 'private, no-store' });
+    res.send(buffer);
+});
+
+module.exports = { summarize, saveSession, getHistory, getSession, getSessionAudio, updateSession, deleteSession: deleteSessionHandler };

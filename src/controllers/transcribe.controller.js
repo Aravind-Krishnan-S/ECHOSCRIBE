@@ -1,4 +1,5 @@
 const { transcribeAudio, diarizeAudio, identifyRoles, diarizeTranscript } = require('../services/ai.service');
+const alignment = require('../services/alignment');
 const audioPrep = require('../services/audio-prep');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const fs = require('fs');
@@ -7,34 +8,6 @@ const fs = require('fs');
  * Distribute the STT provider's flat transcript text into timestamped speaker turns.
  * Splits words proportionally by each turn's duration.
  */
-function alignTranscriptToTurns(fullText, turns) {
-    if (!fullText || !turns || turns.length === 0) return turns;
-
-    const words = fullText.split(/\s+/).filter(w => w.length > 0);
-    if (words.length === 0) return turns;
-
-    // Calculate total duration and each turn's share
-    const totalDuration = turns.reduce((sum, t) => sum + Math.max(t.end - t.start, 0.1), 0);
-
-    let wordIndex = 0;
-    turns.forEach(turn => {
-        const duration = Math.max(turn.end - turn.start, 0.1);
-        const share = duration / totalDuration;
-        const wordCount = Math.max(1, Math.round(share * words.length));
-        const turnWords = words.slice(wordIndex, wordIndex + wordCount);
-        turn.text = turnWords.join(' ');
-        wordIndex += wordCount;
-    });
-
-    // Assign any remaining words to the last turn
-    if (wordIndex < words.length) {
-        const lastTurn = turns[turns.length - 1];
-        lastTurn.text += ' ' + words.slice(wordIndex).join(' ');
-    }
-
-    return turns;
-}
-
 // POST /api/transcribe-audio
 const transcribe = asyncHandler(async (req, res) => {
     if (!req.file) {
@@ -56,18 +29,18 @@ const transcribe = asyncHandler(async (req, res) => {
         }
 
         // ═══════════════════════════════════════════════════
-        //  PROCESSING PIPELINE (paper Fig. 2)
-        //  1–3. DIARIZE chain: SpeechBrain (16 kHz resample → SepFormer
-        //       → ECAPA-TDNN + spectral clustering) when reachable,
+        //  PROCESSING PIPELINE (paper Fig. 1)
+        //  1–3. DIARIZE chain: local pyannote community-1 when reachable,
         //       otherwise the next configured diarization provider
-        //  4.   STT chain on the enhanced audio when available
+        //  4.   STT chain on the original recording (no denoising: it raised
+        //       word error rates; a cleaned copy exists only for listening)
         //  5.   ROLE_LABEL chain with the eight-feature speaker statistics
         //  (6. Note synthesis runs later via /api/summarize)
         // ═══════════════════════════════════════════════════
 
         let diarizedTurns = [];
         let diarizationProvider = 'None (STT only)';
-        let enhancedBuffer = null;
+        let alignmentMethod = null;
 
         // Long local sessions: measure the length and give cloud models a compact mono Opus copy
         const durationSec = await audioPrep.probeDuration(audioBuffer).catch(() => null);
@@ -77,16 +50,13 @@ const transcribe = asyncHandler(async (req, res) => {
             const diar = await diarizeAudio(audioBuffer, mimeType, lang, { chains, durationSec, cloudAudio });
             diarizedTurns = diar.turns;
             diarizationProvider = diar._provider;
-            enhancedBuffer = diar.enhancedBuffer;
-            console.log(`[Transcribe] ${diarizationProvider}: ${diarizedTurns.length} turns, enhanced=${!!enhancedBuffer}`);
+            console.log(`[Transcribe] ${diarizationProvider}: ${diarizedTurns.length} turns`);
         } catch (err) {
             console.warn('[Transcribe] Every diarization provider failed; continuing with STT only:', err.message);
         }
 
-        const sttInput = enhancedBuffer
-            ? await audioPrep.toCompactOpus(enhancedBuffer, 'audio/wav').catch(() => ({ buffer: enhancedBuffer, mimeType: 'audio/wav' }))
-            : cloudAudio;
-        const sttResult = await transcribeAudio(sttInput.buffer, sttInput.mimeType, lang, { chains, durationSec });
+        // Word timestamps let each word go to the speaker turn it was spoken in
+        const sttResult = await transcribeAudio(cloudAudio.buffer, cloudAudio.mimeType, lang, { chains, durationSec, words: diarizedTurns.length > 0 });
         const transcribedText = sttResult.text;
 
         // ─── No audio diarization: split the transcript into speakers with the text model ───
@@ -101,11 +71,18 @@ const transcribe = asyncHandler(async (req, res) => {
             diarizationProvider = textTurns.length > 1 ? 'Transcript-based (ROLE_LABEL model)' : 'None (STT only)';
         }
 
-        // ─── Fill empty SpeechBrain turns with STT transcript ───
+        // ─── Fill timed diarization turns (no text yet) with the STT transcript ───
         const hasEmptyText = diarizedTurns.some(t => !t.text || !t.text.trim());
         if (hasEmptyText && transcribedText) {
-            console.log('[Transcribe] Aligning transcript into speaker turns...');
-            alignTranscriptToTurns(transcribedText, diarizedTurns);
+            if (sttResult.words) {
+                alignment.assignWords(sttResult.words, diarizedTurns);
+                diarizedTurns = alignment.tidyTurns(diarizedTurns);
+                alignmentMethod = 'word timestamps';
+            } else {
+                alignment.splitByDuration(transcribedText, diarizedTurns);
+                alignmentMethod = 'turn duration';
+            }
+            console.log(`[Transcribe] Text placed into speaker turns by ${alignmentMethod}`);
         }
 
         // ─── Build merged transcript for role identification ───
@@ -131,7 +108,7 @@ const transcribe = asyncHandler(async (req, res) => {
             _sttProvider: sttResult._provider,
             _diarizationProvider: diarizationProvider,
             _roleProvider: roleProvider,
-            _enhancedBySpeechBrain: !!enhancedBuffer,
+            _alignment: alignmentMethod,
             durationSec,
         });
     } catch (err) {

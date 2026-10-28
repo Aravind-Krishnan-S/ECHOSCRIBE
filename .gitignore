@@ -39,3 +39,6 @@ paper/*.png
 paper/*.txt
 paper/compile.out
 paper/main.log
+src/python/.venv/
+src/python/pretrained_models/hf/
+src/python/__pycache__/

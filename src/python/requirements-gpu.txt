@@ -1,0 +1,8 @@
+# NVIDIA GPU build of the local speech service. The CUDA 12.8 runtime, cuDNN and cuBLAS ship
+# inside these torch wheels: no CUDA Toolkit install is needed (NVIDIA driver 570 or newer).
+#   pip install -r requirements-gpu.txt
+# The service picks the GPU automatically (SPEECH_DEVICE=auto); force one with SPEECH_DEVICE=cuda|cpu.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.8.0+cu128
+torchaudio==2.8.0+cu128
+-r requirements.txt

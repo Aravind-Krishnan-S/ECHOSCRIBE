@@ -1,0 +1,9 @@
+# NVIDIA GPU build of the SpeechBrain service (Windows or Linux, NVIDIA driver 570 or newer).
+# The CUDA 12.8 runtime, cuDNN and cuBLAS ship inside these torch wheels: no CUDA Toolkit install is needed.
+#   pip install -r requirements-gpu.txt
+# Then start the service as usual; it picks the GPU automatically (SPEECHBRAIN_DEVICE=auto).
+# Force a device with SPEECHBRAIN_DEVICE=cuda | cuda:1 | cpu. Apple silicon uses MPS with the normal requirements.txt.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.7.1+cu128
+torchaudio==2.7.1+cu128
+-r requirements.txt

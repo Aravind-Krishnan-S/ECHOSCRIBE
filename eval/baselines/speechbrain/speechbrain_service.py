@@ -64,8 +64,65 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 enhancer = None
 speaker_model = None
 MODELS_LOADED = False
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_DIR = os.path.join(os.path.dirname(__file__), "pretrained_models")
+
+
+def _pick_device() -> str:
+    """SPEECHBRAIN_DEVICE=auto|cuda|cuda:N|mps|cpu. auto uses an NVIDIA GPU (CUDA build of torch),
+    then Apple silicon (MPS), then the CPU."""
+    want = os.environ.get("SPEECHBRAIN_DEVICE", "auto").strip().lower()
+    if want.startswith("cuda"):
+        if torch.cuda.is_available():
+            return want
+        log.warning("SPEECHBRAIN_DEVICE=%s but CUDA is not available (CPU-only torch build or no NVIDIA driver); using CPU", want)
+        return "cpu"
+    if want == "mps":
+        return "mps" if torch.backends.mps.is_available() else "cpu"
+    if want == "cpu":
+        return "cpu"
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+DEVICE = _pick_device()
+ON_GPU = DEVICE != "cpu"
+# Speaker-embedding windows scored per forward pass: batching is what makes the GPU pay off.
+# On the CPU the default stays 1, so CPU results and timings match the paper's measurements.
+EMBED_BATCH = int(os.environ.get("EMBED_BATCH", "64" if ON_GPU else "1"))
+
+
+def gpu_info() -> dict:
+    if not DEVICE.startswith("cuda"):
+        return {}
+    idx = torch.cuda.current_device()
+    props = torch.cuda.get_device_properties(idx)
+    return {
+        "gpu": props.name,
+        "vram_total_mb": round(props.total_memory / 2**20),
+        "vram_allocated_mb": round(torch.cuda.memory_allocated(idx) / 2**20),
+        "cuda": torch.version.cuda,
+    }
+
+
+# One model pass at a time on a GPU: concurrent requests would otherwise each allocate a full window
+import threading
+GPU_LOCK = threading.Lock() if ON_GPU else None
+
+
+def _gpu_guard():
+    import contextlib
+    return GPU_LOCK if GPU_LOCK is not None else contextlib.nullcontext()
+
+
+def release_gpu_memory():
+    if DEVICE.startswith("cuda"):
+        torch.cuda.empty_cache()
+
+
+# Checkpoints stay where the app used to keep them, so the baseline reproduces with the same weights
+MODEL_DIR = os.environ.get("SPEECHBRAIN_MODEL_DIR", os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "python", "pretrained_models"))
 
 # ─── Model Loading ───
 
@@ -73,7 +130,8 @@ def load_models():
     """Load SpeechBrain models. Called once at startup."""
     global enhancer, speaker_model, MODELS_LOADED
 
-    log.info(f"Loading models on device: {DEVICE}")
+    info = gpu_info()
+    log.info(f"Loading models on device: {DEVICE}" + (f" ({info['gpu']}, {info['vram_total_mb']} MB, CUDA {info['cuda']})" if info else ""))
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     try:
@@ -156,15 +214,24 @@ ENHANCE_OVERLAP_SEC = 0.5
 
 
 def _separate(chunk: torch.Tensor) -> torch.Tensor:
-    """One SepFormer pass on a [1, time] chunk; returns [time] clean speech."""
-    with torch.no_grad():
-        out = enhancer.separate_batch(chunk.to(DEVICE))
-        # SepFormer returns [batch, time, sources] — take the first source (clean speech)
-        if out.dim() == 3:
-            out = out[:, :, 0]
-        elif out.dim() == 4:
-            out = out[:, :, 0, 0]
-    return out[0, :chunk.shape[1]].cpu()
+    """One SepFormer pass on a [1, time] chunk; returns [time] clean speech.
+    If the GPU runs out of memory, the chunk is split in half and each half retried."""
+    try:
+        with _gpu_guard(), torch.no_grad():
+            out = enhancer.separate_batch(chunk.to(DEVICE))
+            # SepFormer returns [batch, time, sources] — take the first source (clean speech)
+            if out.dim() == 3:
+                out = out[:, :, 0]
+            elif out.dim() == 4:
+                out = out[:, :, 0, 0]
+        return out[0, :chunk.shape[1]].cpu()
+    except torch.cuda.OutOfMemoryError:
+        release_gpu_memory()
+        half = chunk.shape[1] // 2
+        if half < 2 * 16000:
+            raise
+        log.warning(f"GPU out of memory on a {chunk.shape[1] / 16000:.1f} s window; splitting it in two")
+        return torch.cat([_separate(chunk[:, :half]), _separate(chunk[:, half:])])
 
 
 def enhance_audio(waveform: torch.Tensor, sr: int = 16000) -> torch.Tensor:
@@ -210,6 +277,13 @@ def enhance_audio(waveform: torch.Tensor, sr: int = 16000) -> torch.Tensor:
 
 # ─── Speaker Diarization ───
 
+def _embed(windows: list) -> list:
+    """ECAPA-TDNN embeddings for equal-length windows, one forward pass per batch."""
+    with _gpu_guard(), torch.no_grad():
+        emb = speaker_model.encode_batch(torch.stack(windows).to(DEVICE))
+    return [e.squeeze().cpu().numpy() for e in emb]
+
+
 def diarize_audio(waveform: torch.Tensor, sr: int = 16000, num_speakers: int = 2,
                   window_sec: float = 1.5, hop_sec: float = 0.75) -> list:
     """
@@ -240,6 +314,7 @@ def diarize_audio(waveform: torch.Tensor, sr: int = 16000, num_speakers: int = 2
 
     segments = []
     embeddings = []
+    batch = []
     pos = 0
 
     while pos < total_samples:
@@ -258,14 +333,15 @@ def diarize_audio(waveform: torch.Tensor, sr: int = 16000, num_speakers: int = 2
             "start": pos / sr,
             "end": min(end, total_samples) / sr
         })
-
-        # Extract embedding
-        with torch.no_grad():
-            seg_tensor = segment.unsqueeze(0).to(DEVICE)
-            emb = speaker_model.encode_batch(seg_tensor)
-            embeddings.append(emb.squeeze().cpu().numpy())
+        batch.append(segment)
+        if len(batch) >= EMBED_BATCH:
+            embeddings.extend(_embed(batch))
+            batch = []
 
         pos += hop_samples
+
+    if batch:
+        embeddings.extend(_embed(batch))
 
     if len(segments) < 2:
         duration = total_samples / sr
@@ -319,6 +395,14 @@ def diarize_audio(waveform: torch.Tensor, sr: int = 16000, num_speakers: int = 2
 
 # ─── API Endpoints ───
 
+@app.middleware("http")
+async def free_gpu_after_request(request, call_next):
+    try:
+        return await call_next(request)
+    finally:
+        release_gpu_memory()
+
+
 @app.get("/health")
 async def health():
     return {
@@ -326,7 +410,8 @@ async def health():
         "models_loaded": MODELS_LOADED,
         "enhancer": enhancer is not None,
         "speaker_model": speaker_model is not None,
-        "device": DEVICE
+        "device": DEVICE,
+        **gpu_info(),
     }
 
 

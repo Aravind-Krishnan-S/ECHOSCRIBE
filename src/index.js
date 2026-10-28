@@ -154,12 +154,11 @@ if (require.main === module) {
             console.log('[ProviderChain] ⚠️ Could not resolve chains:', e.message);
         }
 
-        // Probe SpeechBrain service availability
+        // Probe the local speech service (diarization)
         try {
-            const speechbrain = require('./services/speechbrain-client');
-            await speechbrain.probe();
+            await require('./services/local-speech').probe();
         } catch (e) {
-            console.log('[SpeechBrain] ⚠️ Probe skipped:', e.message);
+            console.log('[Speech] Probe skipped:', e.message);
         }
     });
 }

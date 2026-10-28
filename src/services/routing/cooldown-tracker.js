@@ -34,7 +34,7 @@ const PROVIDER_PROFILES = {
     },
 };
 
-const LOCAL_PROVIDERS = new Set(['speechbrain']);
+const LOCAL_PROVIDERS = new Set(['pyannote']);
 const RETENTION_MS = Math.max(30 * 60 * 1000, MAX_RETRY_COOLDOWN_MS, PROVIDER_PROFILES.apikey.failureWindowMs);
 
 const cooldowns = new Map();
