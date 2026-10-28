@@ -126,7 +126,7 @@ export default function ProfileSettings() {
       <SettingsSection title="Role" description="Decides which workspaces you see. Switching away hides a workspace but keeps its data.">
         <div role="radiogroup" aria-label="Role" className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {ROLES.map(r => (
-            <label key={r.id} className={`flex flex-col gap-0.5 rounded-[12px] border p-3 cursor-pointer transition-colors ${form.role === r.id ? 'border-accent bg-accent-tint' : 'border-border bg-raised hover:border-control'}`}>
+            <label key={r.id} className={`flex flex-col gap-0.5 rounded-[6px] border p-3 cursor-pointer transition-colors ${form.role === r.id ? 'border-accent bg-accent-tint' : 'border-border bg-raised hover:border-control'}`}>
               <input type="radio" name="role" value={r.id} checked={form.role === r.id} onChange={set('role')} className="sr-only" />
               <span className="font-medium">{r.label}</span>
               <span className="text-[12px] text-muted">{r.hint}</span>

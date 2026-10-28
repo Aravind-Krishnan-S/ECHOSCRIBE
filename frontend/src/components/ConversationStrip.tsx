@@ -52,7 +52,7 @@ export function ConversationStrip({ turns, professional, client, variant = 'full
 
   if (variant === 'mini') {
     return (
-      <span className="relative block h-[6px] w-full rounded-full bg-surface-2 overflow-hidden" role="img"
+      <span className="relative block h-[6px] w-full bg-surface-2 overflow-hidden" role="img"
         aria-label={`${professional} spoke ${proPct}% of the words, ${client} ${100 - proPct}%`}>
         {data.segs.map((s, i) => (
           <span key={i} className="absolute top-0 bottom-0" style={{ left: pct(s.x), width: pct(s.w), background: s.pro ? 'var(--lane-pro)' : 'var(--lane-client)' }} />
@@ -71,9 +71,9 @@ export function ConversationStrip({ turns, professional, client, variant = 'full
         {lanes.map(lane => (
           <div key={lane.label} className="contents">
             <span className="text-[13px] text-muted truncate">{lane.label}</span>
-            <span className="relative h-[14px] rounded-full bg-surface-2 overflow-hidden" aria-hidden>
+            <span className="relative h-[14px] bg-surface-2 overflow-hidden" aria-hidden>
               {data.segs.filter(s => s.pro === lane.pro).map((s, i) => (
-                <span key={i} className="absolute top-0 bottom-0 rounded-[3px]"
+                <span key={i} className="absolute top-0 bottom-0"
                   style={{ left: pct(s.x), width: `max(2px, ${pct(s.w)})`, background: lane.pro ? 'var(--lane-pro)' : 'var(--lane-client)' }} />
               ))}
             </span>

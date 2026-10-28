@@ -87,9 +87,9 @@ export default function Signup() {
                 return (
                   <button key={r.id} type="button" role="radio" aria-checked={selected} onClick={() => setRole(r.id)}
                     data-workspace={r.id === 'mentor' ? 'mentoring' : 'therapy'}
-                    className={clsx('flex items-start gap-3 text-left rounded-[16px] p-4 border transition-[border-color,background-color,transform] duration-200 active:scale-[0.99]',
+                    className={clsx('flex items-start gap-3 text-left rounded-[6px] p-4 border transition-[border-color,background-color,transform] duration-200 active:scale-[0.99]',
                       selected ? 'border-accent bg-accent-tint' : 'border-border bg-raised hover:border-control')}>
-                    <span className={clsx('w-9 h-9 rounded-[11px] flex items-center justify-center flex-none', selected ? 'bg-raised text-accent' : 'bg-surface-2 text-muted')}>
+                    <span className={clsx('w-9 h-9 rounded-[6px] flex items-center justify-center flex-none', selected ? 'bg-raised text-accent' : 'bg-surface-2 text-muted')}>
                       <Icon size={18} />
                     </span>
                     <span className="flex-1">

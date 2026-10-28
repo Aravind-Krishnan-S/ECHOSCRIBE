@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Check, Download, Pencil, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, Download, Pencil, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { PageHeader } from '../components/AppShell'
 import { ConversationStrip } from '../components/ConversationStrip'
@@ -35,7 +35,10 @@ export default function Summary() {
     queryFn: () => api<Patient>(`/api/patients/${session!.patient_id}?mode=${ws.api}`),
     enabled: !!session?.patient_id,
   })
-  const [focus, setFocus] = useState<number[]>([])
+  const [hoverFocus, setHoverFocus] = useState<number[]>([])
+  const [pinned, setPinned] = useState<number[]>([])
+  const focus = hoverFocus.length ? hoverFocus : pinned
+  const setFocus = setHoverFocus
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -96,20 +99,10 @@ export default function Summary() {
         </>}
       />
 
-      <div className="px-4 sm:px-6 lg:px-8 pb-10 grid grid-cols-1 xl:grid-cols-12 gap-4">
+      <div className="px-4 sm:px-6 lg:px-10 pt-2 pb-12 grid grid-cols-1 xl:grid-cols-12 gap-x-10 gap-y-6">
         {/* the note */}
-        <section className="xl:col-span-7 flex flex-col gap-4" aria-label={ws.noteName} data-tour="note">
-          {sum && (
-            <div className="panel flex flex-wrap items-center gap-x-6 gap-y-2 !py-4">
-              <span className="flex items-center gap-2 font-medium">
-                {sum.unsupported + sum.partial === 0 ? <ShieldCheck size={16} className="text-positive" /> : <AlertTriangle size={16} className="text-warning" />}
-                <span className="num">{sum.supported} of {sum.statements}</span> sentences supported by their cited turns
-              </span>
-              {sum.partial > 0 && <span className="pill pill-warning num">{sum.partial} partly supported</span>}
-              {sum.unsupported > 0 && <span className="pill pill-negative num">{sum.unsupported} unsupported</span>}
-              <span className="text-[12px] text-muted ml-auto">Checked by {grounding?.verifier || '—'}</span>
-            </div>
-          )}
+        <section className="xl:col-span-7 flex flex-col gap-8" aria-label={ws.noteName} data-tour="note">
+          {sum && <VerificationBand sum={sum} verifier={grounding?.verifier ?? undefined} />}
           {grounding?.cascade?.escalated && (
             <p className="text-[13px] text-muted m-0 -mt-1">Regenerated on another model after the first draft failed verification ({grounding.cascade.reason}); kept {grounding.cascade.kept}.</p>
           )}
@@ -118,12 +111,12 @@ export default function Summary() {
             const sentences = grounding?.sections?.[sec.key]
             const text = group?.[sec.key] || 'Not discussed'
             return (
-              <article key={sec.key} className="panel">
-                <header className="flex items-center gap-3 mb-3">
-                  <span className="w-8 h-8 rounded-[10px] bg-accent-tint text-accent-ink font-semibold flex items-center justify-center" aria-hidden>{sec.letter}</span>
+              <article key={sec.key} className="border-t border-ink pt-4">
+                <header className="flex items-start gap-4 mb-4">
+                  <span className="field-accent w-11 h-11 text-[22px] font-bold flex items-center justify-center flex-none" aria-hidden>{sec.letter}</span>
                   <div className="flex-1 min-w-0">
-                    <h2 className="m-0 text-[16px] leading-6 font-semibold">{sec.title}</h2>
-                    <p className="m-0 text-[12px] text-muted">{sec.hint}</p>
+                    <h2 className="m-0 text-[18px] leading-6 font-bold">{sec.title}</h2>
+                    <p className="m-0 text-[13px] text-muted">{sec.hint}</p>
                   </div>
                   {editing !== sec.key && <button className="btn btn-ghost btn-sm" onClick={() => startEdit(sec.key)}><Pencil size={13} />Edit</button>}
                 </header>
@@ -136,9 +129,14 @@ export default function Summary() {
                     </div>
                   </div>
                 ) : sentences && sentences.length ? (
-                  <p className="m-0 text-[15px] leading-[26px]">
-                    {sentences.map((s, i) => <Sentence key={i} s={s} onFocus={setFocus} active={focus.length > 0 && s.turns.join() === focus.join()} />)}
-                  </p>
+                  <ol className="list-none m-0 p-0 flex flex-col gap-1.5">
+                    {sentences.map((s, i) => (
+                      <Sentence key={i} s={s} onFocus={setFocus}
+                        pinned={pinned.length > 0 && s.turns.join() === pinned.join()}
+                        onPin={() => setPinned(p => (p.join() === s.turns.join() ? [] : s.turns))}
+                        active={focus.length > 0 && s.turns.join() === focus.join()} />
+                    ))}
+                  </ol>
                 ) : (
                   <p className={clsx('m-0 text-[15px] leading-[26px]', /^not discussed/i.test(text) && 'text-muted')}>{text}</p>
                 )}
@@ -150,11 +148,11 @@ export default function Summary() {
         </section>
 
         {/* evidence, risk, conversation */}
-        <aside className="xl:col-span-5 flex flex-col gap-4">
+        <aside className="xl:col-span-5 flex flex-col gap-4 xl:sticky xl:top-[96px] xl:self-start">
           <RiskPanel analysis={analysis} onFocus={setFocus} workspace={ws.id} />
           {analysis.conversation?.turns?.length ? (
             <div className="panel">
-              <h2 className="m-0 mb-3 text-[14px] font-semibold">Who spoke when</h2>
+              <h2 className="m-0 mb-3 section-title">Who spoke when</h2>
               <ConversationStrip turns={analysis.conversation.turns} professional={ws.professional} client={ws.client} />
             </div>
           ) : null}
@@ -172,31 +170,59 @@ export default function Summary() {
   )
 }
 
-function Sentence({ s, onFocus, active }: { s: GroundedSentence; onFocus: (t: number[]) => void; active: boolean }) {
+function Sentence({ s, onFocus, active, pinned, onPin }: { s: GroundedSentence; onFocus: (t: number[]) => void; active: boolean; pinned: boolean; onPin: () => void }) {
   const label = s.label || 'unverified'
   const cite = s.turns.length ? ` (turns ${s.turns.join(', ')})` : ' (no turns cited)'
   return (
-    <>
-      <span
-        tabIndex={0}
-        role="button"
-        aria-label={`${s.text}. ${LABEL_TEXT[label]}${cite}.`}
+    <li>
+      <button
+        type="button"
+        aria-pressed={pinned}
+        aria-label={`${s.text}. ${LABEL_TEXT[label]}${cite}. ${pinned ? 'Unpin' : 'Pin'} cited turns.`}
         title={`${LABEL_TEXT[label]}${cite}${s.reason ? ` — ${s.reason}` : ''}`}
         onMouseEnter={() => onFocus(s.turns)}
         onFocus={() => onFocus(s.turns)}
         onMouseLeave={() => onFocus([])}
         onBlur={() => onFocus([])}
-        className={clsx('rounded-[4px] cursor-default transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-accent',
-          active && 'bg-accent-tint',
-          label === 'partial' && 'underline decoration-[#d97706] decoration-dotted decoration-2 underline-offset-4',
-          label === 'unsupported' && 'underline decoration-negative decoration-wavy underline-offset-4 bg-[#fdecea]/60')}
+        onClick={onPin}
+        data-code={label}
+        className={clsx('stripe w-full text-left py-1 pr-2 text-[15px] leading-[24px] transition-colors duration-150',
+          active ? 'bg-accent-tint' : 'hover:bg-surface',
+          pinned && 'outline outline-1 outline-accent')}
       >
         {s.text}
-      </span>
-      {label === 'unsupported' && <AlertTriangle size={13} className="inline -mt-0.5 ml-1 text-negative" aria-hidden />}
-      {s.turns.length > 0 && <sup className="text-[10px] text-muted num ml-0.5" aria-hidden>{s.turns.join(',')}</sup>}
-      {' '}
-    </>
+        {s.turns.length > 0
+          ? <span className="ml-2 inline-flex gap-1 align-[1px]" aria-hidden>{s.turns.map(t => <span key={t} className="num text-[11px] leading-4 font-semibold px-1 bg-surface-2 text-muted">T{t}</span>)}</span>
+          : <span className="ml-2 text-[11px] text-faint" aria-hidden>no turns cited</span>}
+        {label === 'unsupported' && <span className="ml-2 text-[12px] font-semibold text-negative" aria-hidden>Check</span>}
+      </button>
+    </li>
+  )
+}
+
+/* The verification band: one coded bar, segment widths in proportion to the sentence counts. */
+function VerificationBand({ sum, verifier }: { sum: { statements: number; supported: number; partial: number; unsupported: number }; verifier?: string }) {
+  const unverified = Math.max(sum.statements - sum.supported - sum.partial - sum.unsupported, 0)
+  const parts = [
+    { code: 'supported', n: sum.supported, text: 'supported' },
+    { code: 'partial', n: sum.partial, text: 'partly supported' },
+    { code: 'unsupported', n: sum.unsupported, text: 'unsupported' },
+    { code: 'unverified', n: unverified, text: 'not verified' },
+  ].filter(p => p.n > 0)
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4 flex-wrap">
+        <p className="m-0 text-[15px]"><b className="num text-[24px] tracking-[-0.02em]">{sum.supported}<span className="text-muted">/{sum.statements}</span></b> sentences supported by the turns they cite</p>
+        <span className="text-[12px] text-muted">Checked independently by {verifier || '—'}</span>
+      </div>
+      <div className="flex h-3 mt-3 gap-[2px]" role="img" aria-label={parts.map(p => `${p.n} ${p.text}`).join(', ')}>
+        {parts.map(p => <span key={p.code} className="code-chip !h-full !w-auto" data-code={p.code} style={{ flexGrow: p.n }} />)}
+      </div>
+      <ul className="list-none m-0 p-0 mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-muted">
+        {parts.map(p => <li key={p.code} className="flex items-center gap-1.5"><span className="code-chip" data-code={p.code} /><span className="num">{p.n}</span> {p.text}</li>)}
+      </ul>
+      <p className="m-0 mt-2 text-[12px] text-faint">Hover a sentence to light its turns in the transcript; click to keep them lit.</p>
+    </div>
   )
 }
 
@@ -204,13 +230,13 @@ function TranscriptPanel({ turns, focus }: { turns: NumberedTurn[]; focus: numbe
   const set = new Set(focus)
   return (
     <div className="panel !p-0 overflow-hidden" data-tour="transcript">
-      <h2 className="m-0 px-5 pt-4 pb-3 text-[14px] font-semibold">Transcript <span className="font-normal text-muted num">· {turns.length} turns</span></h2>
-      <ol className="list-none m-0 px-3 pb-3 max-h-[560px] overflow-auto flex flex-col gap-1">
+      <h2 className="m-0 px-5 pt-4 pb-3 section-title border-b border-rule">Transcript <span className="font-normal text-muted num">· {turns.length} turns</span></h2>
+      <ol className="list-none m-0 max-h-[min(560px,calc(100vh-360px))] min-h-[240px] overflow-auto">
         {turns.map(t => (
           <li key={t.id} ref={el => { if (el && set.has(t.id) && focus[0] === t.id) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }}
-            className={clsx('grid grid-cols-[34px_1fr] gap-2 rounded-[10px] px-2 py-1.5 transition-colors duration-150', set.has(t.id) ? 'bg-accent-tint' : 'bg-transparent')}>
-            <span className="num text-[11px] text-muted pt-0.5">T{t.id}</span>
-            <span className="text-[13px] leading-[19px]"><span className="font-medium">{t.role}: </span>{t.text}</span>
+            className={clsx('grid grid-cols-[48px_1fr] transition-colors duration-150 border-b border-rule last:border-b-0', set.has(t.id) ? 'bg-accent-tint' : 'bg-transparent')}>
+            <span className={clsx('num text-[11px] font-semibold pt-2 text-center transition-colors duration-150', set.has(t.id) ? 'field-accent' : 'text-muted bg-surface')}>T{t.id}</span>
+            <span className="text-[13px] leading-[19px] px-3 py-2"><span className="font-semibold">{t.role} </span>{t.text}</span>
           </li>
         ))}
       </ol>
@@ -228,11 +254,11 @@ function RiskPanel({ analysis, onFocus, workspace }: { analysis: Analysis; onFoc
   const flagged = c ? !!c.flagged : primaryFlag
   const evidence = (c?.second_opinion?.evidence_turns || []) as number[]
   return (
-    <div className={clsx('panel', flagged && '!bg-[#fdf3f1]')} data-tour="risk">
+    <div className={clsx('panel', flagged && '!border-negative !bg-[#fdf1ed]')} data-tour="risk">
       <div className="flex items-start gap-3">
         {flagged ? <ShieldAlert size={18} className="text-negative mt-0.5" /> : <ShieldCheck size={18} className="text-positive mt-0.5" />}
         <div className="flex-1">
-          <h2 className="m-0 text-[15px] font-semibold">{flagged ? (therapy ? 'Risk language flagged' : 'Wellbeing concern flagged') : (therapy ? 'No risk language flagged' : 'No wellbeing concern flagged')}</h2>
+          <h2 className="m-0 text-[15px] font-bold">{flagged ? (therapy ? 'Risk language flagged' : 'Wellbeing concern flagged') : (therapy ? 'No risk language flagged' : 'No wellbeing concern flagged')}</h2>
           <p className="m-0 mt-1 text-[13px] text-muted">
             {therapy
               ? <>Suicidal ideation: <b className="text-ink">{r.suicidal_ideation ? 'yes' : 'no'}</b> · self-harm risk: <b className="text-ink">{r.self_harm_risk || '—'}</b></>
@@ -241,7 +267,7 @@ function RiskPanel({ analysis, onFocus, workspace }: { analysis: Analysis; onFoc
         </div>
       </div>
       {c && !c.error && (
-        <p className={clsx('m-0 mt-3 text-[13px] rounded-[10px] px-3 py-2', c.needs_review ? 'bg-[#fffbeb] text-[#92400e]' : 'bg-raised text-muted')}>
+        <p className={clsx('m-0 mt-3 text-[13px] rounded-[6px] px-3 py-2', c.needs_review ? 'bg-[#fbf0d6] text-[#6b4500]' : 'bg-surface text-muted')}>
           {c.needs_review ? 'The two screening models disagree — review the transcript.' : 'A second model from another vendor agrees.'}{' '}
           {evidence.length > 0 && (
             <button className="link" onMouseEnter={() => onFocus(evidence)} onFocus={() => onFocus(evidence)} onMouseLeave={() => onFocus([])} onBlur={() => onFocus([])}>
@@ -267,7 +293,7 @@ function TakeHome({ analysis }: { analysis: Analysis }) {
     <div className="panel grid grid-cols-1 md:grid-cols-2 gap-4">
       {comm?.instructions_english && (
         <div className="md:col-span-2">
-          <h2 className="m-0 mb-1 text-[14px] font-semibold">Take-home summary</h2>
+          <h2 className="m-0 mb-1 section-title">Take-home summary</h2>
           <p className="m-0 text-[14px] leading-[21px]">{comm.instructions_english}</p>
         </div>
       )}

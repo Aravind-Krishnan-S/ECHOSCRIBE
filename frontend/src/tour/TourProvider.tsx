@@ -204,7 +204,7 @@ function TourOverlay({ step, rect, index, total, onNext, onBack, onSkip }: {
       </svg>
 
       <motion.div role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-body"
-        className="glass absolute rounded-[20px] p-5" style={style}
+        className="glass absolute rounded-[6px] p-5" style={style}
         key={step.id}
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
         <p className="text-[12px] text-muted m-0 num">Step {index + 1} of {total}</p>

@@ -39,8 +39,8 @@ export function BarList({ items, unit = '' }: { items: { label: string; value: n
     <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
       {items.map((it, i) => (
         <li key={it.label} className="grid grid-cols-[minmax(0,1fr)_40px] items-center gap-3">
-          <span className="relative h-8 rounded-[8px] bg-surface-2 overflow-hidden">
-            <span className="absolute inset-y-0 left-0 rounded-[8px]"
+          <span className="relative h-8 bg-surface-2 overflow-hidden">
+            <span className="absolute inset-y-0 left-0"
               style={{ width: `${(it.value / max) * 100}%`, background: i === 0 ? 'var(--accent-tint-2)' : 'var(--accent-tint)' }} />
             <span className="absolute inset-0 flex items-center px-3 truncate">{it.label}</span>
           </span>

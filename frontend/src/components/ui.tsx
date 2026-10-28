@@ -4,20 +4,20 @@ import { AlertCircle, Check, X } from 'lucide-react'
 import clsx from 'clsx'
 import { initials } from '../lib/format'
 
-/* ─── Logo: a voice and its two echoes ─── */
+/* ─── Logo: a voice and its two echoes, drawn in the current colour ─── */
 export function LogoMark({ size = 22, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className={className}>
-      <circle cx="9" cy="16" r="3.2" fill="var(--accent)" />
-      <path d="M15 9.5a9 9 0 0 1 0 13" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M21 5.5a14.5 14.5 0 0 1 0 21" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" opacity=".55" />
+      <rect x="5.5" y="12.5" width="7" height="7" fill="currentColor" />
+      <path d="M16 8.5a10 10 0 0 1 0 15" fill="none" stroke="currentColor" strokeWidth="3" />
+      <path d="M22 4.5a15.5 15.5 0 0 1 0 23" fill="none" stroke="currentColor" strokeWidth="3" opacity=".55" />
     </svg>
   )
 }
 
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <span className={clsx('inline-flex items-center gap-2 font-semibold text-[15px] tracking-[-0.01em]', className)}>
+    <span className={clsx('inline-flex items-center gap-2 font-bold text-[16px] tracking-[-0.02em]', className)}>
       <LogoMark />
       EchoScribe
     </span>
@@ -31,7 +31,7 @@ export function Avatar({ name, src, size = 32, tone = 'accent' }: { name?: strin
   return (
     <span
       aria-hidden
-      className={clsx('rounded-full inline-flex items-center justify-center font-semibold flex-none',
+      className={clsx('rounded-full inline-flex items-center justify-center font-bold flex-none',
         tone === 'accent' ? 'bg-accent-tint text-accent-ink' : 'bg-surface-2 text-muted')}
       style={style}
     >
@@ -115,10 +115,10 @@ export function Dialog({ open, onClose, title, description, children, footer, wi
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-          <div className="absolute inset-0 bg-[rgba(31,32,29,0.22)]" onClick={onClose} aria-hidden />
+          <div className="absolute inset-0 bg-[rgba(18,20,23,0.32)]" onClick={onClose} aria-hidden />
           <motion.div
             ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}
-            className="glass relative w-full rounded-t-[22px] sm:rounded-[22px] max-h-[92vh] overflow-auto"
+            className="glass relative w-full rounded-t-[6px] sm:rounded-[6px] max-h-[92vh] overflow-auto"
             style={{ maxWidth: width }}
             initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
@@ -159,7 +159,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <motion.div key={t.id} layout
               initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="glass pointer-events-auto rounded-full px-4 py-2.5 flex items-center gap-2 text-[14px]">
+              className="glass pointer-events-auto rounded-[4px] px-4 py-2.5 flex items-center gap-2 text-[14px]">
               {t.tone === 'success' && <Check size={15} className="text-positive flex-none" />}
               {t.tone === 'error' && <AlertCircle size={15} className="text-negative flex-none" />}
               <span>{t.message}</span>
@@ -175,7 +175,7 @@ export const useToast = () => useContext(ToastContext)
 /* ─── Empty and error states ─── */
 export function EmptyState({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-dashed border-control px-4 py-3 text-muted">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] bg-surface border border-rule px-4 py-3 text-muted">
       <span>{children}</span>
       {action}
     </div>
@@ -184,7 +184,7 @@ export function EmptyState({ children, action }: { children: ReactNode; action?:
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-[14px] bg-raised border border-border px-4 py-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-[6px] bg-raised border border-border px-4 py-3">
       <AlertCircle size={15} className="text-negative flex-none" />
       <span className="flex-1 min-w-0">{message}</span>
       {onRetry && <button className="link text-[13px]" onClick={onRetry}>Retry</button>}

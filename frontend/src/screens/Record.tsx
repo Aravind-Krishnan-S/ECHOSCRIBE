@@ -6,7 +6,7 @@ import { ArrowLeftRight, Check, Circle, FileAudio, Mic, Square, Upload, X } from
 import clsx from 'clsx'
 import { PageHeader } from '../components/AppShell'
 import { ConversationStrip } from '../components/ConversationStrip'
-import { ErrorState, Field, Spinner, useToast } from '../components/ui'
+import { ErrorState, Field, useToast } from '../components/ui'
 import { ApiError, apiFetch, uploadWithProgress } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { clock, wordCount } from '../lib/format'
@@ -234,7 +234,7 @@ export default function Record() {
   return (
     <>
       <PageHeader title="New session" subtitle={`${ws.label} · ${ws.noteName}`} />
-      <div className="px-4 sm:px-6 lg:px-8 pb-10 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1148px]">
+      <div className="px-4 sm:px-6 lg:px-10 pt-2 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1200px]">
         <section className="panel lg:col-span-4 flex flex-col gap-4">
           <Field label={ws.client}>
             {p => (
@@ -257,34 +257,47 @@ export default function Record() {
         <section className="panel lg:col-span-8" data-tour="record-controls" aria-label="Record or upload">
           {phase === 'idle' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button type="button" onClick={start} className="panel-inner flex flex-col items-center justify-center gap-3 py-10 hover:border-control transition-colors">
-                <span className="w-20 h-20 rounded-full bg-accent text-white flex items-center justify-center shadow-[0_8px_24px_-8px_var(--accent)]"><Mic size={30} /></span>
-                <span className="font-semibold text-[16px]">Start recording</span>
-                <span className="text-[13px] text-muted">Uses this device’s microphone</span>
+              <button type="button" onClick={start} className="field-accent rounded-[4px] flex flex-col items-start justify-between gap-10 p-6 min-h-[220px] text-left hover:bg-accent-ink transition-colors">
+                <Mic size={34} strokeWidth={2.2} />
+                <span>
+                  <span className="block font-bold text-[22px] tracking-[-0.02em]">Start recording</span>
+                  <span className="block text-[13px] text-on-accent-muted mt-1">Uses this device’s microphone</span>
+                </span>
               </button>
               <label
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }}
-                className={clsx('panel-inner flex flex-col items-center justify-center gap-3 py-10 cursor-pointer border-dashed transition-colors', dragOver ? 'border-accent bg-accent-tint' : 'hover:border-control')}
+                className={clsx('rounded-[4px] border flex flex-col items-start justify-between gap-10 p-6 min-h-[220px] cursor-pointer transition-colors', dragOver ? 'border-accent bg-accent-tint' : 'border-ink hover:bg-surface')}
               >
-                <span className="w-20 h-20 rounded-full bg-surface-2 text-muted flex items-center justify-center"><Upload size={28} /></span>
-                <span className="font-semibold text-[16px]">Upload a recording</span>
-                <span className="text-[13px] text-muted">Drop a file or choose one · MP3, WAV, M4A, WebM…</span>
+                <Upload size={34} strokeWidth={2.2} />
+                <span>
+                  <span className="block font-bold text-[22px] tracking-[-0.02em]">Upload a recording</span>
+                  <span className="block text-[13px] text-muted mt-1">Drop a file or choose one · MP3, WAV, M4A, WebM</span>
+                </span>
                 <input ref={inputRef} type="file" accept={ACCEPT} className="sr-only" onChange={e => pickFile(e.target.files?.[0])} />
               </label>
             </div>
           )}
 
           {phase === 'recording' && (
-            <div className="flex flex-col items-center gap-5 py-6">
-              <div className="relative w-28 h-28 flex items-center justify-center">
-                <motion.span className="absolute inset-0 rounded-full bg-accent-tint" animate={{ scale: 1 + level * 0.5 }} transition={{ duration: 0.12 }} />
-                <button className="relative w-20 h-20 rounded-full bg-negative text-white flex items-center justify-center" onClick={stop} aria-label="Stop recording"><Square size={26} fill="currentColor" /></button>
+            <div className="flex flex-col gap-4">
+              {/* in the room: one quiet field, the clock and the stop control, nothing else */}
+              <div className="field-accent rounded-[4px] p-6 sm:p-8 min-h-[300px] flex flex-col justify-between">
+                <p className="m-0 text-[13px] text-on-accent-muted flex items-center gap-2"><Circle size={8} className="fill-current animate-pulse" />Recording · stop when the session ends</p>
+                <div className="flex items-end justify-between gap-6 flex-wrap">
+                  <p className="m-0 num font-bold text-[64px] sm:text-[88px] leading-none tracking-[-0.04em]" aria-live="off">{clock(elapsed)}</p>
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-end gap-[3px] h-10" aria-hidden>
+                      {[0.5, 0.8, 1, 0.7, 0.45].map((k, i) => (
+                        <motion.span key={i} className="w-[5px] bg-white/80" animate={{ height: `${Math.max(12, Math.min(100, level * 160 * k + 12))}%` }} transition={{ duration: 0.12 }} />
+                      ))}
+                    </span>
+                    <button className="btn btn-lg bg-white text-ink hover:bg-white/90 border border-white" onClick={stop}><Square size={16} fill="currentColor" />Stop</button>
+                  </div>
+                </div>
               </div>
-              <p className="m-0 num text-[28px]" aria-live="off">{clock(elapsed)}</p>
-              <p className="m-0 text-muted text-[13px] flex items-center gap-2"><Circle size={8} className="fill-negative text-negative animate-pulse" />Recording · press stop when the session ends</p>
-              <div className="w-full panel-inner p-4 min-h-[140px] max-h-[260px] overflow-auto">
+              <div className="panel !p-4 min-h-[120px] max-h-[240px] overflow-auto">
                 <p className="m-0 mb-2 text-[12px] text-muted num">Live transcript · {words} words · updates every 12 s</p>
                 <p className="m-0 leading-[22px]">{live.length ? live.join(' ') : <span className="text-muted">Listening…</span>}</p>
               </div>
@@ -301,15 +314,15 @@ export default function Record() {
         {phase === 'review' && result && (
           <section className="panel lg:col-span-12" aria-label="Transcript review">
             <div className="flex flex-wrap items-center gap-3 mb-4">
-              <h2 className="m-0 text-[16px] font-semibold flex-1">Check the transcript</h2>
+              <h2 className="m-0 text-[18px] font-bold flex-1">Check the transcript</h2>
               <button className="btn btn-secondary btn-sm" onClick={swapRoles}><ArrowLeftRight size={14} />Swap {ws.professional.toLowerCase()} and {ws.client.toLowerCase()}</button>
               <button className="btn btn-primary" onClick={writeNote}><FileAudio size={15} />Write the {ws.noteName}</button>
             </div>
             <div className="mb-4"><ConversationStrip turns={result.turns.map(t => ({ ...t, words: wordCount(t.text) }))} professional={ws.professional} client={ws.client} /></div>
             <ol className="list-none m-0 p-0 flex flex-col gap-2 max-h-[480px] overflow-auto">
               {result.turns.map((t, i) => (
-                <li key={i} className="grid grid-cols-[96px_1fr] gap-3 text-[14px] leading-[21px]">
-                  <span className={clsx('font-medium', t.role === ws.professional ? 'text-accent-ink' : 'text-muted')}>{t.role}</span>
+                <li key={i} className="grid grid-cols-[96px_1fr] gap-3 text-[14px] leading-[21px] border-b border-rule pb-2">
+                  <span className={clsx('font-semibold', t.role === ws.professional ? 'text-accent-ink' : 'text-muted')}>{t.role}</span>
                   <span>{t.text}</span>
                 </li>
               ))}
@@ -321,22 +334,28 @@ export default function Record() {
   )
 }
 
+/* Processing drawn as one line with stations: filled = done, ringed = running, hollow = waiting. */
 function AnalysisProgress({ stages, fileName }: { stages: Stage[]; fileName?: string }) {
   return (
     <div aria-live="polite">
-      <p className="m-0 mb-4 text-[13px] text-muted truncate">Analysing {fileName || 'the recording'}</p>
-      <ol className="list-none m-0 p-0 flex flex-col gap-3">
-        {stages.map(s => (
-          <li key={s.key} className="flex items-start gap-3">
-            <span className={clsx('w-6 h-6 rounded-full flex items-center justify-center flex-none mt-0.5',
-              s.state === 'done' && 'bg-positive text-white', s.state === 'active' && 'bg-accent-tint text-accent',
-              s.state === 'pending' && 'bg-surface-2 text-faint', s.state === 'error' && 'bg-[#fdecea] text-negative')}>
-              {s.state === 'done' ? <Check size={13} strokeWidth={3} /> : s.state === 'active' ? <Spinner size={13} /> : s.state === 'error' ? <X size={13} /> : <Circle size={7} className="fill-current" />}
+      <p className="m-0 mb-5 text-[13px] text-muted truncate">Analysing {fileName || 'the recording'}</p>
+      <ol className="list-none m-0 p-0 relative">
+        {stages.map((s, i) => (
+          <li key={s.key} className="relative grid grid-cols-[28px_1fr] gap-3 pb-5 last:pb-0">
+            {i < stages.length - 1 && (
+              <span aria-hidden className={clsx('absolute left-[13px] top-[18px] bottom-[-2px] w-[2px] transition-colors duration-300', s.state === 'done' ? 'bg-accent' : 'bg-border')} />
+            )}
+            <span aria-hidden className={clsx('relative z-[1] mt-[3px] w-[16px] h-[16px] ml-[6px] flex items-center justify-center border-2 transition-colors duration-300',
+              s.state === 'done' && 'bg-accent border-accent text-on-accent',
+              s.state === 'active' && 'bg-ground border-accent',
+              s.state === 'pending' && 'bg-ground border-control',
+              s.state === 'error' && 'bg-negative border-negative text-white')}>
+              {s.state === 'done' ? <Check size={10} strokeWidth={3.5} /> : s.state === 'error' ? <X size={10} strokeWidth={3.5} /> :
+                s.state === 'active' ? <motion.span className="block w-[6px] h-[6px] bg-accent" animate={{ opacity: [1, 0.25, 1] }} transition={{ duration: 1.2, repeat: Infinity }} /> : null}
             </span>
-            <span className="flex-1">
-              <span className={clsx('block', s.state === 'pending' && 'text-muted')}>{s.label}</span>
-              {s.detail && <span className="block text-[12px] text-muted">{s.detail}</span>}
-              {s.state === 'active' && <span className="block mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden"><motion.span className="block h-full w-1/3 bg-accent rounded-full" animate={{ x: ['-100%', '300%'] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }} /></span>}
+            <span className="min-w-0">
+              <span className={clsx('block font-semibold', s.state === 'pending' && 'text-muted font-medium')}>{s.label}{s.state === 'active' && <span className="sr-only"> (running)</span>}</span>
+              {s.detail && <span className="block text-[12px] text-muted truncate">{s.detail}</span>}
             </span>
           </li>
         ))}

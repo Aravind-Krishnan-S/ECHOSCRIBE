@@ -141,7 +141,18 @@ export interface ClientProfileInsights {
   _provider?: string
 }
 
-export interface ProviderFamily { key: string; label: string; capabilities: string[]; requiresKey: boolean }
+export interface ProviderFamily {
+  key: string
+  label: string
+  capabilities: string[]
+  requiresKey: boolean
+  group: string
+  keyUrl: string | null
+  serverKeys: number
+  defaultModel: string | null
+}
+export interface ProviderModel { id: string; caps: string[] }
+export interface ProviderModels { models: ProviderModel[]; live: boolean; hasKey: boolean; error?: string }
 export interface ServerSlot {
   label: string
   capability: string

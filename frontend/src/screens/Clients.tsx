@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Plus, Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { PageHeader } from '../components/AppShell'
 import { Avatar, Dialog, EmptyState, ErrorState, Field, Skel, Spinner, useToast } from '../components/ui'
 import { api } from '../lib/api'
@@ -11,6 +11,7 @@ import { useWorkspace } from '../lib/useWorkspace'
 import type { Patient } from '../lib/types'
 
 export default function Clients() {
+  const navigate = useNavigate()
   const ws = useWorkspace()
   const patients = usePatients(ws.api)
   const history = useHistory(ws.api)
@@ -38,8 +39,8 @@ export default function Clients() {
         subtitle={patients.data ? `${patients.data.length} in ${ws.label}` : undefined}
         actions={<button className="btn btn-primary" data-tour="add-client" onClick={() => setEditing('new')}><Plus size={15} />Add {ws.client.toLowerCase()}</button>}
       />
-      <div className="px-4 sm:px-6 lg:px-8 pb-10">
-        <label className="relative block max-w-[360px] mb-4">
+      <div className="px-4 sm:px-6 lg:px-10 pt-2 pb-12 max-w-[1200px]">
+        <label className="relative block max-w-[360px] mb-6">
           <span className="sr-only">Search {ws.clients.toLowerCase()}</span>
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input className="input !pl-10" placeholder={`Search ${ws.clients.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} />
@@ -52,27 +53,38 @@ export default function Clients() {
               {query ? `No ${ws.clients.toLowerCase()} match “${query}”.` : `No ${ws.clients.toLowerCase()} yet.`}
             </EmptyState>
           ) : (
-            <ul className="list-none m-0 p-0 flex flex-col gap-2">
-              {list.map(p => {
-                const st = stats[p.id]
-                return (
-                  <li key={p.id}>
-                    <Link to={`/w/${ws.id}/clients/${p.id}`} className="row-card">
-                      <Avatar name={p.name} size={36} />
-                      <span className="flex-1 min-w-0">
-                        <span className="block font-medium truncate">{p.name}</span>
-                        <span className="block text-[12px] text-muted truncate">
-                          {[p.age ? `${p.age} y` : null, p.gender, st?.last ? `last session ${relativeDay(st.last).toLowerCase()}` : 'no sessions yet'].filter(Boolean).join(' · ')}
-                        </span>
-                      </span>
-                      <span className="num text-[13px] text-muted hidden sm:block">{st?.count || 0} sessions</span>
-                      {st?.flagged && <span className="pill pill-negative">Flag</span>}
-                      <ChevronRight size={15} className="text-muted" />
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col" className="hidden sm:table-cell">Age · gender</th>
+                    <th scope="col">Last session</th>
+                    <th scope="col" className="text-right">Sessions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map(p => {
+                    const st = stats[p.id]
+                    const href = `/w/${ws.id}/clients/${p.id}`
+                    return (
+                      <tr key={p.id} className="cursor-pointer" onClick={() => navigate(href)}>
+                        <td>
+                          <Link to={href} className="flex items-center gap-3 font-semibold hover:underline" onClick={e => e.stopPropagation()}>
+                            <Avatar name={p.name} size={30} />
+                            <span className="truncate">{p.name}</span>
+                            {st?.flagged && <span className="pill pill-negative">Flag</span>}
+                          </Link>
+                        </td>
+                        <td className="hidden sm:table-cell text-muted">{[p.age ? `${p.age}` : null, p.gender].filter(Boolean).join(' · ') || '—'}</td>
+                        <td className="text-muted whitespace-nowrap">{st?.last ? relativeDay(st.last) : 'No sessions yet'}</td>
+                        <td className="text-right num font-semibold">{st?.count || 0}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
       </div>
       <ClientDialog open={editing !== null} patient={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />

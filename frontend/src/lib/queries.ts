@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
-import type { ApiMode, Patient, ProvidersInfo, Session, SyncedKey } from './types'
+import type { ApiMode, Patient, ProviderModels, ProvidersInfo, Session, SyncedKey } from './types'
 
 export function usePatients(mode: ApiMode, enabled = true) {
   return useQuery({
@@ -31,6 +31,16 @@ export function useProviders() {
     queryKey: ['providers'],
     queryFn: () => api<ProvidersInfo>('/api/providers'),
     staleTime: 30_000,
+  })
+}
+
+/** Models one provider offers, with what each can do; keyed by the keys on hand so a new key refetches. */
+export function useProviderModels(family: string | undefined, keyStamp: string) {
+  return useQuery({
+    queryKey: ['provider-models', family, keyStamp],
+    queryFn: () => api<ProviderModels>(`/api/providers/models?family=${encodeURIComponent(family!)}`),
+    enabled: !!family,
+    staleTime: 5 * 60_000,
   })
 }
 

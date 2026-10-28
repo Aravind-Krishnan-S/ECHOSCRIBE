@@ -28,12 +28,16 @@ export default function Workspaces() {
   }
 
   return (
-    <div className="min-h-screen bg-chrome flex flex-col">
-      <header className="px-6 py-5"><Wordmark /></header>
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
-        <h1 className="serif text-[34px] sm:text-[40px] leading-[1.1] m-0 text-center">Who's working today, {firstName(profile?.full_name, profile?.email)}?</h1>
-        <p className="text-muted mt-3 mb-10 text-center">Therapy and Mentoring keep separate clients, sessions and notes.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-[720px]">
+    <div className="min-h-screen bg-ground flex flex-col">
+      <header className="px-6 sm:px-10 pt-6 pb-8 flex flex-wrap items-end justify-between gap-4 border-b border-ink">
+        <div>
+          <span className="text-accent"><Wordmark /></span>
+          <h1 className="text-[32px] sm:text-[44px] leading-[1.05] font-bold tracking-[-0.035em] m-0 mt-8">Who's working today, {firstName(profile?.full_name, profile?.email)}?</h1>
+        </div>
+        <p className="text-muted m-0 max-w-[340px]">Therapy and Mentoring keep separate clients, sessions and notes.</p>
+      </header>
+      <main className="flex-1 flex">
+        <div className="grid grid-cols-1 sm:grid-cols-2 w-full">
           {allowed.map((id, i) => <Tile key={id} id={id} index={i} onEnter={enter} dimmed={!!entering && entering !== id} zoom={entering === id} />)}
         </div>
       </main>
@@ -53,20 +57,18 @@ function Tile({ id, index, onEnter, dimmed, zoom }: { id: WorkspaceId; index: nu
       type="button"
       data-workspace={id}
       onClick={() => onEnter(id)}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: dimmed ? 0.35 : 1, y: 0, scale: zoom ? 1.06 : 1 }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.35, delay: zoom || dimmed ? 0 : 0.08 * index, ease: [0.22, 1, 0.36, 1] }}
-      className="panel !p-6 text-left flex flex-col gap-5 min-h-[230px] hover:!bg-raised focus-visible:outline-2"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: dimmed ? 0.4 : 1 }}
+      transition={{ duration: 0.3, delay: zoom || dimmed ? 0 : 0.06 * index, ease: [0.16, 1, 0.3, 1] }}
+      className="field-accent group text-left flex flex-col justify-between gap-10 p-8 sm:p-10 min-h-[340px] hover:bg-accent-ink transition-colors focus-visible:outline-offset-[-6px]"
       aria-label={`Open ${ws.label}`}
     >
-      <span className="w-14 h-14 rounded-[18px] bg-accent-tint text-accent flex items-center justify-center"><Icon size={26} /></span>
-      <span className="flex-1">
-        <span className="block serif text-[30px] leading-9">{ws.label}</span>
-        <span className="block text-muted mt-1">{ws.noteName}s with {ws.clients.toLowerCase()}</span>
+      <Icon size={36} strokeWidth={2} />
+      <span>
+        <span className="block text-[44px] sm:text-[56px] leading-none font-bold tracking-[-0.04em]">{ws.label}</span>
+        <span className="block text-on-accent-muted mt-3 text-[15px]">{ws.noteName}s with {ws.clients.toLowerCase()}</span>
       </span>
-      <span className="flex items-center justify-between gap-3 text-[13px] text-muted border-t border-border pt-4">
+      <span className="flex items-center justify-between gap-3 text-[13px] text-on-accent-muted border-t border-white/30 pt-4">
         <span className="num">{patients.data ? plural(patients.data.length, ws.client.toLowerCase()) : '—'}</span>
         <span className="truncate">{last ? `Last session ${relativeDay(last.created_at).toLowerCase()}` : history.data ? 'No sessions yet' : '—'}</span>
       </span>
