@@ -208,4 +208,21 @@ const getSessionAudio = asyncHandler(async (req, res) => {
     res.send(buffer);
 });
 
-module.exports = { summarize, saveSession, getHistory, getSession, getSessionAudio, updateSession, deleteSession: deleteSessionHandler };
+// POST /api/session/:id/regenerate?mode=Mentoring — write the note again from the saved transcript.
+// For a note that came back empty or poor (for example when only a small model was available). The
+// transcript, speaker timings and client link are kept; everything the model writes is replaced.
+const regenerateSession = asyncHandler(async (req, res) => {
+    const session = await dbService.getSessionById(req.supabaseToken, req.params.id, req.user.id, req.query.mode);
+    const transcript = String(session.transcript || '').trim();
+    if (!transcript) throw new AppError('This session has no saved transcript to write a note from.', 400);
+    const old = session.analysis_json || {};
+    const language = (req.body && req.body.language) || 'en';
+    const fresh = await aiService.summarizeTranscript(transcript, language, req.query.mode, { chains: req.providerChains });
+    const merged = { ...old, ...fresh, conversation: old.conversation, counselingStats: { ...(old.counselingStats || {}), ...(fresh.counselingStats || {}) } };
+    if (!merged.conversation) delete merged.conversation;
+    const summary = merged.soap ? merged.soap.subjective : (merged.grow ? merged.grow.goal : undefined);
+    const data = await dbService.updateSession(req.supabaseToken, req.params.id, req.user.id, req.query.mode, { analysisJson: merged, summary });
+    res.json(data);
+});
+
+module.exports = { summarize, saveSession, getHistory, getSession, getSessionAudio, updateSession, regenerateSession, deleteSession: deleteSessionHandler };

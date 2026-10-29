@@ -101,6 +101,7 @@ router.get('/history', validateModeQuery, sessionController.getHistory);
 router.get('/session/:id', validateModeQuery, sessionController.getSession);
 router.get('/session/:id/audio', validateModeQuery, sessionController.getSessionAudio);
 router.put('/session/:id', validateModeQuery, sessionController.updateSession);
+router.post('/session/:id/regenerate', validateModeQuery, sessionController.regenerateSession);
 router.delete('/session/:id', sessionController.deleteSession);
 
 // --- Transcription Routes ---
