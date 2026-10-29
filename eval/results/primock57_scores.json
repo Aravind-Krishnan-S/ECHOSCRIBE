@@ -1,0 +1,593 @@
+{
+ "summary": {
+  "consultations": 57,
+  "with_transcript": 57,
+  "hours": 8.64,
+  "der": 0.168,
+  "wer": 0.1876,
+  "cpwer_words": 0.2382,
+  "cpwer_duration": 0.5297,
+  "diar_gpu_s_per_audio_min": 2.5887,
+  "roles": {
+   "n": 57,
+   "correct": 57,
+   "accuracy": 1.0,
+   "ci95": [
+    0.9369,
+    1.0
+   ]
+  }
+ },
+ "per_consultation": [
+  {
+   "id": "day1_consultation01",
+   "duration": 457.92,
+   "der": 0.16434907429627882,
+   "diar_s_per_min": 2.467243186582809,
+   "wer_err": 312,
+   "wer_n": 1419,
+   "cpwer_words": 0.244538407329105,
+   "cpwer_duration": 0.5158562367864693
+  },
+  {
+   "id": "day1_consultation02",
+   "duration": 559.2,
+   "der": 0.10329398669984241,
+   "diar_s_per_min": 2.217811158798283,
+   "wer_err": 370,
+   "wer_n": 1671,
+   "cpwer_words": 0.22920406941950927,
+   "cpwer_duration": 0.3859964093357271
+  },
+  {
+   "id": "day1_consultation03",
+   "duration": 544.32,
+   "der": 0.10343476557398434,
+   "diar_s_per_min": 2.26521164021164,
+   "wer_err": 301,
+   "wer_n": 1567,
+   "cpwer_words": 0.20165922144224632,
+   "cpwer_duration": 0.5335035098915124
+  },
+  {
+   "id": "day1_consultation04",
+   "duration": 615.48,
+   "der": 0.18407311891273978,
+   "diar_s_per_min": 2.3055176447650614,
+   "wer_err": 418,
+   "wer_n": 1681,
+   "cpwer_words": 0.2962522308149911,
+   "cpwer_duration": 0.6240333135038667
+  },
+  {
+   "id": "day1_consultation05",
+   "duration": 577.02,
+   "der": 0.0951694375356259,
+   "diar_s_per_min": 2.309452012061974,
+   "wer_err": 343,
+   "wer_n": 1628,
+   "cpwer_words": 0.2199017199017199,
+   "cpwer_duration": 0.49017199017199015
+  },
+  {
+   "id": "day1_consultation06",
+   "duration": 662.52,
+   "der": 0.1603272396727604,
+   "diar_s_per_min": 2.2776670892954174,
+   "wer_err": 405,
+   "wer_n": 1853,
+   "cpwer_words": 0.24608742579600648,
+   "cpwer_duration": 0.5520777118186724
+  },
+  {
+   "id": "day1_consultation07",
+   "duration": 858.24,
+   "der": 0.17688689349087047,
+   "diar_s_per_min": 2.2441275167785237,
+   "wer_err": 701,
+   "wer_n": 2709,
+   "cpwer_words": 0.2739018087855297,
+   "cpwer_duration": 0.6028054632705796
+  },
+  {
+   "id": "day1_consultation08",
+   "duration": 466.2,
+   "der": 0.17434385663067428,
+   "diar_s_per_min": 2.2522522522522523,
+   "wer_err": 252,
+   "wer_n": 1183,
+   "cpwer_words": 0.22400676246830092,
+   "cpwer_duration": 0.4835164835164835
+  },
+  {
+   "id": "day1_consultation09",
+   "duration": 536.82,
+   "der": 0.16378084327408324,
+   "diar_s_per_min": 2.272270034648485,
+   "wer_err": 389,
+   "wer_n": 1584,
+   "cpwer_words": 0.2455808080808081,
+   "cpwer_duration": 0.6079545454545454
+  },
+  {
+   "id": "day1_consultation10",
+   "duration": 620.34,
+   "der": 0.1858729895539705,
+   "diar_s_per_min": 2.3696682464454977,
+   "wer_err": 486,
+   "wer_n": 1890,
+   "cpwer_words": 0.26031746031746034,
+   "cpwer_duration": 0.5185185185185185
+  },
+  {
+   "id": "day1_consultation11",
+   "duration": 803.28,
+   "der": 0.16835239676126354,
+   "diar_s_per_min": 2.374514490588587,
+   "wer_err": 452,
+   "wer_n": 2332,
+   "cpwer_words": 0.21569468267581476,
+   "cpwer_duration": 0.5737564322469982
+  },
+  {
+   "id": "day1_consultation12",
+   "duration": 471.96,
+   "der": 0.19823039005724397,
+   "diar_s_per_min": 2.251461988304094,
+   "wer_err": 231,
+   "wer_n": 1180,
+   "cpwer_words": 0.3059322033898305,
+   "cpwer_duration": 0.6508474576271186
+  },
+  {
+   "id": "day1_consultation13",
+   "duration": 624.36,
+   "der": 0.15785794011946547,
+   "diar_s_per_min": 2.287142033442245,
+   "wer_err": 277,
+   "wer_n": 1707,
+   "cpwer_words": 0.1763327475102519,
+   "cpwer_duration": 0.5723491505565319
+  },
+  {
+   "id": "day1_consultation14",
+   "duration": 604.68,
+   "der": 0.13496650012663186,
+   "diar_s_per_min": 2.2335780908910503,
+   "wer_err": 354,
+   "wer_n": 1922,
+   "cpwer_words": 0.18106139438085328,
+   "cpwer_duration": 0.5832466181061394
+  },
+  {
+   "id": "day1_consultation15",
+   "duration": 491.82,
+   "der": 0.21978942276096253,
+   "diar_s_per_min": 2.265462974258875,
+   "wer_err": 246,
+   "wer_n": 1268,
+   "cpwer_words": 0.20504731861198738,
+   "cpwer_duration": 0.4526813880126183
+  },
+  {
+   "id": "day2_consultation01",
+   "duration": 329.16,
+   "der": 0.11369668726572783,
+   "diar_s_per_min": 2.2201968647466277,
+   "wer_err": 213,
+   "wer_n": 1162,
+   "cpwer_words": 0.19965576592082615,
+   "cpwer_duration": 0.3261617900172117
+  },
+  {
+   "id": "day2_consultation02",
+   "duration": 541.56,
+   "der": 0.20655359204333443,
+   "diar_s_per_min": 2.2501661865721254,
+   "wer_err": 352,
+   "wer_n": 1699,
+   "cpwer_words": 0.2577987051206592,
+   "cpwer_duration": 0.5538552089464391
+  },
+  {
+   "id": "day2_consultation03",
+   "duration": 450.84,
+   "der": 0.14216785870395346,
+   "diar_s_per_min": 3.465531008783604,
+   "wer_err": 335,
+   "wer_n": 1412,
+   "cpwer_words": 0.23937677053824363,
+   "cpwer_duration": 0.5623229461756374
+  },
+  {
+   "id": "day2_consultation04",
+   "duration": 578.1,
+   "der": 0.1275855487606067,
+   "diar_s_per_min": 2.690192008303062,
+   "wer_err": 354,
+   "wer_n": 1825,
+   "cpwer_words": 0.19068493150684931,
+   "cpwer_duration": 0.4482191780821918
+  },
+  {
+   "id": "day2_consultation05",
+   "duration": 636.3,
+   "der": 0.1587353228239331,
+   "diar_s_per_min": 2.8213107024988213,
+   "wer_err": 277,
+   "wer_n": 1888,
+   "cpwer_words": 0.23940677966101695,
+   "cpwer_duration": 0.4634533898305085
+  },
+  {
+   "id": "day2_consultation06",
+   "duration": 598.26,
+   "der": 0.10452727695620483,
+   "diar_s_per_min": 3.0007020359041223,
+   "wer_err": 336,
+   "wer_n": 1916,
+   "cpwer_words": 0.1931106471816284,
+   "cpwer_duration": 0.43162839248434237
+  },
+  {
+   "id": "day2_consultation07",
+   "duration": 457.44,
+   "der": 0.12391491101479321,
+   "diar_s_per_min": 2.9905561385099686,
+   "wer_err": 299,
+   "wer_n": 1338,
+   "cpwer_words": 0.2608370702541106,
+   "cpwer_duration": 0.5037369207772795
+  },
+  {
+   "id": "day2_consultation08",
+   "duration": 633.9,
+   "der": 0.10354294295944322,
+   "diar_s_per_min": 3.26360624704212,
+   "wer_err": 323,
+   "wer_n": 1799,
+   "cpwer_words": 0.1934408004446915,
+   "cpwer_duration": 0.50917176209005
+  },
+  {
+   "id": "day2_consultation09",
+   "duration": 432.24,
+   "der": 0.17913559710909743,
+   "diar_s_per_min": 3.2509716823986676,
+   "wer_err": 228,
+   "wer_n": 1038,
+   "cpwer_words": 0.26878612716763006,
+   "cpwer_duration": 0.5924855491329479
+  },
+  {
+   "id": "day2_consultation10",
+   "duration": 579.42,
+   "der": 0.15006522558388954,
+   "diar_s_per_min": 3.1200165682924306,
+   "wer_err": 316,
+   "wer_n": 1826,
+   "cpwer_words": 0.23110624315443593,
+   "cpwer_duration": 0.4720700985761227
+  },
+  {
+   "id": "day3_consultation01",
+   "duration": 510.06,
+   "der": 0.23531065687052738,
+   "diar_s_per_min": 3.317256793318433,
+   "wer_err": 226,
+   "wer_n": 1259,
+   "cpwer_words": 0.3868149324861001,
+   "cpwer_duration": 0.5893566322478158
+  },
+  {
+   "id": "day3_consultation02",
+   "duration": 443.64,
+   "der": 0.13770595055755153,
+   "diar_s_per_min": 3.036245604544225,
+   "wer_err": 234,
+   "wer_n": 1160,
+   "cpwer_words": 0.20948275862068966,
+   "cpwer_duration": 0.42844827586206896
+  },
+  {
+   "id": "day3_consultation03",
+   "duration": 696.3,
+   "der": 0.16087427203261867,
+   "diar_s_per_min": 2.843601895734597,
+   "wer_err": 345,
+   "wer_n": 1810,
+   "cpwer_words": 0.22596685082872928,
+   "cpwer_duration": 0.6104972375690608
+  },
+  {
+   "id": "day3_consultation04",
+   "duration": 433.02,
+   "der": 0.208074983873728,
+   "diar_s_per_min": 2.71996674518498,
+   "wer_err": 218,
+   "wer_n": 1096,
+   "cpwer_words": 0.3193430656934307,
+   "cpwer_duration": 0.43156934306569344
+  },
+  {
+   "id": "day3_consultation05",
+   "duration": 413.58,
+   "der": 0.12603589213567581,
+   "diar_s_per_min": 3.1930944436384743,
+   "wer_err": 172,
+   "wer_n": 1085,
+   "cpwer_words": 0.20368663594470046,
+   "cpwer_duration": 0.5253456221198156
+  },
+  {
+   "id": "day3_consultation06",
+   "duration": 228.6,
+   "der": 0.07808914647105018,
+   "diar_s_per_min": 3.0524934383202105,
+   "wer_err": 93,
+   "wer_n": 589,
+   "cpwer_words": 0.166383701188455,
+   "cpwer_duration": 0.5789473684210527
+  },
+  {
+   "id": "day3_consultation07",
+   "duration": 457.8,
+   "der": 0.13333333333333341,
+   "diar_s_per_min": 2.802096985583224,
+   "wer_err": 235,
+   "wer_n": 1141,
+   "cpwer_words": 0.21384750219106047,
+   "cpwer_duration": 0.4802804557405784
+  },
+  {
+   "id": "day3_consultation08",
+   "duration": 344.46,
+   "der": 0.13221785614044088,
+   "diar_s_per_min": 2.7138129245775997,
+   "wer_err": 152,
+   "wer_n": 904,
+   "cpwer_words": 0.18584070796460178,
+   "cpwer_duration": 0.5055309734513275
+  },
+  {
+   "id": "day3_consultation09",
+   "duration": 712.44,
+   "der": 0.12623656297989286,
+   "diar_s_per_min": 2.819605861546235,
+   "wer_err": 270,
+   "wer_n": 2079,
+   "cpwer_words": 0.16594516594516595,
+   "cpwer_duration": 0.41798941798941797
+  },
+  {
+   "id": "day3_consultation10",
+   "duration": 560.28,
+   "der": 0.14316098077688982,
+   "diar_s_per_min": 3.7309916470336266,
+   "wer_err": 176,
+   "wer_n": 1337,
+   "cpwer_words": 0.14659685863874344,
+   "cpwer_duration": 0.36200448765893795
+  },
+  {
+   "id": "day4_consultation01",
+   "duration": 513.48,
+   "der": 0.13514776311178697,
+   "diar_s_per_min": 4.11544753447067,
+   "wer_err": 192,
+   "wer_n": 1252,
+   "cpwer_words": 0.1829073482428115,
+   "cpwer_duration": 0.5966453674121406
+  },
+  {
+   "id": "day4_consultation02",
+   "duration": 504.06,
+   "der": 0.23885125791109338,
+   "diar_s_per_min": 4.189977383644805,
+   "wer_err": 159,
+   "wer_n": 1225,
+   "cpwer_words": 0.2653061224489796,
+   "cpwer_duration": 0.5885714285714285
+  },
+  {
+   "id": "day4_consultation03",
+   "duration": 382.32,
+   "der": 0.12573352776662247,
+   "diar_s_per_min": 2.5408035153797868,
+   "wer_err": 133,
+   "wer_n": 1026,
+   "cpwer_words": 0.1364522417153996,
+   "cpwer_duration": 0.4346978557504873
+  },
+  {
+   "id": "day4_consultation04",
+   "duration": 393.3,
+   "der": 0.10822311352204228,
+   "diar_s_per_min": 2.3005339435545387,
+   "wer_err": 144,
+   "wer_n": 996,
+   "cpwer_words": 0.15863453815261044,
+   "cpwer_duration": 0.5823293172690763
+  },
+  {
+   "id": "day4_consultation05",
+   "duration": 582.12,
+   "der": 0.2556630903661103,
+   "diar_s_per_min": 2.323232323232323,
+   "wer_err": 359,
+   "wer_n": 1564,
+   "cpwer_words": 0.2813299232736573,
+   "cpwer_duration": 0.6636828644501279
+  },
+  {
+   "id": "day4_consultation06",
+   "duration": 606.12,
+   "der": 0.1646592474180779,
+   "diar_s_per_min": 2.377746980795882,
+   "wer_err": 243,
+   "wer_n": 1655,
+   "cpwer_words": 0.26163141993957706,
+   "cpwer_duration": 0.6374622356495468
+  },
+  {
+   "id": "day4_consultation07",
+   "duration": 626.7,
+   "der": 0.15580327703445493,
+   "diar_s_per_min": 2.3657252273815224,
+   "wer_err": 348,
+   "wer_n": 1771,
+   "cpwer_words": 0.29136081309994355,
+   "cpwer_duration": 0.5138339920948617
+  },
+  {
+   "id": "day4_consultation08",
+   "duration": 721.2,
+   "der": 0.17173585194605384,
+   "diar_s_per_min": 2.2895174708818633,
+   "wer_err": 371,
+   "wer_n": 1749,
+   "cpwer_words": 0.2504288164665523,
+   "cpwer_duration": 0.5780445969125214
+  },
+  {
+   "id": "day4_consultation09",
+   "duration": 628.5,
+   "der": 0.17947775696971924,
+   "diar_s_per_min": 2.290214797136038,
+   "wer_err": 367,
+   "wer_n": 1737,
+   "cpwer_words": 0.25964306275187105,
+   "cpwer_duration": 0.6027633851468048
+  },
+  {
+   "id": "day4_consultation10",
+   "duration": 744.84,
+   "der": 0.14137945260864856,
+   "diar_s_per_min": 2.301433864991139,
+   "wer_err": 344,
+   "wer_n": 1702,
+   "cpwer_words": 0.2244418331374853,
+   "cpwer_duration": 0.517626321974148
+  },
+  {
+   "id": "day5_consultation01",
+   "duration": 453.9,
+   "der": 0.23313704365108684,
+   "diar_s_per_min": 2.278916060806345,
+   "wer_err": 220,
+   "wer_n": 1254,
+   "cpwer_words": 0.3349282296650718,
+   "cpwer_duration": 0.6220095693779905
+  },
+  {
+   "id": "day5_consultation02",
+   "duration": 445.62,
+   "der": 0.26577037308493867,
+   "diar_s_per_min": 2.2849064225124542,
+   "wer_err": 138,
+   "wer_n": 1090,
+   "cpwer_words": 0.3128440366972477,
+   "cpwer_duration": 0.43211009174311926
+  },
+  {
+   "id": "day5_consultation03",
+   "duration": 776.34,
+   "der": 0.1822794229330202,
+   "diar_s_per_min": 2.2559703222814744,
+   "wer_err": 269,
+   "wer_n": 2382,
+   "cpwer_words": 0.17842149454240133,
+   "cpwer_duration": 0.47774979009235935
+  },
+  {
+   "id": "day5_consultation04",
+   "duration": 543.6,
+   "der": 0.3482535679793964,
+   "diar_s_per_min": 2.2229580573951435,
+   "wer_err": 280,
+   "wer_n": 1246,
+   "cpwer_words": 0.4622792937399679,
+   "cpwer_duration": 0.6573033707865169
+  },
+  {
+   "id": "day5_consultation05",
+   "duration": 409.08,
+   "der": 0.19379062990360924,
+   "diar_s_per_min": 2.217659137577002,
+   "wer_err": 195,
+   "wer_n": 930,
+   "cpwer_words": 0.27419354838709675,
+   "cpwer_duration": 0.6526881720430108
+  },
+  {
+   "id": "day5_consultation06",
+   "duration": 614.64,
+   "der": 0.17288285928930694,
+   "diar_s_per_min": 2.2217883639203437,
+   "wer_err": 283,
+   "wer_n": 1521,
+   "cpwer_words": 0.21170282708744248,
+   "cpwer_duration": 0.504930966469428
+  },
+  {
+   "id": "day5_consultation07",
+   "duration": 489.24,
+   "der": 0.1701511602136213,
+   "diar_s_per_min": 2.213637478538141,
+   "wer_err": 192,
+   "wer_n": 1242,
+   "cpwer_words": 0.19806763285024154,
+   "cpwer_duration": 0.537842190016103
+  },
+  {
+   "id": "day5_consultation08",
+   "duration": 563.34,
+   "der": 0.29381356690385924,
+   "diar_s_per_min": 2.2206837788901908,
+   "wer_err": 169,
+   "wer_n": 1295,
+   "cpwer_words": 0.36602316602316604,
+   "cpwer_duration": 0.5884169884169884
+  },
+  {
+   "id": "day5_consultation09",
+   "duration": 579.0,
+   "der": 0.19794705245546734,
+   "diar_s_per_min": 2.215544041450777,
+   "wer_err": 243,
+   "wer_n": 1373,
+   "cpwer_words": 0.20393299344501092,
+   "cpwer_duration": 0.46176256372906044
+  },
+  {
+   "id": "day5_consultation10",
+   "duration": 586.08,
+   "der": 0.1974428674057836,
+   "diar_s_per_min": 2.223587223587223,
+   "wer_err": 260,
+   "wer_n": 1563,
+   "cpwer_words": 0.2476007677543186,
+   "cpwer_duration": 0.6058861164427384
+  },
+  {
+   "id": "day5_consultation11",
+   "duration": 665.7,
+   "der": 0.17227709136696295,
+   "diar_s_per_min": 2.2172149616944568,
+   "wer_err": 270,
+   "wer_n": 1983,
+   "cpwer_words": 0.26676752395360565,
+   "cpwer_duration": 0.45385779122541603
+  },
+  {
+   "id": "day5_consultation12",
+   "duration": 325.56,
+   "der": 0.19214298011534825,
+   "diar_s_per_min": 2.1949870991522302,
+   "wer_err": 134,
+   "wer_n": 797,
+   "cpwer_words": 0.18318695106649938,
+   "cpwer_duration": 0.5420326223337516
+  }
+ ]
+}

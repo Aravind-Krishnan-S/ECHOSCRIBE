@@ -42,3 +42,7 @@ paper/main.log
 src/python/.venv/
 src/python/pretrained_models/hf/
 src/python/__pycache__/
+eval/.venv-align/
+eval/models/
+eval/data/primock57/
+eval/__pycache__/

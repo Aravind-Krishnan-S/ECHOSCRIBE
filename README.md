@@ -1,472 +1,169 @@
-# 🩺 EchoScribe v2.0
+# EchoScribe
 
-**AI-powered clinical documentation platform with multi-provider speech processing, SpeechBrain noise cancellation, speaker diarization, SOAP/GROW note generation, dual Therapy/Mentoring modes, risk assessment, and longitudinal client intelligence.**
+**Evidence-linked, independently verified notes for therapy and mentoring.**
+EchoScribe turns a recorded two-person session into a SOAP (therapy) or GROW (mentoring) note in which every
+sentence cites the transcript turns that support it. A model other than the writer checks each sentence, flagged
+sentences are repaired or removed, and a second model screens independently for risk. It runs on your own
+computer: the app is a local Node.js server, speaker separation runs locally (on an NVIDIA GPU when there is one),
+and only the AI vendors you configure ever see audio or text.
 
-[![Live Demo](https://img.shields.io/badge/Live-echoscribe--vert.vercel.app-blueviolet?style=for-the-badge)](https://echoscribe-vert.vercel.app)
-[![SpeechBrain](https://img.shields.io/badge/SpeechBrain-Enabled-orange?style=for-the-badge)](https://speechbrain.github.io/)
+> New PC? Follow **[SETUP.md](SETUP.md)** for every program and package, and how to start the app.
 
 ---
 
-## ✨ Features
+## What it does
 
-| Feature | Description |
+| Step | What happens |
 |---|---|
-| 🎙️ **Multi-Provider Transcription** | Gemini 2.5 Flash (primary), Groq Llama 3.3 (fallback), Deepgram Nova-2 (audio fallback) with automatic failover |
-| 🔇 **SpeechBrain Noise Cancellation** | SepFormer neural network removes background noise before transcription for cleaner results |
-| 🗣️ **Advanced Speaker Diarization** | SpeechBrain ECAPA-TDNN embeddings + spectral clustering (primary), Deepgram Nova-2 (fallback) |
-| 🧠 **Contextual Role Classification** | 8-signal analysis (speaking time, questions, clinical vocab, guiding phrases, emotional language) + LLM classification via Groq |
-| 🏥 **Dual Mode: Therapy + Mentoring** | SOAP notes for clinical therapy, GROW notes for academic mentoring — with strict data isolation |
-| ⚠️ **Risk Assessment** | Automated detection of self-harm/suicidal ideation (Therapy) and academic burnout (Mentoring) |
-| 👤 **Patient/Mentee Hub** | Full CMS with longitudinal AI profiling across sessions |
-| 📊 **Visual Analytics** | Chart.js dashboards with topic distribution (polar), emotional tone (doughnut), progress tracking |
-| 📄 **Rich PDF Export** | Comprehensive reports with SOAP/GROW, risk, interventions, communication, AI provider info |
-| 📧 **Patient Communication** | Auto-generated take-home instructions via Resend API email |
-| 🗑️ **Session Management** | Auto-save on analysis, delete sessions with confirmation |
-| 🔐 **Security** | JWT auth, Supabase RLS, Helmet, CORS, tiered rate limiting, PHI audit logging |
-| 🌐 **12 Languages** | English, Malayalam, Tamil, Hindi, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic |
-| ⚡ **Vercel Edge Ready** | Serverless deployment with SpeechBrain auto-fallback |
+| **1. Record or upload** | Live browser recording or a file of any length. Long recordings are compacted with the bundled FFmpeg before they go to a cloud model. |
+| **2. Separate speakers** | pyannote community-1 runs locally on the original recording (GPU if available) with two speakers and non-overlapping turns. Fallbacks: cloud audio diarization, then a transcript-based split. |
+| **3. Transcribe** | Whisper first, because it returns word timestamps; Gemini and Deepgram follow. With word timestamps each word is assigned to the speaker turn it was spoken in; otherwise text is spread over turns by duration. The recording is **not** denoised: in our measurements denoising raised word error rates. |
+| **4. Identify roles** | Eight conversation statistics plus a language-model check name the clinician or mentor, with no voice enrolment. |
+| **5. Write the note** | SOAP or GROW, one fact per sentence, each ending with the turns that support it, e.g. `[T4, T6]`. |
+| **6. Verify** | A different model, from another vendor when one is configured, judges every sentence against its cited turns (supported, partly supported, unsupported). Flagged sentences are rewritten from the transcript or removed, then re-checked; a flag stands only if a second judge agrees. A note with too many unsupported sentences is regenerated on another model (verification-gated cascade). |
+| **7. Screen for risk** | A second, independent model screens for suicidal ideation (therapy) or burnout (mentoring); disagreement is surfaced as "needs review". It is model-reported, uncalibrated, and not a clinical instrument. |
+| **8. Review and keep** | The note view highlights each sentence's evidence in the transcript. Edit, export PDF/CSV, email take-home advice, translate. Per-client history and AI profiles across sessions. |
+
+Other features: therapy and mentoring workspaces with strict data separation (a role chosen at signup), a guided
+tour, 12 languages, a "listen again" copy of a session with background noise reduced (FFmpeg), and per-user model
+and API-key settings.
 
 ---
 
-## 🧪 AI Provider Architecture
+## AI providers
 
-Provider selection is a runtime setting, not code. EchoScribe embeds an OmniRoute-style model router
-(adapted from the MIT-licensed [OmniRoute](https://github.com/diegosouzapw/OmniRoute); see `THIRD_PARTY_NOTICES.md`)
-directly in its Node backend, so no separate gateway is needed. Each processing **role** is served by a **combo**:
-a list of models plus a **routing strategy** that orders them per request. Models are tried in that order until one
-succeeds; when every model fails the API returns **HTTP 503** with a structured list of the providers attempted.
+Provider choice is a setting, not code. An embedded router (adapted from the MIT-licensed
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute); see `THIRD_PARTY_NOTICES.md`) serves each processing role
+from an ordered list of models.
 
-| Strategy | Behaviour |
+- **26 providers**, picked from a dropdown in *Settings → Models & API keys*: Google Gemini, OpenAI, Anthropic,
+  Mistral, xAI, DeepSeek, Cohere, Qwen, Moonshot, Z.ai, Perplexity, Groq, OpenRouter, Together, Fireworks,
+  Cerebras, SambaNova, DeepInfra, NVIDIA NIM, Hugging Face, Deepgram, AssemblyAI, ElevenLabs, Ollama and LM Studio
+  (local), and the local pyannote service. For each task only models able to do it are listed (live from the vendor
+  when a key is present).
+- **Several keys per model** take turns; the next model is used only when every key of the current one is cooling
+  down, retired or failing.
+- **Free by default.** OpenRouter is restricted in code to its `:free` models; paid models are refused before any
+  request is sent.
+- **Strategies** per role: `priority` (default), `round-robin`, `random`, `strict-random`, `least-used`, `lkgp`.
+  **Cooldowns:** a failing key backs off 5 s, 10 s, 20 s, … up to 5 min; a vendor with 15 failures in 30 min is
+  skipped for 10 min; a request-scoped HTTP 400 moves on without cooling the key. When every target fails the API
+  returns HTTP 503 with the list of attempts.
+- **Keys** stay in the browser by default; a per-key switch syncs one to your account, encrypted with AES-256-GCM.
+
+| Role | Task | Default chain |
+|---|---|---|
+| `STT` | speech-to-text | Groq Whisper → Gemini → Deepgram |
+| `DIARIZE` | speaker separation | local pyannote → Deepgram → Gemini |
+| `ROLE_LABEL` | clinician/client identification | Groq gpt-oss-120b → OpenRouter (free) → Gemini |
+| `NOTE_SYNTH` | note writing | Gemini → Mistral → Groq |
+| `PROFILE_GEN` | longitudinal profile | Gemini → Mistral → Groq |
+| `VERIFY` | sentence verification, risk second opinion | Mistral → Groq → OpenRouter (free) → Gemini |
+
+Vendors without a key are skipped, so any subset works. Override a chain in `.env`
+(`ROLE_CHAIN_<ROLE>=family:model,…`, `ROLE_STRATEGY_<ROLE>=lkgp`); see `.env.example`.
+
+---
+
+## Local speech service
+
+`src/python/speech_service.py` (FastAPI, port 5050) runs **pyannote community-1** for speaker separation.
+
+- **GPU:** uses an NVIDIA GPU automatically (`pip install -r src/python/requirements-gpu.txt`; the CUDA runtime ships
+  inside the PyTorch wheels, no Toolkit needed). About 2 s of processing per minute of audio on an RTX 4050, 22 s on a CPU.
+- **Device:** `SPEECH_DEVICE=auto|cuda|cuda:1|mps|cpu`. If the GPU runs out of memory the recording is retried on the CPU.
+- **Model:** the ungated `pyannote-community/speaker-diarization-community-1` copy (CC-BY-4.0) downloads on first start.
+- If the service is not running, the app keeps working and falls back to cloud speaker separation.
+
+The first design (SepFormer denoising + SpeechBrain ECAPA-TDNN clustering) is kept in `eval/baselines/speechbrain/`
+as the baseline of the paper's speech comparison.
+
+---
+
+## Results
+
+Everything below is produced by scripts in `eval/` from public data; free AI providers only. Numbers are from the
+paper draft in `paper/`.
+
+| Question | Result |
 |---|---|
-| `priority` (default) | Declared order; later models are fallbacks |
-| `round-robin` | Rotate which model goes first on each request |
-| `random` | Shuffle on every request |
-| `strict-random` | Deck draw: every model goes first once per cycle |
-| `least-used` | Model with the fewest requests goes first |
-| `lkgp` | Last known good provider goes first |
+| Does citing evidence reduce unsupported content? (ACI-Bench test1, 40 dialogues, same Gemini writer, blind full-transcript judging by a different vendor) | Unsupported sentences **11.2% to 5.0%**; supported 80.4% to 88.5%; ROUGE and BERTScore do not drop |
+| Speaker-attributed word error (cpWER), simulated two-person conversations, clean / 5 dB / 0 dB | New pipeline **2.6 / 19.7 / 53.2%** against 43.4 / 48.8 / 77.9% for the first design |
+| Real conversational speech (PriMock57, 57 mock consultations, 8.6 h) | DER 16.8%, WER 18.8%, speaker-attributed error 23.8% (53.0% without word timestamps), role identification 57 of 57 |
+| Role identification without enrolment | 39 of 40 (ACI-Bench), 40 of 40 (AnnoMI counselling dialogues, including all 17 where the client talked more) |
+| Does the router keep roles available under faults? (simulation) | Last-known-good cuts 95th-percentile latency from 31.7 s to 9.1 s in the mixed-fault scenario |
 
-**Cooldowns** (from OmniRoute's `providerCooldownTracker`): a failing key backs off 5 s → 10 s → 20 s … up to 5 min
-and resets on success; a provider with 15 failures in 30 min is skipped for 10 min (local SpeechBrain: 2 in 5 min →
-1 min). Keys that fail authentication are retired. A request-scoped HTTP 400 moves on without cooling the key.
-
-| Role slot | Capability | Reference chain (default) |
-|---|---|---|
-| `STT` | transcribe | Gemini → Deepgram nova-2 → Groq whisper-large-v3 |
-| `DIARIZE` | diarize | SpeechBrain ECAPA-TDNN → Deepgram nova-2 → Gemini |
-| `ROLE_LABEL` | chat | Groq gpt-oss-120b → Gemini |
-| `NOTE_SYNTH` | chat | Gemini → Groq gpt-oss-120b |
-| `PROFILE_GEN` | chat | Gemini → Groq gpt-oss-120b |
-
-Chains come from (first match wins):
-1. **Provider Settings page** (`/settings`): each user builds their own combo (models + strategy) per role. Keys are
-   validated with a test call before saving and are kept only in that browser. `DIARIZE` is not user-configurable.
-2. **`ROLE_CHAIN_<SLOT>` env vars**: comma-separated `family:model:key` triplets, e.g.
-   `ROLE_CHAIN_NOTE_SYNTH=groq:openai/gpt-oss-120b:gsk_a,gemini:gemini-2.0-flash:AIza_b`.
-   Omit the key (`family:model`) to reuse `GEMINI_API_KEYS` / `GROQ_API_KEY` / `DEEPGRAM_API_KEY`.
-3. The reference chain above, built from whichever legacy keys are set.
-
-**Multi-key pools.** Several keys for the same `family:model` form a sub-pool: keys rotate round-robin and each
-key has its own cooldown. Set strategies with `ROLE_STRATEGY_<SLOT>` / `ROUTING_STRATEGY`, or per user in `/settings`.
-
-**Adding a vendor.** Call `registerFamily()` in `src/services/provider-registry.js` with an adapter exposing
-`chatCompletion(systemPrompt, userPrompt)`, `transcribeAudioBuffer(buffer, mimeType)` and/or
-`diarizeAudioBuffer(buffer, mimeType)`. No pipeline code changes.
-
-### Role Classification (8-Signal Analysis)
-The `computeSpeakerStats()` function extracts these signals from audio metadata:
-1. Total speaking time
-2. Word count + avg words per turn
-3. Question frequency
-4. Clinical/professional vocabulary density
-5. Guiding/directing phrases
-6. Emotional/personal phrases
-7. Turn count
-8. Who spoke first
+Limitations are stated in the paper: ACI-Bench is medical, not counselling; support labels come from a model
+(a blind two-rater check is in `eval/team_kit/verifier_agreement/`); speech tests use simulated or role-played
+audio; the risk screen is not validated against clinical instruments.
 
 ---
 
-## 🔊 SpeechBrain Integration
+## Project structure
 
-EchoScribe includes an optional **Python FastAPI microservice** powered by [SpeechBrain](https://speechbrain.github.io/):
-
-| Model | Task | HuggingFace ID |
-|---|---|---|
-| **SepFormer** | Noise Cancellation | `speechbrain/sepformer-wham16k-enhancement` |
-| **ECAPA-TDNN** | Speaker Embeddings | `speechbrain/spkrec-ecapa-voxceleb` |
-
-**Diarization Pipeline:**
-1. Enhance audio → Remove noise using SepFormer
-2. Segment → 1.5s windows, 0.75s overlap
-3. Extract embeddings → ECAPA-TDNN on each segment
-4. Cluster → Spectral clustering (k=2 speakers)
-5. Merge → Combine adjacent same-speaker segments
-
-> **Note:** SpeechBrain requires Python + PyTorch (~2GB). When unavailable, EchoScribe automatically falls back to Deepgram Nova-2 for diarization.
+```
+src/
+  index.js                 Express server, serves frontend/dist
+  controllers/             auth, patients, sessions, transcription, providers, export, communications
+  services/
+    ai.service.js          note writing, repair, role identification, risk screen
+    grounding.js           citation parsing, sentence verification, two-judge agreement
+    provider-registry.js   26 provider adapters      provider-catalog.js  provider list and model capabilities
+    provider-chain.js      per-role chains, user combos   routing/  strategies and cooldown tracker
+    local-speech.js        client for the pyannote service   alignment.js  word-timestamp attribution
+    audio-prep.js          FFmpeg: compaction, 16 kHz WAV, listening copy
+  python/speech_service.py local speaker separation (GPU optional)
+frontend/                  React 19 + Vite + Tailwind app (design rules in DESIGN.md)
+eval/                      every experiment behind the paper, with results in eval/results/
+paper/                     the manuscript (LaTeX) and the response to reviewers
+supabase/migrations/       database schema
+```
 
 ---
 
-## 🛠️ Tech Stack
+## API
 
-| Layer | Technologies |
+Public: `POST /api/auth/signup | login | refresh`. All other routes need `Authorization: Bearer <token>`.
+
+| Area | Routes |
 |---|---|
-| **Backend** | Node.js, Express, Helmet, CORS, Tiered Rate Limiting |
-| **AI (Transcription)** | Gemini 2.5 Flash (primary), Deepgram Nova-2 (fallback) |
-| **AI (Analysis)** | Gemini 2.5 Flash (primary), Groq Llama 3.3 70B (fallback) |
-| **AI (Diarization)** | SpeechBrain ECAPA-TDNN (primary), Deepgram Nova-2 (fallback) |
-| **AI (Noise Cancel)** | SpeechBrain SepFormer |
-| **AI (Role ID)** | Groq Llama 3.3 (primary), Gemini 2.5 Flash (fallback) |
-| **Database** | Supabase PostgreSQL + Row-Level Security |
-| **Storage** | Supabase Storage (audio buckets) |
-| **Email** | Resend API |
-| **Frontend** | Vanilla HTML/CSS/JS, Chart.js |
-| **Deployment** | Vercel (Node.js) + Railway/Render (SpeechBrain Python) |
+| Account | `GET/PUT /api/auth/profile`, `POST /api/auth/avatar`, `POST /api/auth/password`, `GET /api/auth/me`, `POST /api/auth/logout` |
+| Pipeline | `POST /api/transcribe-audio`, `POST /api/identify-speakers`, `POST /api/diarize-transcript`, `POST /api/summarize` |
+| Sessions | `GET /api/history`, `GET/PUT/DELETE /api/session/:id`, `GET /api/session/:id/audio[?clean=1]`, `POST /api/session` |
+| Clients | `GET/POST /api/patients`, `GET/PUT/DELETE /api/patients/:id`, `GET /api/patients/:id/sessions`, `GET /api/patients/:id/profile` |
+| Export | `GET /api/export/pdf/:sessionId`, `/api/export/csv`, `/api/export/record`; `POST /api/communications/send` |
+| Providers | `GET /api/providers`, `GET /api/providers/models?family=`, `POST /api/providers/test`, `GET/POST/DELETE /api/providers/keys` |
+
+Interactive docs: `http://localhost:3000/api/docs`.
 
 ---
 
-## 📐 Architecture Diagrams
+## Security and privacy
 
-### System Overview
-
-```mermaid
-graph TB
-    subgraph Client["🖥️ Frontend"]
-        REC["Record Page"]
-        SUM["Summary Page"]
-        DASH["Dashboard"]
-        PAT["Patient Profile"]
-    end
-
-    subgraph Backend["⚙️ Node.js Backend"]
-        MW["Middleware<br/>Auth · Rate Limit · Validation"]
-        API["REST API"]
-    end
-
-    subgraph AI["🤖 AI Providers"]
-        GEM["Gemini 2.5 Flash<br/>Transcription · Analysis"]
-        GRQ["Groq Llama 3.3<br/>Role Assignment · Fallback"]
-        DG["Deepgram Nova-2<br/>Diarization Fallback"]
-    end
-
-    subgraph SB["🧠 SpeechBrain Service"]
-        SEP["SepFormer<br/>Noise Cancellation"]
-        ECA["ECAPA-TDNN<br/>Speaker Diarization"]
-    end
-
-    subgraph Data["💾 Data Layer"]
-        DB["Supabase PostgreSQL<br/>Sessions · Patients"]
-        STR["Supabase Storage<br/>Audio Files"]
-    end
-
-    Client -->|HTTPS| MW --> API
-    API --> GEM
-    API --> GRQ
-    API --> DG
-    API --> SB
-    API --> Data
-```
-
-### Audio Processing Pipeline
-
-```mermaid
-flowchart LR
-    A["🎙️ Audio Input"] --> B{"SpeechBrain<br/>Available?"}
-    B -->|Yes| C["🔇 Noise Cancel<br/>SepFormer"]
-    C --> D["👥 Diarize<br/>ECAPA-TDNN"]
-    B -->|No| E["👥 Diarize<br/>Deepgram Nova-2"]
-    D --> F["📝 Transcribe<br/>Gemini 2.5 Flash"]
-    E --> F
-    F --> G["🏷️ Role Classify<br/>Groq + Context Analysis"]
-    G --> H["📋 SOAP/GROW<br/>Analysis"]
-    H --> I["💾 Auto-Save"]
-```
-
-### Dual-Mode Data Flow
-
-```mermaid
-graph LR
-    subgraph Therapy["🏥 Therapy Mode"]
-        TP["Patients"]
-        TS["SOAP Notes<br/>S · O · A · P"]
-        TR["Risk: Self-Harm<br/>Suicidal Ideation"]
-        TD["Diagnostic Impressions<br/>Interventions · Medications"]
-    end
-
-    subgraph Mentoring["🎓 Mentoring Mode"]
-        MP["Mentees"]
-        MG["GROW Notes<br/>G · R · O · W"]
-        MR["Risk: Burnout<br/>Severe Distress"]
-        MD["Skill Progression<br/>Action Items · Goals"]
-    end
-
-    ISO["🔒 Strict Mode Isolation<br/>No Cross-Mode Access"]
-
-    Therapy --- ISO --- Mentoring
-```
-
-### Security Layers
-
-```mermaid
-graph TD
-    REQ["Incoming Request"] --> L1["🌐 CORS + Helmet<br/>Security Headers"]
-    L1 --> L2["⏱️ Rate Limiting<br/>5/min Heavy · 15/min Light · 100/min General"]
-    L2 --> L3["🔑 JWT Authentication<br/>Supabase Auth"]
-    L3 --> L4["🛡️ Row-Level Security<br/>Users See Only Their Data"]
-    L4 --> L5["🏷️ Mode Isolation<br/>Therapy ↔ Mentoring Separated"]
-    L5 --> L6["📋 Audit Logging<br/>PHI Access Tracking"]
-    L6 --> RES["✅ Response"]
-```
+- Helmet (CSP, HSTS, frame options), CORS, Zod validation on request bodies, optional rate limits
+  (`AI_RATE_LIMITS=on`), JWT authentication (Supabase Auth), PostgreSQL Row-Level Security on every table.
+- Therapy and mentoring records are separated by a mode column that every query must state.
+- A PHI audit logger records who did what and when, with identifying values redacted.
+- `.env` holds your keys and is never committed. **Free AI tiers may use submitted data for training: use role-played
+  or public audio only, never real sessions, with the free keys.**
+- Risk flags are model-reported and uncalibrated. They support, and never replace, a clinician's assessment.
 
 ---
 
-## 📁 Project Structure
+## Languages
 
-```
-ECHOSCRIBE/
-├── src/
-│   ├── config/env.js                  # Zod environment validation
-│   ├── middleware/
-│   │   ├── security.js                # Helmet, CORS, tiered rate limiting
-│   │   ├── auth.js                    # JWT auth middleware
-│   │   ├── compliance.js              # PHI audit logging
-│   │   ├── validate.js                # Zod request validation
-│   │   └── errorHandler.js            # AppError class + asyncHandler
-│   ├── services/
-│   │   ├── ai.service.js              # STT, diarization, SOAP/GROW, role ID, profiles (via chains)
-│   │   ├── provider-registry.js       # Adapter registry (gemini, groq, deepgram, speechbrain)
-│   │   ├── provider-pool.js           # Multi-key pool per chain entry
-│   │   ├── provider-chain.js          # Embedded router: per-role combos + failover
-│   │   ├── routing/cooldown-tracker.js # Key/provider cooldowns (adapted from OmniRoute)
-│   │   ├── routing/strategies.js      # Combo routing strategies (adapted from OmniRoute)
-│   │   ├── speechbrain-client.js      # SpeechBrain microservice HTTP client
-│   │   └── db.service.js              # RLS-aware Supabase CRUD + Audio Storage
-│   ├── controllers/
-│   │   ├── auth.controller.js         # signup, login, logout, refresh
-│   │   ├── session.controller.js      # summarize, auto-save, delete
-│   │   ├── transcribe.controller.js   # Six-stage pipeline (DIARIZE → STT → ROLE_LABEL)
-│   │   ├── patient.controller.js      # patient/mentee CMS & chart data
-│   │   ├── profile.controller.js      # longitudinal AI profiling
-│   │   ├── export.controller.js       # PDF, CSV, JSON export (full details)
-│   │   ├── communications.controller.js # Resend email integration
-│   │   └── providers.controller.js    # Provider Settings API (list chains, test keys)
-│   ├── routes/
-│   │   ├── auth.routes.js             # /api/auth/*
-│   │   └── api.routes.js              # /api/* (protected, Multer multipart)
-│   ├── docs/swagger.js                # OpenAPI 3.0 spec
-│   ├── python/                        # SpeechBrain microservice
-│   │   ├── speechbrain_service.py     # FastAPI server (enhance + diarize)
-│   │   ├── start_speechbrain.py       # Auto-install + launch script
-│   │   └── requirements.txt           # Python dependencies
-│   └── index.js                       # Primary entry point
-├── public/
-│   ├── app.js                         # Recorder, audio blob, upload logic
-│   ├── summary.js                     # SOAP/GROW display, charts, history, delete
-│   ├── dashboard.html                 # Mode toggle, patient directory
-│   ├── record.html                    # Recording interface
-│   ├── summary.html                   # Analysis display with provider badges
-│   ├── patient.html / patient.js      # Patient profile + Chart.js analytics
-│   ├── style.css                      # Core design system (dark theme)
-│   └── card.css                       # Card, badge, provider-badge styles
-├── supabase/
-│   ├── create_patients_table.sql      # Patients table with entity_type
-│   ├── setup_audio_storage.sql        # session-audio bucket + RLS
-│   └── migrations/add_session_mode.sql # session_mode column
-├── vercel.json                        # Serverless function config
-└── .env.example                       # Environment template
-```
+English, Malayalam, Hindi, Tamil, Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Arabic.
 
 ---
 
-## 🚀 Getting Started
+## Deployment
 
-**Setting up on a new PC? Follow [SETUP.md](SETUP.md)** — it lists every program and package to install, and how to start the app and the local speech service (pyannote speaker separation, GPU optional).
-
-
-### Prerequisites
-
-- **Node.js** v18+
-- **Python** 3.10+ (optional, for SpeechBrain)
-- **Supabase** account ([supabase.com](https://supabase.com))
-- **Gemini** API key(s) ([aistudio.google.com](https://aistudio.google.com))
-- **Groq** API key ([console.groq.com](https://console.groq.com))
-- **Deepgram** API key ([deepgram.com](https://deepgram.com))
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/Aravind-Krishnan-S/ECHOSCRIBE.git
-cd ECHOSCRIBE/ECHOSCRIBE
-npm install
-```
-
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`. Only the Supabase values are required; add keys for whichever AI providers you use
-(see `.env.example` for every option, including `ROLE_CHAIN_<SLOT>`):
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your_supabase_anon_key
-
-GEMINI_API_KEYS=key1,key2,key3
-GROQ_API_KEY=gsk_your_groq_key
-DEEPGRAM_API_KEY=your_deepgram_key
-
-SPEECHBRAIN_URL=http://localhost:5050   # optional local service
-RESEND_API_KEY=re_your_resend_key       # optional, for emailing take-home notes
-```
-
-Run locally with `npm run dev` (or double-click `start.bat` on Windows, which also launches SpeechBrain)
-and open http://localhost:3000. On start-up the server logs the resolved chain for every role.
-
-### 3. Set Up Supabase
-
-1. **Enable Email/Password Auth:** Dashboard → Authentication → Providers → Email
-2. **Run database setup SQL** in SQL Editor:
-
-```sql
--- Sessions table
-CREATE TABLE sessions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  patient_id UUID REFERENCES patients(id),
-  transcript TEXT,
-  summary TEXT,
-  analysis_json JSONB,
-  audio_url TEXT,
-  session_mode TEXT DEFAULT 'Therapy',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX idx_sessions_created_at ON sessions(created_at DESC);
-
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users CRUD own sessions" ON sessions
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-```
-
-3. Run `supabase/create_patients_table.sql` in the SQL Editor
-4. Run `supabase/setup_audio_storage.sql` for the audio bucket
-
-### 4. Start the Application
-
-```bash
-# Terminal 1: Start Node.js (required)
-npm run dev
-
-# Terminal 2: Start SpeechBrain (optional, first run downloads ~2GB)
-python src/python/start_speechbrain.py
-```
-
-Open **http://localhost:3000** in your browser.
-
-> When SpeechBrain is running, the console shows: `[SpeechBrain] ✅ Service available`
-> When it's not, the app automatically uses Deepgram: `[SpeechBrain] ⚠️ using Deepgram fallback`
+Built to run locally. The Node server alone can run on Vercel (`api/`, `vercel.json`), but the local speech
+service needs Python and ideally a GPU, so a Vercel deployment uses cloud speaker separation.
 
 ---
 
-## 📡 API Endpoints
+## Authors
 
-### Authentication (Public)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/signup` | Create account |
-| `POST` | `/api/auth/login` | Login (returns JWT) |
-| `POST` | `/api/auth/logout` | Logout |
-| `GET` | `/api/auth/me` | Get current user |
-| `POST` | `/api/auth/refresh` | Refresh JWT token |
-
-### Protected (Requires Bearer Token)
-
-| Method | Endpoint | Rate Limit | Description |
-|---|---|---|---|
-| `POST` | `/api/transcribe-audio` | 15/min | Transcribe audio (SpeechBrain → Gemini → Deepgram) |
-| `POST` | `/api/identify-speakers` | 15/min | Identify speaker roles |
-| `POST` | `/api/diarize-transcript` | 5/min | Text-based diarization |
-| `POST` | `/api/summarize` | 5/min | SOAP/GROW analysis + auto-save |
-| `GET` | `/api/history` | 100/min | Get session history |
-| `DELETE` | `/api/session/:id` | 100/min | Delete a session |
-| `GET` | `/api/profile` | 5/min | Longitudinal AI profiling |
-| `GET/POST` | `/api/patients` | 100/min | Patient/mentee CRUD |
-| `PUT/DELETE` | `/api/patients/:id` | 100/min | Update/delete patient |
-| `GET` | `/api/export/pdf/:id` | 100/min | Export session as PDF |
-| `GET` | `/api/export/csv` | 100/min | Export all sessions as CSV |
-| `GET` | `/api/export/record` | 100/min | Export full record as JSON |
-| `POST` | `/api/send-communication` | 100/min | Send email via Resend |
-
-Interactive docs at **`/api/docs`** (Swagger UI).
-
----
-
-## 🔒 Security
-
-| Layer | Implementation |
-|---|---|
-| **Network** | Helmet (CSP, HSTS, X-Frame-Options), CORS |
-| **Rate Limiting** | Heavy AI: 5/min, Light AI: 15/min, General: 100/min |
-| **Authentication** | JWT (Supabase Auth), Magic Link support |
-| **Authorization** | PostgreSQL Row-Level Security (users see only their data) |
-| **Data Isolation** | Strict Therapy/Mentoring mode separation |
-| **Audit** | PHI compliance logger with data redaction |
-| **Validation** | Zod schemas on all request bodies |
-
----
-
-## 🌐 Supported Languages
-
-| Language | Code | | Language | Code |
-|---|---|---|---|---|
-| English | `en` | | Japanese | `ja` |
-| Malayalam | `ml` | | Korean | `ko` |
-| Hindi | `hi` | | Chinese | `zh` |
-| Tamil | `ta` | | Portuguese | `pt` |
-| Spanish | `es` | | Arabic | `ar` |
-| French | `fr` | | German | `de` |
-
----
-
-## ⚠️ Deployment Notes
-
-| Platform | What Works | Notes |
-|---|---|---|
-| **Vercel** | Node.js backend, all cloud AI APIs | SpeechBrain cannot run here (no Python/GPU) |
-| **Railway/Render** | SpeechBrain Python service | Set `SPEECHBRAIN_URL` in Vercel env vars |
-| **Local** | Everything | Best for development and testing |
-
-When SpeechBrain is unavailable, the app automatically falls back to Deepgram — zero manual intervention needed.
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is developed by Aravind Krishnan S, Parvathy Krishna M, Angisha B, and Lloyd Sebastian.
-
----
-
-<p align="center">
-  Built with ❤️ using Gemini AI, Groq, Deepgram, SpeechBrain & Supabase
-</p>
-
----
-
-**Contributors:**
-- Aravind Krishnan S
-- Parvathy Krishna M
-- Angisha B
-- Lloyd Sebastian
+Aravind Krishnan S, Parvathy Krishna M, Angisha B, Lloyd Sebastian. Faculty guide: Jayakrishnan A.
+Department of Artificial Intelligence and Data Science, Jyothi Engineering College, Cheruthuruthy, Kerala.

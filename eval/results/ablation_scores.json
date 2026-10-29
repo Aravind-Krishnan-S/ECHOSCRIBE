@@ -1,0 +1,278 @@
+{
+ "test1": {
+  "notes": 40,
+  "stages": {
+   "verified": {
+    "notes": 40,
+    "sentences": 905,
+    "supported": {
+     "k": 845,
+     "n": 905,
+     "rate": 0.9337,
+     "ci95": [
+      0.9156,
+      0.9481
+     ]
+    },
+    "partial": {
+     "k": 27,
+     "n": 905,
+     "rate": 0.0298,
+     "ci95": [
+      0.0206,
+      0.0431
+     ]
+    },
+    "unsupported": {
+     "k": 33,
+     "n": 905,
+     "rate": 0.0365,
+     "ci95": [
+      0.0261,
+      0.0508
+     ]
+    },
+    "notes_with_unsupported": 17
+   },
+   "repaired": {
+    "notes": 40,
+    "sentences": 893,
+    "supported": {
+     "k": 880,
+     "n": 893,
+     "rate": 0.9854,
+     "ci95": [
+      0.9753,
+      0.9915
+     ]
+    },
+    "partial": {
+     "k": 13,
+     "n": 893,
+     "rate": 0.0146,
+     "ci95": [
+      0.0085,
+      0.0247
+     ]
+    },
+    "unsupported": {
+     "k": 0,
+     "n": 893,
+     "rate": 0.0,
+     "ci95": [
+      0.0,
+      0.0043
+     ]
+    },
+    "notes_with_unsupported": 0
+   },
+   "consensus": {
+    "notes": 40,
+    "sentences": 893,
+    "supported": {
+     "k": 880,
+     "n": 893,
+     "rate": 0.9854,
+     "ci95": [
+      0.9753,
+      0.9915
+     ]
+    },
+    "partial": {
+     "k": 13,
+     "n": 893,
+     "rate": 0.0146,
+     "ci95": [
+      0.0085,
+      0.0247
+     ]
+    },
+    "unsupported": {
+     "k": 0,
+     "n": 893,
+     "rate": 0.0,
+     "ci95": [
+      0.0,
+      0.0043
+     ]
+    },
+    "notes_with_unsupported": 0
+   }
+  },
+  "repair": {
+   "flagged": 60,
+   "rewritten": 44,
+   "removed": 12
+  },
+  "quality": {
+   "rouge1": 0.5303,
+   "rouge2": 0.218,
+   "rougeLsum": 0.4935,
+   "bertscore_f1": 0.4984
+  },
+  "recheck_groq": {
+   "notes": 11,
+   "sentences": 260,
+   "supported": {
+    "k": 227,
+    "n": 260,
+    "rate": 0.8731,
+    "ci95": [
+     0.8271,
+     0.9082
+    ]
+   },
+   "partial": {
+    "k": 25,
+    "n": 260,
+    "rate": 0.0962,
+    "ci95": [
+     0.066,
+     0.1381
+    ]
+   },
+   "unsupported": {
+    "k": 8,
+    "n": 260,
+    "rate": 0.0308,
+    "ci95": [
+     0.0157,
+     0.0595
+    ]
+   },
+   "agreement_with_pipeline": {
+    "k": 228,
+    "n": 260,
+    "rate": 0.8769,
+    "ci95": [
+     0.8314,
+     0.9115
+    ]
+   },
+   "pipeline_flagged_still_flagged": {
+    "k": 2,
+    "n": 2,
+    "rate": 1.0,
+    "ci95": [
+     0.3424,
+     1.0
+    ]
+   },
+   "judges": [
+    "Groq (openai/gpt-oss-120b)"
+   ]
+  }
+ },
+ "test2": {
+  "notes": 2,
+  "stages": {
+   "verified": {
+    "notes": 2,
+    "sentences": 56,
+    "supported": {
+     "k": 51,
+     "n": 56,
+     "rate": 0.9107,
+     "ci95": [
+      0.8074,
+      0.9613
+     ]
+    },
+    "partial": {
+     "k": 3,
+     "n": 56,
+     "rate": 0.0536,
+     "ci95": [
+      0.0184,
+      0.1461
+     ]
+    },
+    "unsupported": {
+     "k": 2,
+     "n": 56,
+     "rate": 0.0357,
+     "ci95": [
+      0.0098,
+      0.1212
+     ]
+    },
+    "notes_with_unsupported": 1
+   },
+   "repaired": {
+    "notes": 2,
+    "sentences": 56,
+    "supported": {
+     "k": 54,
+     "n": 56,
+     "rate": 0.9643,
+     "ci95": [
+      0.8788,
+      0.9902
+     ]
+    },
+    "partial": {
+     "k": 2,
+     "n": 56,
+     "rate": 0.0357,
+     "ci95": [
+      0.0098,
+      0.1212
+     ]
+    },
+    "unsupported": {
+     "k": 0,
+     "n": 56,
+     "rate": 0.0,
+     "ci95": [
+      0.0,
+      0.0642
+     ]
+    },
+    "notes_with_unsupported": 0
+   },
+   "consensus": {
+    "notes": 2,
+    "sentences": 56,
+    "supported": {
+     "k": 54,
+     "n": 56,
+     "rate": 0.9643,
+     "ci95": [
+      0.8788,
+      0.9902
+     ]
+    },
+    "partial": {
+     "k": 2,
+     "n": 56,
+     "rate": 0.0357,
+     "ci95": [
+      0.0098,
+      0.1212
+     ]
+    },
+    "unsupported": {
+     "k": 0,
+     "n": 56,
+     "rate": 0.0,
+     "ci95": [
+      0.0,
+      0.0642
+     ]
+    },
+    "notes_with_unsupported": 0
+   }
+  },
+  "repair": {
+   "flagged": 5,
+   "rewritten": 5,
+   "removed": 0
+  },
+  "quality": {
+   "rouge1": 0.5905,
+   "rouge2": 0.2403,
+   "rougeLsum": 0.5547,
+   "bertscore_f1": 0.5222
+  }
+ }
+}

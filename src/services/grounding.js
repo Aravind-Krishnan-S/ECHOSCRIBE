@@ -91,7 +91,23 @@ function extractStatements(sectionText, maxTurn) {
  * Ask a VERIFY model (preferably from a different vendor than the writer) to judge each statement.
  * Returns { verdicts: [{ label, reason }], provider } or null if verification could not run.
  */
-async function verifyStatements(statements, turns, { chains, avoidFamily, avoidModel } = {}) {
+async function verifyStatements(statements, turns, opts = {}) {
+    // Long notes (two-hour sessions give 100+ sentences) go to the judge in batches, so that no single call
+    // exceeds the per-minute token limits of free tiers. The same judge model is kept for every batch.
+    const size = Math.max(10, Number(process.env.VERIFY_BATCH) || 40);
+    if (statements.length <= size) return verifyChunk(statements, turns, opts);
+    const verdicts = [];
+    let first = null;
+    for (let i = 0; i < statements.length; i += size) {
+        const part = await verifyChunk(statements.slice(i, i + size), turns, first ? { ...opts, chains: opts.chains, avoidFamily: opts.avoidFamily, avoidModel: opts.avoidModel } : opts);
+        if (!part) return null;
+        if (!first) first = part;
+        verdicts.push(...part.verdicts);
+    }
+    return { verdicts, provider: first.provider, family: first.family, model: first.model };
+}
+
+async function verifyChunk(statements, turns, { chains, avoidFamily, avoidModel } = {}) {
     if (!statements.length) return { verdicts: [], provider: null, family: null };
     const byId = new Map(turns.map(t => [t.id, t]));
 
