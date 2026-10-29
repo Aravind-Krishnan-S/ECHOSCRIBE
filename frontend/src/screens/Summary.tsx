@@ -202,6 +202,17 @@ function Sentence({ s, onFocus, active, pinned, onPin }: { s: GroundedSentence; 
 
 /* The verification band: one coded bar, segment widths in proportion to the sentence counts. */
 function VerificationBand({ sum, verifier }: { sum: { statements: number; supported: number; partial: number; unsupported: number }; verifier?: string }) {
+  if (sum.statements === 0) {
+    return (
+      <div>
+        <p className="m-0 text-[15px] font-semibold">Nothing to verify</p>
+        <p className="m-0 mt-1 text-[13px] text-muted max-w-[60ch]">
+          Every section of this note says “Not discussed”, so there were no sentences to check against the transcript.
+          The recording may have been too short or unclear, or the model returned nothing. Check the transcript, then record again or edit the sections by hand.
+        </p>
+      </div>
+    )
+  }
   const unverified = Math.max(sum.statements - sum.supported - sum.partial - sum.unsupported, 0)
   const parts = [
     { code: 'supported', n: sum.supported, text: 'supported' },
