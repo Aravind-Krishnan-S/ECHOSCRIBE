@@ -154,7 +154,16 @@ Return ONLY valid JSON with this exact structure:
 
     const generate = (avoidFamily) => runChain('NOTE_SYNTH', async (adapter) => {
         const reply = await adapter.chatCompletion(systemInstruction, userPrompt, { json: true, temperature: 0.3 });
-        return parseJsonResponse(reply);
+        const parsed = parseJsonResponse(reply);
+        // A model that returns no section text (or only "Not discussed") for a real session has failed: let the
+        // router move on to the next model instead of saving an empty note (small models do this under load).
+        const group = parsed && parsed[sectionGroup];
+        const filled = group && sectionKeys.some(k => {
+            const v = String(group[k] || '').trim();
+            return v && !/^not discussed\.?$/i.test(v);
+        });
+        if (wordCount >= 150 && !filled) throw new Error('The model returned an empty note for a session with content');
+        return parsed;
     }, { chains, avoidFamily });
 
     // Split each section into cited sentences, strip the markers, then verify with another vendor

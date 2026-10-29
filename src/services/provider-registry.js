@@ -168,7 +168,8 @@ registerFamily('groq', {
             // Whisper models (e.g. whisper-large-v3) served by Groq; words=true adds word timestamps
             async transcribeAudioBuffer(buffer, mimeType, { lang = 'en', words = false } = {}) {
                 const found = mime.extension(String(mimeType).split(';')[0]) || 'webm';
-                const ext = found === 'mpga' ? 'mp3' : found;
+                // mime-types names audio/webm "weba", which Groq rejects; mpga is an mp3
+                const ext = found === 'mpga' ? 'mp3' : found === 'weba' ? 'webm' : found;
                 const params = { file: await Groq.toFile(buffer, `audio.${ext}`), model, language: lang };
                 if (words) Object.assign(params, { response_format: 'verbose_json', timestamp_granularities: ['word'] });
                 const result = await client.audio.transcriptions.create(params);
@@ -279,7 +280,7 @@ async function httpJson(url, init = {}, vendor = 'Provider') {
 function audioFile(buffer, mimeType) {
     const mime = require('mime-types');
     const found = mime.extension(String(mimeType || '').split(';')[0]) || 'webm';
-    const ext = found === 'mpga' ? 'mp3' : found;
+    const ext = found === 'mpga' ? 'mp3' : found === 'weba' ? 'webm' : found;
     return { blob: new Blob([buffer], { type: String(mimeType || 'audio/webm').split(';')[0] }), name: `audio.${ext}` };
 }
 
