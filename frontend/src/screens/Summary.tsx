@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Download, Pencil, RefreshCw, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, Check, Download, Pencil, RefreshCw, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { PageHeader } from '../components/AppShell'
 import { ConversationStrip } from '../components/ConversationStrip'
@@ -60,8 +60,8 @@ export default function Summary() {
   })
   // Writes the note again from the saved transcript (for an empty or poor note); keeps the transcript and timings
   const regenerate = useMutation({
-    mutationFn: (choice?: ModelChoice) => api<Session>(`/api/session/${id}/regenerate?mode=${ws.api}`, { method: 'POST', json: { language: profile?.prefs?.default_language || 'en', ...(choice || {}) } }),
-    onSuccess: data => { qc.setQueryData(['session', id], data); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['slot-status'] }); toast(`Note written again by ${data.analysis_json?._provider || 'the model'}`, 'success') },
+    mutationFn: (choice?: Partial<ModelChoice> & { swapRoles?: boolean }) => api<Session>(`/api/session/${id}/regenerate?mode=${ws.api}`, { method: 'POST', json: { language: profile?.prefs?.default_language || 'en', ...(choice || {}) } }),
+    onSuccess: data => { qc.setQueryData(['session', id], data); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['slot-status'] }); toast(`${regenerate.variables?.swapRoles ? 'Roles swapped. ' : ''}Note written again by ${data.analysis_json?._provider || 'the model'}`, 'success') },
     onError: (e: Error) => { qc.invalidateQueries({ queryKey: ['slot-status'] }); toast(e.message, 'error') },
   })
   const remove = useMutation({
@@ -102,6 +102,10 @@ export default function Summary() {
         subtitle={`${fmtDate(session.created_at)}, ${fmtTime(session.created_at)}${dur ? ` · ${duration(dur)}` : ''} · written by ${analysis._provider || 'unknown model'}`}
         actions={<>
           <button className="btn btn-secondary btn-sm" onClick={() => download(`/api/export/pdf/${session.id}`, `echoscribe-${session.id}.pdf`).catch(e => toast(e.message, 'error'))}><Download size={14} />PDF</button>
+          <button className="btn btn-secondary btn-sm" disabled={regenerate.isPending} onClick={() => regenerate.mutate({ swapRoles: true })}
+            title={`Swap ${ws.professional.toLowerCase()} and ${ws.client.toLowerCase()} in the transcript, then write the note again`}>
+            <ArrowLeftRight size={14} />Swap roles
+          </button>
           <RegenerateMenu currentWriter={analysis._provider} busy={regenerate.isPending} onRun={choice => regenerate.mutate(choice)} />
           <button className="btn btn-ghost btn-sm btn-icon" aria-label="Delete session" onClick={() => setConfirmDelete(true)}><Trash2 size={15} /></button>
         </>}

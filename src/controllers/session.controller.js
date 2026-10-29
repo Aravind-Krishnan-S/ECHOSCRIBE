@@ -212,11 +212,27 @@ const getSessionAudio = asyncHandler(async (req, res) => {
 // POST /api/session/:id/regenerate?mode=Mentoring — write the note again from the saved transcript.
 // For a note that came back empty or poor (for example when only a small model was available). The
 // transcript, speaker timings and client link are kept; everything the model writes is replaced.
+// Swap the two speakers' role labels (Mentor <-> Mentee, Therapist <-> Patient) at the start of each turn
+const ROLE_PAIR = { Mentoring: ['Mentor', 'Mentee'], Therapy: ['Therapist', 'Patient'] };
+function swapRoleLabels(text, [a, b]) {
+    return String(text).replace(new RegExp(`^(\s*)(${a}|${b})(\s*:)`, 'gm'), (m, pre, role, post) => `${pre}${role === a ? b : a}${post}`);
+}
+
 const regenerateSession = asyncHandler(async (req, res) => {
     const session = await dbService.getSessionById(req.supabaseToken, req.params.id, req.user.id, req.query.mode);
-    const transcript = String(session.transcript || '').trim();
+    let transcript = String(session.transcript || '').trim();
     if (!transcript) throw new AppError('This session has no saved transcript to write a note from.', 400);
     const old = session.analysis_json || {};
+
+    // Optional: the speakers were assigned the wrong way round, so swap the roles first
+    const swap = !!(req.body && req.body.swapRoles);
+    if (swap) {
+        const pair = ROLE_PAIR[req.query.mode] || ROLE_PAIR.Therapy;
+        transcript = swapRoleLabels(transcript, pair);
+        if (old.conversation && Array.isArray(old.conversation.turns)) {
+            old.conversation.turns = old.conversation.turns.map(t => ({ ...t, role: t.role === pair[0] ? pair[1] : t.role === pair[1] ? pair[0] : t.role }));
+        }
+    }
     const language = (req.body && req.body.language) || 'en';
 
     // Optional model choice: write the note with exactly that model (it must be usable right now)
@@ -234,7 +250,7 @@ const regenerateSession = asyncHandler(async (req, res) => {
     const merged = { ...old, ...fresh, conversation: old.conversation, counselingStats: { ...(old.counselingStats || {}), ...(fresh.counselingStats || {}) } };
     if (!merged.conversation) delete merged.conversation;
     const summary = merged.soap ? merged.soap.subjective : (merged.grow ? merged.grow.goal : undefined);
-    const data = await dbService.updateSession(req.supabaseToken, req.params.id, req.user.id, req.query.mode, { analysisJson: merged, summary });
+    const data = await dbService.updateSession(req.supabaseToken, req.params.id, req.user.id, req.query.mode, { analysisJson: merged, summary, transcript: swap ? transcript : undefined });
     res.json(data);
 });
 

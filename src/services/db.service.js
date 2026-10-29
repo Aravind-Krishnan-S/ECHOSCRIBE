@@ -250,11 +250,12 @@ async function deleteSession(token, sessionId, userId, mode) {
 
 // --- Session Update (edited note) ---
 
-async function updateSession(token, sessionId, userId, mode, { analysisJson, summary }) {
+async function updateSession(token, sessionId, userId, mode, { analysisJson, summary, transcript }) {
     if (!mode) throw new Error("Strict Mode Isolation: 'mode' is required.");
     const client = getAuthClient(token);
     const update = { analysis_json: analysisJson };
     if (summary !== undefined) update.summary = summary;
+    if (transcript !== undefined) update.transcript = transcript;
     const { data, error } = await client
         .from('sessions')
         .update(update)
