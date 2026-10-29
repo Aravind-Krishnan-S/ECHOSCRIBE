@@ -1,5 +1,6 @@
 /* src/controllers/session.controller.js */
 const aiService = require('../services/ai.service');
+const { slotStatus, getServerChain } = require('../services/provider-chain');
 const dbService = require('../services/db.service');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const fs = require('fs');
@@ -217,7 +218,19 @@ const regenerateSession = asyncHandler(async (req, res) => {
     if (!transcript) throw new AppError('This session has no saved transcript to write a note from.', 400);
     const old = session.analysis_json || {};
     const language = (req.body && req.body.language) || 'en';
-    const fresh = await aiService.summarizeTranscript(transcript, language, req.query.mode, { chains: req.providerChains });
+
+    // Optional model choice: write the note with exactly that model (it must be usable right now)
+    let chains = req.providerChains;
+    const { family, model } = req.body || {};
+    if (family && model) {
+        const status = slotStatus('NOTE_SYNTH', req.providerChains).find(m => m.family === family && m.model === model);
+        if (!status) throw new AppError('That model is not part of the note-writing chain.', 400);
+        if (!status.available) throw new AppError(`${status.label} is not available right now (${status.reason}${status.cooldownSeconds ? `, about ${status.cooldownSeconds} s` : ''}). Choose another model.`, 409);
+        const combo = (req.providerChains && req.providerChains.NOTE_SYNTH) || getServerChain('NOTE_SYNTH');
+        const entry = combo.entries.find(e => e.family === family && e.model === model);
+        chains = { ...(req.providerChains || {}), NOTE_SYNTH: { entries: [entry], strategy: 'priority' } };
+    }
+    const fresh = await aiService.summarizeTranscript(transcript, language, req.query.mode, { chains });
     const merged = { ...old, ...fresh, conversation: old.conversation, counselingStats: { ...(old.counselingStats || {}), ...(fresh.counselingStats || {}) } };
     if (!merged.conversation) delete merged.conversation;
     const summary = merged.soap ? merged.soap.subjective : (merged.grow ? merged.grow.goal : undefined);

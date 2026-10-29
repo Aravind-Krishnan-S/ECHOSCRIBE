@@ -3,7 +3,7 @@
 
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { listFamilies, getFamily, listModels } = require('../services/provider-registry');
-const { describeServerChains, SLOTS, STRATEGIES } = require('../services/provider-chain');
+const { describeServerChains, slotStatus, SLOTS, STRATEGIES } = require('../services/provider-chain');
 const { classifyError } = require('../services/provider-pool');
 const keyVault = require('../services/key-vault');
 const { catalogEntry } = require('../services/provider-catalog');
@@ -91,4 +91,11 @@ const listProviderModels = asyncHandler(async (req, res) => {
     res.json(value);
 });
 
-module.exports = { listProviderModels, getProviders, testProvider, listSyncedKeys, addSyncedKey, deleteSyncedKey };
+// GET /api/providers/status?slot=NOTE_SYNTH — each model of a role with whether it can be used right now
+const getSlotStatus = asyncHandler(async (req, res) => {
+    const slot = String(req.query.slot || 'NOTE_SYNTH');
+    if (!SLOTS[slot]) throw new AppError(`Unknown role "${slot}".`, 400);
+    res.json({ slot, models: slotStatus(slot, req.providerChains) });
+});
+
+module.exports = { getSlotStatus, listProviderModels, getProviders, testProvider, listSyncedKeys, addSyncedKey, deleteSyncedKey };

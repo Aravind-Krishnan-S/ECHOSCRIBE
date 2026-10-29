@@ -132,6 +132,7 @@ router.post('/communications/send', commsController.sendCommunication);
 // --- Provider Settings Routes ---
 router.get('/providers', providersController.getProviders);
 router.get('/providers/models', providersController.listProviderModels);
+router.get('/providers/status', providersController.getSlotStatus);
 router.post('/providers/test', providersController.testProvider);
 router.get('/providers/keys', providersController.listSyncedKeys);
 router.post('/providers/keys', providersController.addSyncedKey);

@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Download, Pencil, RefreshCw, ShieldAlert, ShieldCheck
 import clsx from 'clsx'
 import { PageHeader } from '../components/AppShell'
 import { ConversationStrip } from '../components/ConversationStrip'
+import { RegenerateMenu, type ModelChoice } from '../components/RegenerateMenu'
 import { Dialog, ErrorState, Skel, Spinner, useToast } from '../components/ui'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -59,9 +60,9 @@ export default function Summary() {
   })
   // Writes the note again from the saved transcript (for an empty or poor note); keeps the transcript and timings
   const regenerate = useMutation({
-    mutationFn: () => api<Session>(`/api/session/${id}/regenerate?mode=${ws.api}`, { method: 'POST', json: { language: profile?.prefs?.default_language || 'en' } }),
-    onSuccess: data => { qc.setQueryData(['session', id], data); qc.invalidateQueries({ queryKey: ['history'] }); toast('Note written again', 'success') },
-    onError: (e: Error) => toast(e.message, 'error'),
+    mutationFn: (choice?: ModelChoice) => api<Session>(`/api/session/${id}/regenerate?mode=${ws.api}`, { method: 'POST', json: { language: profile?.prefs?.default_language || 'en', ...(choice || {}) } }),
+    onSuccess: data => { qc.setQueryData(['session', id], data); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['slot-status'] }); toast(`Note written again by ${data.analysis_json?._provider || 'the model'}`, 'success') },
+    onError: (e: Error) => { qc.invalidateQueries({ queryKey: ['slot-status'] }); toast(e.message, 'error') },
   })
   const remove = useMutation({
     mutationFn: () => api(`/api/session/${id}?mode=${ws.api}`, { method: 'DELETE' }),
@@ -101,9 +102,7 @@ export default function Summary() {
         subtitle={`${fmtDate(session.created_at)}, ${fmtTime(session.created_at)}${dur ? ` · ${duration(dur)}` : ''} · written by ${analysis._provider || 'unknown model'}`}
         actions={<>
           <button className="btn btn-secondary btn-sm" onClick={() => download(`/api/export/pdf/${session.id}`, `echoscribe-${session.id}.pdf`).catch(e => toast(e.message, 'error'))}><Download size={14} />PDF</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => regenerate.mutate()} disabled={regenerate.isPending} title="Write the note again from the saved transcript">
-            {regenerate.isPending ? <Spinner /> : <RefreshCw size={14} />}Regenerate note
-          </button>
+          <RegenerateMenu currentWriter={analysis._provider} busy={regenerate.isPending} onRun={choice => regenerate.mutate(choice)} />
           <button className="btn btn-ghost btn-sm btn-icon" aria-label="Delete session" onClick={() => setConfirmDelete(true)}><Trash2 size={15} /></button>
         </>}
       />
@@ -111,7 +110,7 @@ export default function Summary() {
       <div className="px-4 sm:px-6 lg:px-10 pt-2 pb-12 grid grid-cols-1 xl:grid-cols-12 gap-x-10 gap-y-6">
         {/* the note */}
         <section className="xl:col-span-7 flex flex-col gap-8" aria-label={ws.noteName} data-tour="note">
-          {sum && <VerificationBand sum={sum} verifier={grounding?.verifier ?? undefined} onRegenerate={() => regenerate.mutate()} busy={regenerate.isPending} />}
+          {sum && <VerificationBand sum={sum} verifier={grounding?.verifier ?? undefined} onRegenerate={() => regenerate.mutate(undefined)} busy={regenerate.isPending} />}
           {grounding?.cascade?.escalated && (
             <p className="text-[13px] text-muted m-0 -mt-1">Regenerated on another model after the first draft failed verification ({grounding.cascade.reason}); kept {grounding.cascade.kept}.</p>
           )}

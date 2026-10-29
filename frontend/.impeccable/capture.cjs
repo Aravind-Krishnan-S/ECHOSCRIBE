@@ -52,9 +52,20 @@ const screens = [['login', '/login', false], ['signup', '/signup', false], ['wor
         if (u.startsWith('/api/patients/') && u.endsWith('/sessions')) return j(MODE === 'empty' ? [] : history.slice(0, MODE === 'worst' ? 40 : 1)); if (u.startsWith('/api/patients/')) return j(patients[0] || { id: 'x', name: 'Jo', created_at: session.created_at });
         if (u === '/api/patients') return j(patients); if (u === '/api/history') return j(history);
         if (u === '/api/providers') return j(providers); if (u === '/api/providers/keys') return j({ keys: syncedKeys, syncAvailable: true });
+        if (u === '/api/providers/status') return j({ slot: 'NOTE_SYNTH', models: [
+          { family: 'gemini', model: 'gemini-3.5-flash', label: 'Google Gemini (gemini-3.5-flash)', available: false, cooldownSeconds: 214, reason: 'rate limited' },
+          { family: 'gemini', model: 'gemini-3-flash-preview', label: 'Google Gemini (gemini-3-flash-preview)', available: true, cooldownSeconds: 0, reason: null },
+          { family: 'gemini', model: 'gemini-3.6-flash', label: 'Google Gemini (gemini-3.6-flash)', available: false, cooldownSeconds: 61, reason: 'rate limited' },
+          { family: 'gemini', model: 'gemini-3.5-flash-lite', label: 'Google Gemini (gemini-3.5-flash-lite)', available: true, cooldownSeconds: 0, reason: null },
+          { family: 'groq', model: 'openai/gpt-oss-120b', label: 'Groq (openai/gpt-oss-120b)', available: true, cooldownSeconds: 0, reason: null }] });
         if (u === '/api/providers/models') return j({ models: [{ id: 'gemini-3.5-flash', caps: ['chat', 'transcribe'] }], live: true, hasKey: true });
         return j({}); });
       await page.goto(`http://localhost:4720${url}`, { waitUntil: 'networkidle' }); await page.waitForTimeout(700);
+      if (MODE === 'menu') {
+        if (name !== 'summary') { await page.close(); continue; }
+        await page.click('button[aria-label="Choose the model for the new note"]'); await page.waitForTimeout(600);
+        await page.screenshot({ path: path.join(OUT, `menu-${tag}-${name}.png`), fullPage: false }); await page.close(); continue;
+      }
       await page.screenshot({ path: path.join(OUT, `${MODE === 'demo' ? '' : MODE + '-'}${tag}-${name}.png`), fullPage: true }); await page.close();
     }
   }

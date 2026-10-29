@@ -152,7 +152,7 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
   return (
     <header className={`sticky top-[calc(52px+env(safe-area-inset-top))] lg:top-0 z-20 bg-ground transition-[border-color] duration-200 border-b ${stuck ? 'border-ink' : 'border-transparent'}`}>
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2 px-4 sm:px-6 lg:px-10 pt-7 pb-4">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-[16rem]">
           {back}
           <h1 className="text-[28px] sm:text-[32px] leading-[36px] font-bold tracking-[-0.03em] m-0 truncate">{title}</h1>
           {subtitle && <p className="text-muted m-0 mt-1">{subtitle}</p>}

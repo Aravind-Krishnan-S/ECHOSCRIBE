@@ -440,6 +440,30 @@ async function runChain(slot, invoke, { chains, avoidFamily, avoidModel, timeout
 }
 
 /** Masked, key-free description of the server combos — for /api/health and the settings panel. */
+/**
+ * Live availability of every model in a role's effective combo (the user's own, else the server's).
+ * A model is exhausted when all its keys are cooling down (rate limit) or retired, or its vendor is paused.
+ */
+function slotStatus(slot, chains) {
+    const userCombo = SLOTS[slot]?.userConfigurable && chains && chains[slot];
+    const { entries } = userCombo || getServerChain(slot);
+    return entries.map(e => {
+        const pool = getPool(e);
+        const st = pool.getStatus();
+        const keyWaits = st.keys.filter(k => k.state === 'cooling').map(k => k.cooldownSeconds);
+        const available = st.totalKeys > 0 && st.activeKeys > 0 && st.providerCooldownSeconds === 0;
+        const retired = st.totalKeys > 0 && st.keys.every(k => k.state === 'invalid');
+        return {
+            family: e.family,
+            model: e.model,
+            label: pool.name,
+            available,
+            cooldownSeconds: available ? 0 : Math.max(st.providerCooldownSeconds, keyWaits.length ? Math.min(...keyWaits) : 0),
+            reason: available ? null : retired ? 'keys rejected' : st.totalKeys === 0 ? 'no key' : 'rate limited',
+        };
+    });
+}
+
 function describeServerChains() {
     const out = {};
     for (const slot of Object.keys(SLOTS)) {
@@ -476,6 +500,7 @@ module.exports = {
     attachProviderChains,
     invalidateUserChains,
     describeServerChains,
+    slotStatus,
     legacyKeys,
     ProviderChainError,
 };
