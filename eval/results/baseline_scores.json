@@ -1,0 +1,87 @@
+{
+ "n_dialogues": 40,
+ "baseline": {
+  "rouge1": 0.4429,
+  "rouge2": 0.1616,
+  "rougeLsum": 0.415,
+  "writer": "Google Gemini (gemini-3.1-flash-lite)",
+  "bertscore_f1": 0.471,
+  "full_transcript_verification": {
+   "sentences": 802,
+   "judged": 802,
+   "sentences_per_note": 20.1,
+   "supported": {
+    "k": 645,
+    "rate": 0.8042,
+    "ci95": [
+     0.775,
+     0.83
+    ]
+   },
+   "partial": {
+    "k": 67,
+    "rate": 0.0835,
+    "ci95": [
+     0.066,
+     0.105
+    ]
+   },
+   "unsupported": {
+    "k": 90,
+    "rate": 0.1122,
+    "ci95": [
+     0.092,
+     0.136
+    ]
+   },
+   "notes_with_unsupported": {
+    "k": 30,
+    "n": 40
+   }
+  }
+ },
+ "linked": {
+  "rouge1": 0.4538,
+  "rouge2": 0.169,
+  "rougeLsum": 0.4247,
+  "writer": "Google Gemini (gemini-3.1-flash-lite)",
+  "bertscore_f1": 0.4805,
+  "full_transcript_verification": {
+   "sentences": 727,
+   "judged": 727,
+   "sentences_per_note": 18.2,
+   "supported": {
+    "k": 643,
+    "rate": 0.8845,
+    "ci95": [
+     0.859,
+     0.906
+    ]
+   },
+   "partial": {
+    "k": 48,
+    "rate": 0.066,
+    "ci95": [
+     0.05,
+     0.086
+    ]
+   },
+   "unsupported": {
+    "k": 36,
+    "rate": 0.0495,
+    "ci95": [
+     0.036,
+     0.068
+    ]
+   },
+   "notes_with_unsupported": {
+    "k": 20,
+    "n": 40
+   }
+  }
+ },
+ "verified_dialogues": 40,
+ "judges": {
+  "Groq (openai/gpt-oss-120b)": 40
+ }
+}

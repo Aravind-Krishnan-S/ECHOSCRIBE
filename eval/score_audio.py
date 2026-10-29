@@ -143,7 +143,15 @@ if pya_file.exists():
             PYA.setdefault((p["id"], p["cond"]), {})["gpu" if p["device"].startswith("cuda") else "cpu"] = p
 
 results = defaultdict(lambda: defaultdict(list))
+per_clip = defaultdict(lambda: defaultdict(dict))  # cond -> metric -> clip id -> value (for eval/significance.py)
 latency = defaultdict(list)
+
+
+def add(cond, metric, clip, value):
+    results[cond][metric].append(value)
+    per_clip[cond][metric][clip] = value
+
+
 for r in rows:
     meta = json.loads((CONV / f"{r['id']}.json").read_text(encoding="utf-8"))
     ref_text = " ".join(t["text"] for t in meta["turns"])
@@ -151,43 +159,44 @@ for r in rows:
     for k in ("gemini_raw", "groq_raw", "gemini_enh", "groq_enh"):
         if r["stt"].get(k):
             e, n = wer_counts(ref_text, r["stt"][k])
-            results[c][f"WER {k}"].append(e / n)
+            add(c, f"WER {k}", r["id"], e / n)
     if r.get("sb_raw"):
-        results[c]["DER speechbrain_raw"].append(der(meta["turns"], r["sb_raw"], r["id"]))
+        add(c, "DER speechbrain_raw", r["id"], der(meta["turns"], r["sb_raw"], r["id"]))
         if r["stt"].get("gemini_raw"):
-            results[c]["cpWER speechbrain_raw+gemini"].append(cpwer(meta["turns"], align(r["stt"]["gemini_raw"], r["sb_raw"])))
-    if r.get("sb_enh"):
-        results[c]["DER speechbrain_enh"].append(der(meta["turns"], r["sb_enh"], r["id"]))
-        if r["stt"].get("gemini_enh"):
-            results[c]["cpWER speechbrain_enh+gemini_enh"].append(cpwer(meta["turns"], align(r["stt"]["gemini_enh"], r["sb_enh"])))
+            add(c, "cpWER speechbrain_raw+gemini", r["id"], cpwer(meta["turns"], align(r["stt"]["gemini_raw"], r["sb_raw"])))
         w = WORDS.get((r["id"], c))
         if w and w["words"]:
-            results[c]["cpWER speechbrain_raw+groq_words"].append(cpwer(meta["turns"], assign_words(w["words"], r["sb_raw"])))
+            add(c, "cpWER speechbrain_raw+groq_words", r["id"], cpwer(meta["turns"], assign_words(w["words"], r["sb_raw"])))
         if r["stt"].get("groq_raw"):
-            results[c]["cpWER speechbrain_raw+groq"].append(cpwer(meta["turns"], align(r["stt"]["groq_raw"], r["sb_raw"])))
+            add(c, "cpWER speechbrain_raw+groq", r["id"], cpwer(meta["turns"], align(r["stt"]["groq_raw"], r["sb_raw"])))
+    if r.get("sb_enh"):
+        add(c, "DER speechbrain_enh", r["id"], der(meta["turns"], r["sb_enh"], r["id"]))
+        if r["stt"].get("gemini_enh"):
+            add(c, "cpWER speechbrain_enh+gemini_enh", r["id"], cpwer(meta["turns"], align(r["stt"]["gemini_enh"], r["sb_enh"])))
     pya = PYA.get((r["id"], c), {})
     p = pya.get("gpu") or pya.get("cpu")
     if p:
-        results[c]["DER pyannote"].append(der(meta["turns"], p["turns"], r["id"]))
+        add(c, "DER pyannote", r["id"], der(meta["turns"], p["turns"], r["id"]))
         for k, name in (("gemini_raw", "gemini"), ("groq_raw", "groq")):
             if r["stt"].get(k):
-                results[c][f"cpWER pyannote+{name}"].append(cpwer(meta["turns"], align(r["stt"][k], p["turns"])))
+                add(c, f"cpWER pyannote+{name}", r["id"], cpwer(meta["turns"], align(r["stt"][k], p["turns"])))
         w = WORDS.get((r["id"], c))
         if w and w["words"]:
-            results[c]["cpWER pyannote+groq_words"].append(cpwer(meta["turns"], assign_words(w["words"], p["turns"])))
-            results[c]["WER groq_words"].append(wer_counts(ref_text, w["text"])[0] / wer_counts(ref_text, w["text"])[1])
+            add(c, "cpWER pyannote+groq_words", r["id"], cpwer(meta["turns"], assign_words(w["words"], p["turns"])))
+            add(c, "WER groq_words", r["id"], wer_counts(ref_text, w["text"])[0] / wer_counts(ref_text, w["text"])[1])
         for dev, row in pya.items():
             latency[f"pyannote_{dev}"].append(row["seconds"] / row["duration"] * 60)
     if r.get("gemini_diar"):
-        results[c]["cpWER gemini_audio_diar"].append(cpwer(meta["turns"], r["gemini_diar"]))
+        add(c, "cpWER gemini_audio_diar", r["id"], cpwer(meta["turns"], r["gemini_diar"]))
     if r.get("text_diar"):
-        results[c]["cpWER transcript_diar"].append(cpwer(meta["turns"], r["text_diar"]))
+        add(c, "cpWER transcript_diar", r["id"], cpwer(meta["turns"], r["text_diar"]))
     for stage, s in r["seconds"].items():
         latency[stage].append(s / r["duration"] * 60)  # seconds of processing per minute of audio
 
 summary = {c: {m: {"mean": round(mean(v), 4), "n": len(v)} for m, v in sorted(ms.items())} for c, ms in results.items()}
 summary["latency_s_per_audio_min"] = {k: round(mean(v), 2) for k, v in latency.items()}
 (ROOT / "results" / "audio_scores.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
+(ROOT / "results" / "audio_per_clip.json").write_text(json.dumps(per_clip, indent=1), encoding="utf-8")
 
 metrics = sorted({m for c in results for m in results[c]})
 print(f"{'metric':40s}" + "".join(f"{c:>10s}" for c in ("clean", "snr5", "snr0")))

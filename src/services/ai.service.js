@@ -121,7 +121,7 @@ TRANSCRIPT (numbered turns):
 ${numbered.prompt}
 """
 
-EVIDENCE RULE: In every "${sectionGroup}" field and in "risk_assessment.notes", end each sentence with the numbers of the turns that support it, for example: "Reports two weeks of poor sleep [T4, T6]." Cite only turns that actually contain the information. Do not write a sentence you cannot cite; if a field has nothing to cite, write "Not discussed".
+EVIDENCE RULE: In every "${sectionGroup}" field and in "risk_assessment.notes", end each sentence with the numbers of the turns that support it, for example: "Reports two weeks of poor sleep [T4, T6]." Cite only turns that actually contain the information. Do not write a sentence you cannot cite; if a field has nothing to cite, write "Not discussed".${GROUNDING_ATOMIC ? ' Write one fact per sentence: split a sentence that combines several facts, so that the turns it cites support all of it.' : ''}
 
 Return ONLY valid JSON with this exact structure:
 {${config.structure}
@@ -176,7 +176,61 @@ Return ONLY valid JSON with this exact structure:
         const verified = await grounding.verifyStatements(flat, numbered.turns, { chains, avoidFamily: writerFamily, avoidModel: writerModel });
         if (verified) flat.forEach((st, k) => Object.assign(st, verified.verdicts[k]));
         else flat.forEach(st => { st.label = 'unverified'; });
-        return { note, sections, summary: grounding.summarize(sections), verifier: verified ? verified.provider : null };
+        // Summaries after each step, so one run yields the whole ablation (as written → repaired → two judges)
+        const extra = { stages: { verified: grounding.summarize(sections) } };
+        if (verified && GROUNDING_REPAIR) {
+            extra.repair = await repairFlagged(sections, writerFamily, writerModel, verified);
+            extra.stages.repaired = grounding.summarize(sections);
+        }
+        if (verified && VERIFY_CONSENSUS) {
+            extra.consensus = await grounding.confirmFlags(Object.values(sections).flat(), numbered.turns, verified, { chains, writerModel });
+            extra.stages.consensus = grounding.summarize(sections);
+        }
+        for (const key of sectionKeys) note[sectionGroup][key] = sections[key].length ? sections[key].map(st => st.text).join(' ') : note[sectionGroup][key];
+        return { note, sections, summary: grounding.summarize(sections), verifier: verified ? verified.provider : null, ...extra };
+    };
+
+    // Sentence-level repair: each flagged sentence goes back to a writer model with the transcript and the
+    // verifier's reason, to be rewritten with citations or deleted; rewrites are verified again and a
+    // sentence that is still unsupported is removed.
+    const repairFlagged = async (sections, writerFamily, writerModel, firstVerifier) => {
+        const flagged = [];
+        for (const key of sectionKeys) sections[key].forEach((st, i) => { if (st.label === 'partial' || st.label === 'unsupported') flagged.push({ key, i, st }); });
+        if (!flagged.length) return { flagged: 0, rewritten: 0, removed: 0 };
+        const list = flagged.map((f, n) => `R${n + 1}: ${f.st.text}${f.st.turns.length ? ` [${f.st.turns.map(t => 'T' + t).join(', ')}]` : ''}\n  Problem: ${f.st.reason || f.st.label}`).join('\n');
+        let rewrites;
+        try {
+            const { result } = await runChain('NOTE_SYNTH', async (adapter) => {
+                const reply = await adapter.chatCompletion(
+                    'You correct session-note sentences so that every claim is supported by the transcript. Respond with valid JSON only.',
+                    `NUMBERED TRANSCRIPT:\n---\n${numbered.prompt}\n---\n\nEach sentence below was judged not fully supported by the turns it cites. Rewrite it so that every claim is stated in the transcript, and end it with the supporting turn numbers like [T4, T6]; keep the clinical meaning; split it if it combines facts. If the transcript does not support it at all, return an empty string.\n\n${list}\n\nReturn ONLY JSON: {"rewrites":[{"id":"R1","text":"..."}, ...]}`,
+                    { json: true, temperature: 0.2 });
+                const parsed = parseJsonResponse(reply);
+                if (!Array.isArray(parsed.rewrites)) throw new Error('No rewrites returned');
+                return parsed.rewrites;
+            }, { chains, avoidFamily: undefined });
+            rewrites = result;
+        } catch (err) {
+            return { flagged: flagged.length, error: err.message };
+        }
+        const candidates = [];
+        flagged.forEach((f, n) => {
+            const r = rewrites.find(x => String(x.id).toUpperCase() === `R${n + 1}`) || rewrites[n] || {};
+            const parts = String(r.text || '').trim() ? grounding.extractStatements(String(r.text), numbered.turns.length).statements : [];
+            candidates.push({ f, parts });
+        });
+        const toCheck = candidates.flatMap(c => c.parts);
+        const recheck = toCheck.length ? await grounding.verifyStatements(toCheck, numbered.turns, { chains, avoidFamily: writerFamily, avoidModel: writerModel }) : { verdicts: [] };
+        if (toCheck.length && recheck) toCheck.forEach((st, k) => Object.assign(st, recheck.verdicts[k]));
+        let rewritten = 0, removed = 0;
+        // Replace from the end of each section so indices stay valid
+        for (const c of [...candidates].sort((a, b) => (a.f.key === b.f.key ? b.f.i - a.f.i : 0))) {
+            const keep = recheck ? c.parts.filter(st => st.label === 'supported' || st.label === 'partial') : [];
+            const better = keep.filter(st => SEVERITY_OF(st.label) < SEVERITY_OF(c.f.st.label) || st.label === 'supported');
+            if (better.length) { better.forEach(st => { st.repaired = true; }); sections[c.f.key].splice(c.f.i, 1, ...better); rewritten++; }
+            else if (c.f.st.label === 'unsupported') { sections[c.f.key].splice(c.f.i, 1); removed++; }
+        }
+        return { flagged: flagged.length, rewritten, removed, verifier: recheck ? recheck.provider : null };
     };
 
     const first = await generate();
@@ -213,6 +267,10 @@ Return ONLY valid JSON with this exact structure:
         verifier: chosen.grounded.verifier,
         gate: GROUNDING_GATE,
         cascade,
+        repair: chosen.grounded.repair || null,
+        stages: chosen.grounded.stages || null,
+        consensus: chosen.grounded.consensus || null,
+        options: { atomic: GROUNDING_ATOMIC, repair: GROUNDING_REPAIR, consensus: VERIFY_CONSENSUS },
     };
 
     if (RISK_SECOND_OPINION) {
@@ -224,6 +282,11 @@ Return ONLY valid JSON with this exact structure:
 const GROUNDING_ENABLED = process.env.NOTE_GROUNDING !== 'off';
 const GROUNDING_GATE = Math.min(1, Math.max(0, Number(process.env.GROUNDING_GATE ?? 0.2)));
 const RISK_SECOND_OPINION = process.env.RISK_SECOND_OPINION !== 'off';
+// Note-quality steps (all on by default; each can be switched off for ablation)
+const GROUNDING_ATOMIC = process.env.GROUNDING_ATOMIC !== 'off';
+const GROUNDING_REPAIR = process.env.GROUNDING_REPAIR !== 'off';
+const VERIFY_CONSENSUS = process.env.VERIFY_CONSENSUS !== 'off';
+const SEVERITY_OF = label => ({ supported: 0, partial: 1, unsupported: 2 }[label] ?? 3);
 
 function riskFlag(risk, mode) {
     if (!risk) return false;

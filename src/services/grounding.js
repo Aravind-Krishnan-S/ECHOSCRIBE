@@ -135,6 +135,31 @@ Return ONLY valid JSON: {"verdicts":[{"id":"S1","label":"supported|partial|unsup
     }
 }
 
+const SEVERITY = { supported: 0, partial: 1, unsupported: 2 };
+
+/**
+ * Two-judge agreement: sentences the first judge flagged (partial / unsupported) are checked again by a
+ * second model, chosen to differ from both the first judge's vendor and the writer's model. A sentence
+ * stays flagged only if the second judge also flags it, with the milder of the two labels; otherwise it
+ * counts as supported and the disagreement is recorded. Returns { checked, overturned, provider } or null.
+ */
+async function confirmFlags(statements, turns, first, { chains, writerModel } = {}) {
+    const idx = statements.map((s, i) => (s.label === 'partial' || s.label === 'unsupported' ? i : -1)).filter(i => i >= 0);
+    if (!idx.length || !first) return { checked: 0, overturned: 0, provider: null };
+    const second = await verifyStatements(idx.map(i => statements[i]), turns, { chains, avoidFamily: first.family, avoidModel: writerModel });
+    if (!second) return null;
+    let overturned = 0;
+    idx.forEach((i, k) => {
+        const a = statements[i].label;
+        const b = second.verdicts[k]?.label;
+        if (!(b in SEVERITY)) return;
+        statements[i].second_label = b;
+        if (b === 'supported') { statements[i].label = 'supported'; statements[i].disputed = true; overturned++; }
+        else if (SEVERITY[b] < SEVERITY[a]) statements[i].label = b;
+    });
+    return { checked: idx.length, overturned, provider: second.provider, family: second.family, model: second.model };
+}
+
 /** Summary figures for a verified note. */
 function summarize(sections) {
     const all = Object.values(sections).flat();
@@ -152,4 +177,5 @@ function summarize(sections) {
     };
 }
 
-module.exports = { numberTranscript, extractStatements, parseCitation, verifyStatements, summarize };
+module.exports = {
+    confirmFlags, numberTranscript, extractStatements, parseCitation, verifyStatements, summarize };

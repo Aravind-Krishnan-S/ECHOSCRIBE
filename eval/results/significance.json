@@ -1,0 +1,241 @@
+{
+ "method": "paired bootstrap, 10000 resamples, seed 0; diff = A - B (negative favours A)",
+ "audio": {
+  "cpwer_words_vs_duration": {
+   "a": "cpWER pyannote+groq_words",
+   "b": "cpWER pyannote+groq",
+   "label": "word-timestamp vs duration-split attribution on pyannote turns",
+   "clean": {
+    "n": 12,
+    "mean_a": 0.0265,
+    "mean_b": 0.2137,
+    "diff": -0.1873,
+    "ci95": [
+     -0.2247,
+     -0.1551
+    ],
+    "p": 0.0001,
+    "a_better_in": 12,
+    "b_better_in": 0
+   },
+   "snr5": {
+    "n": 12,
+    "mean_a": 0.1974,
+    "mean_b": 0.4707,
+    "diff": -0.2733,
+    "ci95": [
+     -0.3367,
+     -0.2162
+    ],
+    "p": 0.0001,
+    "a_better_in": 12,
+    "b_better_in": 0
+   },
+   "snr0": {
+    "n": 12,
+    "mean_a": 0.532,
+    "mean_b": 0.6877,
+    "diff": -0.1557,
+    "ci95": [
+     -0.2426,
+     -0.0687
+    ],
+    "p": 0.0001,
+    "a_better_in": 11,
+    "b_better_in": 1
+   }
+  },
+  "cpwer_words_vs_cloud": {
+   "a": "cpWER pyannote+groq_words",
+   "b": "cpWER gemini_audio_diar",
+   "label": "pyannote + word timestamps vs Gemini cloud audio diarization",
+   "clean": {
+    "n": 12,
+    "mean_a": 0.0265,
+    "mean_b": 0.1779,
+    "diff": -0.1514,
+    "ci95": [
+     -0.3404,
+     -0.0047
+    ],
+    "p": 0.032,
+    "a_better_in": 7,
+    "b_better_in": 3
+   },
+   "snr5": {
+    "n": 11,
+    "mean_a": 0.2016,
+    "mean_b": 0.3708,
+    "diff": -0.1692,
+    "ci95": [
+     -0.3068,
+     -0.0411
+    ],
+    "p": 0.0046,
+    "a_better_in": 6,
+    "b_better_in": 5
+   },
+   "snr0": {
+    "n": 11,
+    "mean_a": 0.54,
+    "mean_b": 0.5926,
+    "diff": -0.0527,
+    "ci95": [
+     -0.204,
+     0.0991
+    ],
+    "p": 0.5204,
+    "a_better_in": 6,
+    "b_better_in": 5
+   }
+  },
+  "der_pyannote_vs_speechbrain": {
+   "a": "DER pyannote",
+   "b": "DER speechbrain_raw",
+   "label": "pyannote vs SpeechBrain ECAPA clustering (original audio)",
+   "clean": {
+    "n": 12,
+    "mean_a": 0.0929,
+    "mean_b": 0.231,
+    "diff": -0.138,
+    "ci95": [
+     -0.2113,
+     -0.0744
+    ],
+    "p": 0.0001,
+    "a_better_in": 12,
+    "b_better_in": 0
+   },
+   "snr5": {
+    "n": 12,
+    "mean_a": 0.1291,
+    "mean_b": 0.2513,
+    "diff": -0.1222,
+    "ci95": [
+     -0.1946,
+     -0.0675
+    ],
+    "p": 0.0001,
+    "a_better_in": 12,
+    "b_better_in": 0
+   },
+   "snr0": {
+    "n": 12,
+    "mean_a": 0.2258,
+    "mean_b": 0.2494,
+    "diff": -0.0236,
+    "ci95": [
+     -0.0673,
+     0.0304
+    ],
+    "p": 0.3454,
+    "a_better_in": 9,
+    "b_better_in": 3
+   }
+  },
+  "wer_whisper_raw_vs_denoised": {
+   "a": "WER groq_raw",
+   "b": "WER groq_enh",
+   "label": "Whisper on original vs SepFormer-denoised audio",
+   "clean": {
+    "n": 12,
+    "mean_a": 0.0214,
+    "mean_b": 0.0294,
+    "diff": -0.008,
+    "ci95": [
+     -0.017,
+     0.0
+    ],
+    "p": 0.051,
+    "a_better_in": 8,
+    "b_better_in": 2
+   },
+   "snr5": {
+    "n": 12,
+    "mean_a": 0.1351,
+    "mean_b": 0.289,
+    "diff": -0.1539,
+    "ci95": [
+     -0.2006,
+     -0.1061
+    ],
+    "p": 0.0001,
+    "a_better_in": 12,
+    "b_better_in": 0
+   },
+   "snr0": {
+    "n": 12,
+    "mean_a": 0.3599,
+    "mean_b": 0.7094,
+    "diff": -0.3495,
+    "ci95": [
+     -0.4174,
+     -0.2811
+    ],
+    "p": 0.0001,
+    "a_better_in": 12,
+    "b_better_in": 0
+   }
+  },
+  "wer_gemini_raw_vs_denoised": {
+   "a": "WER gemini_raw",
+   "b": "WER gemini_enh",
+   "label": "Gemini on original vs SepFormer-denoised audio",
+   "clean": {
+    "n": 11,
+    "mean_a": 0.059,
+    "mean_b": 0.0402,
+    "diff": 0.0188,
+    "ci95": [
+     -0.0245,
+     0.0917
+    ],
+    "p": 0.703,
+    "a_better_in": 7,
+    "b_better_in": 2
+   },
+   "snr5": {
+    "n": 11,
+    "mean_a": 0.1693,
+    "mean_b": 0.2692,
+    "diff": -0.0998,
+    "ci95": [
+     -0.1652,
+     -0.027
+    ],
+    "p": 0.0086,
+    "a_better_in": 9,
+    "b_better_in": 2
+   },
+   "snr0": {
+    "n": 11,
+    "mean_a": 0.4552,
+    "mean_b": 0.6322,
+    "diff": -0.177,
+    "ci95": [
+     -0.3101,
+     -0.0471
+    ],
+    "p": 0.006,
+    "a_better_in": 9,
+    "b_better_in": 2
+   }
+  }
+ },
+ "router": {
+  "lkgp_vs_priority_p95_mixed": {
+   "n": 5,
+   "mean_a": 9.056,
+   "mean_b": 31.684,
+   "diff": -22.628,
+   "ci95": [
+    -28.266,
+    -11.74
+   ],
+   "p": 0.0001,
+   "a_better_in": 5,
+   "b_better_in": 0,
+   "note": "only 5 seeds: the bootstrap CI is coarse; LKGP was lower in 5 of 5 seeds"
+  }
+ }
+}
