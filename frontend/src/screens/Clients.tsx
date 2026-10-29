@@ -70,10 +70,10 @@ export default function Clients() {
                     return (
                       <tr key={p.id} className="cursor-pointer" onClick={() => navigate(href)}>
                         <td>
-                          <Link to={href} className="flex items-center gap-3 font-semibold hover:underline" onClick={e => e.stopPropagation()}>
+                          <Link to={href} className="flex items-start sm:items-center gap-3 font-semibold hover:underline" onClick={e => e.stopPropagation()}>
                             <Avatar name={p.name} size={30} />
-                            <span className="truncate">{p.name}</span>
-                            {st?.flagged && <span className="pill pill-negative">Flag</span>}
+                            <span className="min-w-0 [overflow-wrap:anywhere] pt-1 sm:pt-0">{p.name}</span>
+                            {st?.flagged && <span className="pill pill-negative flex-none mt-1 sm:mt-0">Flag</span>}
                           </Link>
                         </td>
                         <td className="hidden sm:table-cell text-muted">{[p.age ? `${p.age}` : null, p.gender].filter(Boolean).join(' · ') || '—'}</td>

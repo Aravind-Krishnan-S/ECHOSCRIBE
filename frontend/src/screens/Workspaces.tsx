@@ -28,7 +28,7 @@ export default function Workspaces() {
   }
 
   return (
-    <div className="min-h-screen bg-ground flex flex-col">
+    <div className="min-h-dvh bg-ground flex flex-col">
       <header className="px-6 sm:px-10 pt-6"><span className="text-accent"><Wordmark /></span></header>
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
         <h1 className="text-[30px] sm:text-[40px] leading-[1.1] font-bold tracking-[-0.03em] m-0 text-center">Who's working today, {firstName(profile?.full_name, profile?.email)}?</h1>

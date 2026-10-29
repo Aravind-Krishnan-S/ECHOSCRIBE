@@ -124,6 +124,13 @@
 /* ─── base ─── */
 
 html, body, #root { height: 100%; }
+html {
+  -webkit-tap-highlight-color: transparent;  /* no grey flash on tap; controls have their own :active */
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;                 /* app shell: no pull-to-refresh or page rubber band */
+}
+button, a, [role="button"], [role="tab"], [role="switch"] { touch-action: manipulation; }
+button, [role="button"], [role="tab"], .btn, .nav-item, .subnav-item, .menu-item, .tab { -webkit-user-select: none; user-select: none; }
 body {
   margin: 0;
   background: var(--chrome);
@@ -203,20 +210,15 @@ a { text-underline-offset: 3px; }
   .btn:active:not(:disabled) { box-shadow: inset 0 1px 2px rgba(0,0,0,.18); }
   .btn:disabled { cursor: not-allowed; opacity: 0.5; }
   .btn-primary, .btn-accent { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); }
-  .btn-primary:hover:not(:disabled), .btn-accent:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
   .btn-secondary { background: var(--ground); color: var(--text); border: 1px solid var(--control); }
-  .btn-secondary:hover:not(:disabled) { border-color: var(--text); }
   .btn-ghost { background: transparent; color: var(--text); border: 1px solid transparent; }
-  .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
   .btn-danger { background: var(--ground); color: var(--negative); border: 1px solid #e3b4a6; }
-  .btn-danger:hover:not(:disabled) { border-color: var(--negative); }
   .btn-sm { height: 30px; padding: 0 10px; font-size: 13px; }
   .btn-lg { height: 44px; padding: 0 20px; font-size: 15px; }
   .btn-icon { width: 36px; padding: 0; }
   .btn-icon.btn-sm { width: 30px; }
 
   .link { color: var(--accent-ink); font-weight: 550; text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-  .link:hover { text-decoration-color: var(--accent); }
 
   /* ─── fields ─── */
   .field-label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
@@ -231,7 +233,6 @@ a { text-underline-offset: 3px; }
   }
   textarea.input { height: auto; padding: 9px 12px; resize: vertical; }
   .input::placeholder { color: var(--faint); }
-  .input:hover { border-color: var(--muted); }
   .input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .input[aria-invalid="true"] { border-color: var(--negative); }
   .input:disabled { background: var(--surface); color: var(--muted); }
@@ -255,22 +256,18 @@ a { text-underline-offset: 3px; }
     border-radius: 2px; color: var(--on-accent-muted); font-weight: 550;
     transition: background-color var(--dur-2), color var(--dur-2);
   }
-  .nav-item:hover { color: var(--on-accent); background: rgba(255, 255, 255, 0.08); }
   .nav-item[aria-current="page"] { color: var(--accent-ink); background: var(--on-accent); }
   .nav-item:focus-visible { outline-color: var(--on-accent); }
   /* secondary navigation on paper (settings) */
   .subnav-item { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 2px; color: var(--muted); font-weight: 550; transition: background-color var(--dur-2), color var(--dur-2); }
-  .subnav-item:hover { color: var(--text); background: var(--surface); }
   .subnav-item[aria-current="page"] { color: var(--accent-ink); background: var(--accent-tint); font-weight: 650; }
   /* menu items inside floating layers use ink, not the field colours */
   .menu-item { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 2px; color: var(--text); font-weight: 500; width: 100%; text-align: left; }
-  .menu-item:hover { background: var(--surface-2); }
 
   /* ─── tabs: a rule with the selected tab underlined in the line colour ─── */
   .tabs { display: inline-flex; gap: 20px; border-bottom: 1px solid var(--border); }
   .tab { height: 36px; padding: 0 2px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--dur-2), border-color var(--dur-2); }
   .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
-  .tab:hover:not([aria-selected="true"]) { color: var(--text); }
 
   /* ─── switch ─── */
   .switch { position: relative; width: 36px; height: 20px; border-radius: 2px; background: var(--control); transition: background-color var(--dur-2); flex: none; }
@@ -285,12 +282,36 @@ a { text-underline-offset: 3px; }
     background: var(--ground); border: 1px solid var(--border); border-radius: var(--radius-inner);
     transition: border-color var(--dur-2), background-color var(--dur-2);
   }
-  a.row-card:hover, button.row-card:hover { border-color: var(--text); }
 
   /* data tables */
   .table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   .table th { text-align: left; font-size: 12px; font-weight: 650; color: var(--muted); padding: 0 12px 8px; border-bottom: 1px solid var(--text); white-space: nowrap; }
   .table td { padding: 11px 12px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
   .table tbody tr { transition: background-color var(--dur-2); }
-  .table tbody tr:hover { background: var(--surface); }
+
+  /* hover only where the pointer can hover: no sticky hover after a tap on phones */
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover:not(:disabled), .btn-accent:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--text); }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+    .btn-danger:hover:not(:disabled) { border-color: var(--negative); }
+    .link:hover { text-decoration-color: var(--accent); }
+    .input:hover { border-color: var(--muted); }
+    .nav-item:hover { color: var(--on-accent); background: rgba(255, 255, 255, 0.08); }
+    .subnav-item:hover { color: var(--text); background: var(--surface); }
+    .menu-item:hover { background: var(--surface-2); }
+    .tab:hover:not([aria-selected="true"]) { color: var(--text); }
+    a.row-card:hover, button.row-card:hover { border-color: var(--text); }
+    .table tbody tr:hover { background: var(--surface); }
+  }
+
+  /* phones and tablets: 44px touch targets, 16px inputs so iOS does not zoom on focus */
+  @media (pointer: coarse) {
+    .btn { min-height: 44px; }
+    .btn-sm { height: 40px; min-height: 40px; }
+    .btn-icon { min-width: 44px; }
+    .btn-icon.btn-sm { width: 40px; min-width: 40px; }
+    .input, select.input, textarea.input { font-size: 16px; }
+    .nav-item, .subnav-item, .menu-item { min-height: 44px; }
+  }
 }

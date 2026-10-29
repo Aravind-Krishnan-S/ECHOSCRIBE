@@ -9,10 +9,20 @@ export function firstName(fullName: string | null | undefined, email?: string) {
   return email ? email.split('@')[0] : 'there'
 }
 
+type GraphemeSegmenter = { segment(s: string): Iterable<{ segment: string }> }
+const SegmenterCtor = (Intl as unknown as { Segmenter?: new (l?: string, o?: { granularity: 'grapheme' }) => GraphemeSegmenter }).Segmenter
+const segmenter = SegmenterCtor ? new SegmenterCtor(undefined, { granularity: 'grapheme' }) : null
+const firstGrapheme = (word: string) => (segmenter ? [...segmenter.segment(word)][0]?.segment : Array.from(word)[0]) || ''
+
+/** Initials from the first and last word (titles, numbers and suffixes like III skipped); scripts without
+    letter case (Chinese, Arabic, …) get a single character, which is how their names are abbreviated. */
 export function initials(name: string | null | undefined) {
-  const parts = (name || '').trim().split(/\s+/).filter(p => !/^(dr|prof)\.?$/i.test(p))
+  const parts = (name || '').trim().split(/\s+/).filter(p => !/^(dr|prof|mr|mrs|ms)\.?$/i.test(p) && !/^(\d+|jr\.?|sr\.?)$/i.test(p) && !/^[IVX]{2,}$/.test(p))
   if (!parts.length) return '·'
-  return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+  const first = firstGrapheme(parts[0])
+  if (first.toUpperCase() === first.toLowerCase()) return first   // no letter case: one character
+  const last = parts.length > 1 ? firstGrapheme(parts[parts.length - 1]) : ''
+  return (first + last).toUpperCase()
 }
 
 export function greeting(date = new Date()) {

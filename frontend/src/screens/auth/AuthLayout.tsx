@@ -13,15 +13,15 @@ const EXAMPLE = [
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div data-workspace="therapy" className="min-h-screen bg-ground grid lg:grid-cols-[minmax(0,1.1fr)_minmax(420px,1fr)]">
-      <section className="field-accent hidden lg:flex flex-col justify-between p-10 xl:p-14">
-        <Wordmark />
+    <div data-workspace="therapy" className="min-h-dvh bg-ground grid lg:grid-cols-[minmax(0,1.1fr)_minmax(420px,1fr)]">
+      <section className="bg-accent-tint hidden lg:flex flex-col justify-between p-10 xl:p-14 border-r border-accent-tint-2">
+        <span className="text-accent"><Wordmark /></span>
         <div className="max-w-[560px]">
-          <h2 className="text-[48px] leading-[50px] font-bold tracking-[-0.04em] m-0">Two voices in.<br />One note you can check.</h2>
-          <p className="text-[16px] leading-6 text-on-accent-muted mt-5 max-w-[460px]">
+          <h2 className="text-[44px] leading-[48px] font-bold tracking-[-0.04em] m-0 text-ink">Two voices in.<br />One note you can check.</h2>
+          <p className="text-[16px] leading-6 text-muted mt-5 max-w-[460px]">
             EchoScribe separates the speakers in a therapy or mentoring session, transcribes them, and drafts a SOAP or GROW note in which every sentence cites the turns it came from and is checked by a second model.
           </p>
-          <motion.div className="bg-ground text-ink mt-9 max-w-[520px] p-5"
+          <motion.div className="bg-ground text-ink mt-9 max-w-[520px] p-5 border border-accent-tint-2"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}>
             <div className="flex items-baseline justify-between gap-3 mb-3 pb-3 border-b border-ink">
               <span className="font-bold">Example note</span>
@@ -40,7 +40,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             </ul>
           </motion.div>
         </div>
-        <p className="text-[12px] text-on-accent-muted m-0">Notes are drafts for a professional to review. EchoScribe does not diagnose.</p>
+        <p className="text-[12px] text-muted m-0">Notes are drafts for a professional to review. EchoScribe does not diagnose.</p>
       </section>
 
       <section className="flex flex-col justify-center px-4 py-10 sm:px-10 xl:px-16">

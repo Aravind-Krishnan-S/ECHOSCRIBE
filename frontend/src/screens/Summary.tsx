@@ -231,7 +231,7 @@ function TranscriptPanel({ turns, focus }: { turns: NumberedTurn[]; focus: numbe
   return (
     <div className="panel !p-0 overflow-hidden" data-tour="transcript">
       <h2 className="m-0 px-5 pt-4 pb-3 section-title border-b border-rule">Transcript <span className="font-normal text-muted num">· {turns.length} turns</span></h2>
-      <ol className="list-none m-0 max-h-[min(560px,calc(100vh-360px))] min-h-[240px] overflow-auto">
+      <ol className="list-none m-0 max-h-[min(560px,calc(100dvh-360px))] min-h-[240px] overflow-auto">
         {turns.map(t => (
           <li key={t.id} ref={el => { if (el && set.has(t.id) && focus[0] === t.id) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }}
             className={clsx('grid grid-cols-[48px_1fr] transition-colors duration-150 border-b border-rule last:border-b-0', set.has(t.id) ? 'bg-accent-tint' : 'bg-transparent')}>

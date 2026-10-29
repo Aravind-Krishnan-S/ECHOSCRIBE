@@ -42,7 +42,7 @@ export function BarList({ items, unit = '' }: { items: { label: string; value: n
           <span className="relative h-8 bg-surface-2 overflow-hidden">
             <span className="absolute inset-y-0 left-0"
               style={{ width: `${(it.value / max) * 100}%`, background: i === 0 ? 'var(--accent-tint-2)' : 'var(--accent-tint)' }} />
-            <span className="absolute inset-0 flex items-center px-3 truncate">{it.label}</span>
+            <span className="absolute inset-0 flex items-center px-3 truncate" title={it.label}>{it.label}</span>
           </span>
           <span className="num text-right">{it.value}{unit}</span>
         </li>

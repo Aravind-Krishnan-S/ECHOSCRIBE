@@ -160,15 +160,15 @@ function ConnectedProviders() {
   if (!connected.length) return <div className="mt-6"><EmptyState>No provider is connected yet. Add a key above.</EmptyState></div>
   return (
     <table className="table mt-7">
-      <thead><tr><th scope="col">Connected</th><th scope="col">Keys</th></tr></thead>
+      <thead className="hidden sm:table-header-group"><tr><th scope="col">Connected</th><th scope="col">Keys</th></tr></thead>
       <tbody>
         {connected.map(f => (
           <tr key={f.key}>
-            <td className="font-semibold align-top sm:w-[200px]">{f.label}</td>
-            <td>
+            <td className="font-semibold align-top block sm:table-cell sm:w-[200px] !pb-1 sm:!pb-[11px] !border-b-0 sm:!border-b">{f.label}</td>
+            <td className="block sm:table-cell !pt-0 sm:!pt-[11px]">
               <ul className="list-none m-0 p-0 flex flex-col gap-1">
                 {locals.filter(k => k.family === f.key).map(k => (
-                  <li key={k.id} className="flex items-center gap-2"><KeyRound size={13} className="text-muted" /><span className="num">{maskKey(k.key)}</span><span className="text-[12px] text-muted">this browser</span>
+                  <li key={k.id} className="flex items-center gap-2"><KeyRound size={13} className="text-muted" /><span className="num">{maskKey(k.key)}</span><span className="text-[12px] text-muted whitespace-nowrap">this browser</span>
                     <button className="btn btn-ghost btn-icon btn-sm ml-auto" aria-label={`Remove ${f.label} key`} onClick={() => localKeys.remove(k.id)}><X size={14} /></button></li>
                 ))}
                 {(synced.data?.keys || []).filter(k => k.family === f.key).map(k => (

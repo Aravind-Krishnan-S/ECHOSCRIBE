@@ -40,7 +40,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   if (profileLoading) return <BootSplash />
   if (profileError || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="min-h-dvh flex items-center justify-center p-6">
         <div className="panel max-w-[460px]">
           <h1 className="text-[20px] font-semibold m-0">EchoScribe could not load your profile</h1>
           <p className="text-muted mt-2">{profileError?.message || 'Unknown error.'}</p>

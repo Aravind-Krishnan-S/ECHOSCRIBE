@@ -18,13 +18,13 @@ export function AppShell() {
   useEffect(() => setMenuOpen(false), [location.pathname])
 
   return (
-    <div data-workspace={ws.id} className="min-h-screen bg-ground">
+    <div data-workspace={ws.id} className="min-h-dvh bg-ground">
       <aside className="field-accent hidden lg:flex fixed inset-y-0 left-0 w-[240px] flex-col px-3 pt-5 pb-4" aria-label="Main navigation">
         <SidebarContent />
       </aside>
 
       {/* phone / tablet bar */}
-      <div className="field-accent lg:hidden sticky top-0 z-30 h-[52px] flex items-center gap-2 px-2">
+      <div className="field-accent lg:hidden sticky top-0 z-30 min-h-[52px] pt-[env(safe-area-inset-top)] pl-[max(8px,env(safe-area-inset-left))] pr-[max(8px,env(safe-area-inset-right))] flex items-center gap-2">
         <button className="btn btn-icon btn-sm text-on-accent hover:bg-white/10" aria-label="Open menu" onClick={() => setMenuOpen(true)}><Menu size={18} /></button>
         <Wordmark />
         <span className="ml-auto" />
@@ -33,7 +33,7 @@ export function AppShell() {
       </div>
       <AnimatePresence>
         {menuOpen && (
-          <motion.div className="field-accent lg:hidden fixed inset-0 z-50 flex flex-col px-4 pt-3 pb-4"
+          <motion.div className="field-accent lg:hidden fixed inset-0 z-50 flex flex-col px-4 pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(16px+env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
             <div className="flex justify-end">
               <button className="btn btn-icon text-on-accent hover:bg-white/10" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={18} /></button>
@@ -43,7 +43,7 @@ export function AppShell() {
         )}
       </AnimatePresence>
 
-      <main className="lg:ml-[240px] min-h-screen bg-ground">
+      <main className="lg:ml-[240px] min-h-dvh bg-ground">
         <Outlet />
       </main>
     </div>
@@ -122,7 +122,7 @@ function UserRow({ name, email, avatar, title, onLogout }: { name: string; email
         className="w-full flex items-center gap-2.5 px-2 py-1.5 text-left hover:bg-white/10 transition-colors">
         <Avatar name={name} src={avatar} size={30} tone="neutral" />
         <span className="flex-1 min-w-0">
-          <span className="block font-semibold leading-5 truncate">{name}</span>
+          <span className="block font-semibold leading-5 truncate" title={name}>{name}</span>
           <span className="block text-[12px] leading-4 text-on-accent-muted truncate">{title || email}</span>
         </span>
       </button>
@@ -150,7 +150,7 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
   return (
-    <header className={`sticky top-[52px] lg:top-0 z-20 bg-ground transition-[border-color] duration-200 border-b ${stuck ? 'border-ink' : 'border-transparent'}`}>
+    <header className={`sticky top-[calc(52px+env(safe-area-inset-top))] lg:top-0 z-20 bg-ground transition-[border-color] duration-200 border-b ${stuck ? 'border-ink' : 'border-transparent'}`}>
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2 px-4 sm:px-6 lg:px-10 pt-7 pb-4">
         <div className="min-w-0 flex-1">
           {back}

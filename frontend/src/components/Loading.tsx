@@ -21,20 +21,21 @@ export function BootSplash({ label = 'Opening EchoScribe' }: { label?: string })
   )
 }
 
-/* Workspace entry: the chosen product line's colour fills the screen while its data loads. */
+/* Workspace entry: a quiet paper screen; the product line's tile settles in the centre while its data loads. */
 export function WorkspaceEntry({ workspace, name }: { workspace: WorkspaceId; name?: string }) {
   const ws = WORKSPACES[workspace]
   return (
     <motion.div data-workspace={workspace}
-      className="field-accent fixed inset-0 z-50 flex flex-col justify-end p-8 sm:p-14"
-      initial={{ clipPath: 'inset(100% 0 0 0)' }} animate={{ clipPath: 'inset(0% 0 0 0)' }} exit={{ opacity: 0 }}
-      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-ground"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
       role="status" aria-label={`Opening ${ws.label}`}>
-      <motion.p className="text-[56px] sm:text-[96px] leading-none font-bold tracking-[-0.045em] m-0"
-        initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}>
+      <motion.span className="field-accent w-[96px] h-[96px] rounded-[6px]"
+        initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }} />
+      <motion.p className="text-[32px] leading-none font-bold tracking-[-0.03em] m-0 mt-2"
+        initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
         {ws.label}
       </motion.p>
-      <motion.p className="text-on-accent-muted m-0 mt-3 text-[15px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
+      <motion.p className="text-muted m-0 text-[14px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}>
         {name ? `${name} · ` : ''}{ws.clients} and sessions
       </motion.p>
     </motion.div>

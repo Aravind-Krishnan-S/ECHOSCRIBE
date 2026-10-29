@@ -121,8 +121,8 @@ export default function Home() {
                         <td className="text-muted whitespace-nowrap">{relativeDay(s.created_at)}</td>
                         <td className="hidden md:table-cell w-[150px]"><ConversationStrip turns={s.analysis_json?.conversation?.turns || []} professional={ws.professional} client={ws.client} variant="mini" /></td>
                         <td className="whitespace-nowrap">
-                          {g ? <span className="num text-[13px]">{g.supported}/{g.statements} supported</span> : <span className="text-[13px] text-faint">not verified</span>}
-                          {isRiskFlagged(s) && <span className="pill pill-negative ml-2">Flag</span>}
+                          {g ? <span className="num text-[13px]">{g.supported}/{g.statements}<span className="hidden sm:inline"> supported</span></span> : <span className="text-[13px] text-faint">not verified</span>}
+                          {isRiskFlagged(s) && <span className="pill pill-negative ml-1.5 sm:ml-2 !px-1.5 sm:!px-[7px]" title="Risk screen flag"><span aria-hidden className="sm:hidden">!</span><span className="sr-only sm:not-sr-only">Flag</span></span>}
                         </td>
                       </tr>
                     )

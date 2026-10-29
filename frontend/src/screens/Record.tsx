@@ -257,7 +257,7 @@ export default function Record() {
         <section className="panel lg:col-span-8" data-tour="record-controls" aria-label="Record or upload">
           {phase === 'idle' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button type="button" onClick={start} className="field-accent rounded-[4px] flex flex-col items-start justify-between gap-10 p-6 min-h-[220px] text-left hover:bg-accent-ink transition-colors">
+              <button type="button" onClick={start} className="field-accent rounded-[4px] flex flex-col items-start justify-between gap-6 p-5 min-h-[168px] text-left hover:bg-accent-ink transition-colors">
                 <Mic size={34} strokeWidth={2.2} />
                 <span>
                   <span className="block font-bold text-[22px] tracking-[-0.02em]">Start recording</span>
@@ -268,7 +268,7 @@ export default function Record() {
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }}
-                className={clsx('rounded-[4px] border flex flex-col items-start justify-between gap-10 p-6 min-h-[220px] cursor-pointer transition-colors', dragOver ? 'border-accent bg-accent-tint' : 'border-ink hover:bg-surface')}
+                className={clsx('rounded-[4px] border flex flex-col items-start justify-between gap-6 p-5 min-h-[168px] cursor-pointer transition-colors', dragOver ? 'border-accent bg-accent-tint' : 'border-control hover:border-ink hover:bg-surface')}
               >
                 <Upload size={34} strokeWidth={2.2} />
                 <span>
@@ -283,17 +283,17 @@ export default function Record() {
           {phase === 'recording' && (
             <div className="flex flex-col gap-4">
               {/* in the room: one quiet field, the clock and the stop control, nothing else */}
-              <div className="field-accent rounded-[4px] p-6 sm:p-8 min-h-[300px] flex flex-col justify-between">
-                <p className="m-0 text-[13px] text-on-accent-muted flex items-center gap-2"><Circle size={8} className="fill-current animate-pulse" />Recording · stop when the session ends</p>
+              <div className="bg-accent-tint border-t-4 border-accent p-5 sm:p-7 min-h-[200px] flex flex-col justify-between">
+                <p className="m-0 text-[13px] text-accent-ink flex items-center gap-2"><Circle size={8} className="fill-negative text-negative animate-pulse" />Recording · stop when the session ends</p>
                 <div className="flex items-end justify-between gap-6 flex-wrap">
-                  <p className="m-0 num font-bold text-[64px] sm:text-[88px] leading-none tracking-[-0.04em]" aria-live="off">{clock(elapsed)}</p>
+                  <p className="m-0 num font-bold text-[56px] sm:text-[72px] leading-none tracking-[-0.04em] text-ink" aria-live="off">{clock(elapsed)}</p>
                   <div className="flex items-center gap-4">
                     <span className="flex items-end gap-[3px] h-10" aria-hidden>
                       {[0.5, 0.8, 1, 0.7, 0.45].map((k, i) => (
-                        <motion.span key={i} className="w-[5px] bg-white/80" animate={{ height: `${Math.max(12, Math.min(100, level * 160 * k + 12))}%` }} transition={{ duration: 0.12 }} />
+                        <motion.span key={i} className="w-[5px] bg-accent" animate={{ height: `${Math.max(12, Math.min(100, level * 160 * k + 12))}%` }} transition={{ duration: 0.12 }} />
                       ))}
                     </span>
-                    <button className="btn btn-lg bg-white text-ink hover:bg-white/90 border border-white" onClick={stop}><Square size={16} fill="currentColor" />Stop</button>
+                    <button className="btn btn-lg btn-primary" onClick={stop}><Square size={16} fill="currentColor" />Stop</button>
                   </div>
                 </div>
               </div>
