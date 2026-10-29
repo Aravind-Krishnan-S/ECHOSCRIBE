@@ -278,6 +278,9 @@ ECHOSCRIBE/
 
 ## 🚀 Getting Started
 
+**Setting up on a new PC? Follow [SETUP.md](SETUP.md)** — it lists every program and package to install, and how to start the app and the local speech service (pyannote speaker separation, GPU optional).
+
+
 ### Prerequisites
 
 - **Node.js** v18+

@@ -1,6 +1,6 @@
 /* eval/ablation_notes.js — note-quality steps on ACI-Bench test1 (40 dialogues), Gemini writer.
 
-   Usage: node eval/ablation_notes.js [limit]
+   Usage: node eval/ablation_notes.js [limit] [split]    split: test1 (default) | test2 (held-out confirmation)
    Every note is written with one fact per sentence, then verified, repaired and re-checked by a second
    judge; the pipeline records the support summary after each step (grounding.stages), so one run gives
    the ablation: as written (atomic) → + sentence repair → + two-judge agreement. The plain evidence-linked
@@ -23,8 +23,10 @@ process.env.ROLE_TIMEOUT_VERIFY = '240000';
 
 const ai = require('../src/services/ai.service');
 const limit = Number(process.argv[2]) || 40;
-const data = require('./data/aci-bench/data/challenge_data_json/clinicalnlp_taskB_test1.json').data.slice(0, limit);
-const outFile = path.join(__dirname, 'results', 'ablation_notes.jsonl');
+const split = process.argv[3] || 'test1';
+const FILES = { test1: 'clinicalnlp_taskB_test1', test2: 'clinicalnlp_taskC_test2', test3: 'clef_taskC_test3' };
+const data = require(`./data/aci-bench/data/challenge_data_json/${FILES[split]}.json`).data.slice(0, limit);
+const outFile = path.join(__dirname, 'results', split === 'test1' ? 'ablation_notes.jsonl' : `ablation_notes_${split}.jsonl`);
 const done = new Set(fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).file) : []);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
