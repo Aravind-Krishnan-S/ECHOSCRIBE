@@ -81,7 +81,7 @@ const patient = { id: session.patient_id, name: 'Role-play client', age: 34, gen
     await narrow.addStyleTag({ content: 'header.sticky, .lg\\:hidden.sticky { position: static !important; } [data-tour="transcript"] ol { max-height: none !important; overflow: visible !important; }' });
 
     // Hover the Objective sentence that cites the passive-ideation turns, so those turns light up
-    const sentences = narrow.locator('article').nth(1).locator('span[role="button"]');
+    const sentences = narrow.locator('article').nth(1).locator('button[aria-pressed]');
     const n = await sentences.count();
     let target = sentences.first();
     for (let i = 0; i < n; i++) {
@@ -91,15 +91,19 @@ const patient = { id: session.patient_id, name: 'Role-play client', age: 34, gen
     await target.hover();
     await narrow.waitForTimeout(300);
 
-    const bar = await narrow.locator('section[aria-label] > div.panel').first().boundingBox();
-    const objective = await narrow.locator('article').nth(1).boundingBox();
+    const sy = await narrow.evaluate(() => window.scrollY);   // boundingBox is viewport-relative; fullPage clips are page-relative
+    const abs = b => ({ ...b, y: b.y + sy });
+    const bar = abs(await narrow.locator('div[role="img"]').first().locator('xpath=..').boundingBox());
+    const objective = abs(await narrow.locator('article').nth(1).boundingBox());
     await narrow.screenshot({ path: path.join(OUT, 'ui_bar.png'), clip: bar, fullPage: true });
     await narrow.screenshot({ path: path.join(OUT, 'ui_objective.png'), clip: objective, fullPage: true });
 
+    const sy2 = await narrow.evaluate(() => window.scrollY);
+    const abs2 = b => ({ ...b, y: b.y + sy2 });
     const rows = narrow.locator('[data-tour="transcript"] li');
-    const first = await rows.nth(3).boundingBox();   // T4
-    const last = await rows.nth(7).boundingBox();    // T8
-    const panel = await narrow.locator('[data-tour="transcript"]').boundingBox();
+    const first = abs2(await rows.nth(3).boundingBox());   // T4
+    const last = abs2(await rows.nth(7).boundingBox());    // T8
+    const panel = abs2(await narrow.locator('[data-tour="transcript"]').boundingBox());
     await narrow.screenshot({ path: path.join(OUT, 'ui_transcript.png'), clip: { x: panel.x, y: first.y - 6, width: panel.width, height: last.y + last.height - first.y + 12 }, fullPage: true });
     console.log('saved ui_note.png and ui_transcript.png');
 
