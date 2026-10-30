@@ -22,8 +22,9 @@ const alignment = require('../src/services/alignment');
 
 const dir = process.argv[2] && !/^\d+$/.test(process.argv[2]) ? process.argv[2] : 'C:/Users/aravi/Downloads/voicebox audio';
 const limit = Number(process.argv[3] || (/^\d+$/.test(process.argv[2] || '') ? process.argv[2] : 0)) || Infinity;
-const outFile = path.join(__dirname, 'results', 'mentoring_eval.jsonl');
-const outDir = path.join(__dirname, 'results', 'mentoring');
+const TAG = process.env.MENTORING_TAG || '';   // e.g. _whisper: keeps a second run's results apart from the first
+const outFile = path.join(__dirname, 'results', `mentoring_eval${TAG}.jsonl`);
+const outDir = path.join(__dirname, 'results', `mentoring${TAG}`);
 fs.mkdirSync(outDir, { recursive: true });
 const done = new Set(fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).id) : []);
 const sleep = ms => new Promise(r => setTimeout(r, ms));

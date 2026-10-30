@@ -46,3 +46,45 @@ eval/.venv-align/
 eval/models/
 eval/data/primock57/
 eval/__pycache__/
+
+# Local-only files and scratch
+src/python/pretrained_models/
+*.zip
+start.bat
+.git_subrepo_backup/
+.vibe/
+.impeccable/
+frontend/.impeccable/
+paper/*.pdf
+!paper/main.pdf
+paper/*.blg
+paper/*.aux
+paper/EchoScribe_paper_single.*
+paper/RESPONSE_TO_REVIEWERS.*
+paper/make_response*.py
+paper/response_to_reviewers.*
+/check_*.js
+/debug_*.js
+/test_*.js
+/tmp_*
+/db_out.txt
+/models.txt
+/list_models.js
+/public/
+/ECHOSCRIBE/
+/VIBE_CONTEXT.md
+/changelog.md
+/echoscribe_architecture.*
+
+# Per-session transcripts and notes from the mentoring runs (audio and text stay local)
+eval/results/mentoring/
+eval/results/mentoring_*/
+
+# Scratch output and material not published without the volunteers agreement
+eval/results/*.png
+eval/results/speech_service.*
+eval/results/mentoring_eval.jsonl
+eval/results/mentoring_scores.json
+eval/results/*.raw.log
+eval/team_kit/grow_rating/
+~$*

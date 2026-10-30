@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, paper-alignment]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - name: Install server dependencies
+        run: npm ci
+      - name: Syntax-check the server
+        run: find src api -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Router simulation runs
+        run: node eval/router_sim.js lkgp mixed 1
+      - name: Build the web app
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build

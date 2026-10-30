@@ -94,7 +94,7 @@ function extractStatements(sectionText, maxTurn) {
 async function verifyStatements(statements, turns, opts = {}) {
     // Long notes (two-hour sessions give 100+ sentences) go to the judge in batches, so that no single call
     // exceeds the per-minute token limits of free tiers. The same judge model is kept for every batch.
-    const size = Math.max(10, Number(process.env.VERIFY_BATCH) || 40);
+    const size = Math.max(10, Number(process.env.VERIFY_BATCH) || 24);
     if (statements.length <= size) return verifyChunk(statements, turns, opts);
     const verdicts = [];
     let first = null;

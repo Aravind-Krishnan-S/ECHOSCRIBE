@@ -1,11 +1,16 @@
 {
   "name": "echoscribe",
   "version": "2.0.0",
-  "description": "AI-powered clinical documentation platform with real-time speech-to-text",
+  "description": "Evidence-linked, independently verified SOAP and GROW notes from recorded therapy and mentoring sessions",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/Aravind-Krishnan-S/ECHOSCRIBE.git" },
+  "engines": { "node": ">=20" },
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "speech": "python src/python/speech_service.py"
   },
   "dependencies": {
     "@deepgram/sdk": "^4.11.3",

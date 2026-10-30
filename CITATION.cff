@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use EchoScribe, please cite it as below."
+title: "EchoScribe: An AI-Powered Clinical Documentation Platform with Multi-Provider Speech Processing, Speaker Diarization, and Intelligent SOAP/GROW Note Generation"
+type: software
+version: 2.0.0
+date-released: 2026-10-30
+license: MIT
+repository-code: "https://github.com/Aravind-Krishnan-S/ECHOSCRIBE"
+keywords:
+  - clinical documentation
+  - hallucination detection
+  - speaker diarization
+  - large language models
+  - LLM routing
+  - SOAP notes
+  - GROW coaching
+authors:
+  - family-names: "Krishnan S"
+    given-names: "Aravind"
+    affiliation: "Dept. of Artificial Intelligence and Data Science, Jyothi Engineering College, Cheruthuruthy, Kerala, India"
+  - family-names: "Krishna M"
+    given-names: "Parvathy"
+    affiliation: "Dept. of Artificial Intelligence and Data Science, Jyothi Engineering College, Cheruthuruthy, Kerala, India"
+  - family-names: "B"
+    given-names: "Angisha"
+    affiliation: "Dept. of Artificial Intelligence and Data Science, Jyothi Engineering College, Cheruthuruthy, Kerala, India"
+  - family-names: "Sebastian"
+    given-names: "Lloyd"
+    affiliation: "Dept. of Artificial Intelligence and Data Science, Jyothi Engineering College, Cheruthuruthy, Kerala, India"
+  - family-names: "A"
+    given-names: "Jayakrishnan"
+    affiliation: "Dept. of Artificial Intelligence and Data Science, Jyothi Engineering College, Cheruthuruthy, Kerala, India"

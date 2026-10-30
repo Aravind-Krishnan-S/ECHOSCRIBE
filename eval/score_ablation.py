@@ -91,6 +91,30 @@ for split in SPLITS:
             "pipeline_flagged_still_flagged": rate(sum(1 for x in flagged_by_pipeline if x["recheck"] in ("partial", "unsupported")), len(flagged_by_pipeline)),
             "judges": sorted({r["judge"] for r in rows}),
         }
+    # Same held-out judge on the earlier notes (no one-fact rule, no repair), same dialogues: paired per-note comparison
+    if split == "test1":
+        import random
+        old = load("recheck_groq_earlier.jsonl")
+        new = {r["file"]: r for r in load("recheck_groq_test1.jsonl")}
+        if old and new:
+            tot = sum(r["sentences"] for r in old)
+            res["earlier_groq"] = {
+                "notes": len(old), "sentences": tot,
+                "supported": rate(sum(r["supported"] for r in old), tot),
+                "partial": rate(sum(r["partial"] for r in old), tot),
+                "unsupported": rate(sum(r["unsupported"] for r in old), tot),
+                "notes_with_unsupported": sum(1 for r in old if r["unsupported"] > 0),
+            }
+            pairs = [(o, new[o["file"]]) for o in old if o["file"] in new]
+            diffs = [n["supported"] / n["sentences"] - o["supported"] / o["sentences"] for o, n in pairs]
+            rng = random.Random(0)
+            boots = sorted(sum(rng.choice(diffs) for _ in diffs) / len(diffs) for _ in range(10000))
+            res["paired_gain"] = {
+                "notes": len(diffs), "mean_points": round(100 * sum(diffs) / len(diffs), 2),
+                "ci95_points": [round(100 * boots[250], 2), round(100 * boots[9749], 2)],
+                "improved": sum(1 for d in diffs if d > 0), "worse": sum(1 for d in diffs if d < 0),
+                "notes_with_unsupported_final": sum(1 for _, n in pairs if n["unsupported"] > 0),
+            }
     out[split] = res
 
 (ROOT / "ablation_scores.json").write_text(json.dumps(out, indent=1), encoding="utf-8")

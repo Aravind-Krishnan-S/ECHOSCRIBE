@@ -111,56 +111,99 @@
    "bertscore_f1": 0.4984
   },
   "recheck_groq": {
-   "notes": 11,
-   "sentences": 260,
+   "notes": 40,
+   "sentences": 893,
    "supported": {
-    "k": 227,
-    "n": 260,
-    "rate": 0.8731,
+    "k": 790,
+    "n": 893,
+    "rate": 0.8847,
     "ci95": [
-     0.8271,
-     0.9082
+     0.862,
+     0.904
     ]
    },
    "partial": {
-    "k": 25,
-    "n": 260,
-    "rate": 0.0962,
+    "k": 74,
+    "n": 893,
+    "rate": 0.0829,
     "ci95": [
-     0.066,
-     0.1381
+     0.0665,
+     0.1028
     ]
    },
    "unsupported": {
-    "k": 8,
-    "n": 260,
-    "rate": 0.0308,
+    "k": 29,
+    "n": 893,
+    "rate": 0.0325,
     "ci95": [
-     0.0157,
-     0.0595
+     0.0227,
+     0.0463
     ]
    },
    "agreement_with_pipeline": {
-    "k": 228,
-    "n": 260,
-    "rate": 0.8769,
+    "k": 790,
+    "n": 893,
+    "rate": 0.8847,
     "ci95": [
-     0.8314,
-     0.9115
+     0.862,
+     0.904
     ]
    },
    "pipeline_flagged_still_flagged": {
-    "k": 2,
-    "n": 2,
-    "rate": 1.0,
+    "k": 11,
+    "n": 13,
+    "rate": 0.8462,
     "ci95": [
-     0.3424,
-     1.0
+     0.5776,
+     0.9567
     ]
    },
    "judges": [
     "Groq (openai/gpt-oss-120b)"
    ]
+  },
+  "earlier_groq": {
+   "notes": 40,
+   "sentences": 727,
+   "supported": {
+    "k": 575,
+    "n": 727,
+    "rate": 0.7909,
+    "ci95": [
+     0.7599,
+     0.8189
+    ]
+   },
+   "partial": {
+    "k": 100,
+    "n": 727,
+    "rate": 0.1376,
+    "ci95": [
+     0.1144,
+     0.1645
+    ]
+   },
+   "unsupported": {
+    "k": 52,
+    "n": 727,
+    "rate": 0.0715,
+    "ci95": [
+     0.055,
+     0.0926
+    ]
+   },
+   "notes_with_unsupported": 25
+  },
+  "paired_gain": {
+   "notes": 40,
+   "mean_points": 9.45,
+   "ci95_points": [
+    6.18,
+    12.77
+   ],
+   "improved": 30,
+   "worse": 9,
+   "notes_with_unsupported_final": 16
   }
  },
  "test2": {
