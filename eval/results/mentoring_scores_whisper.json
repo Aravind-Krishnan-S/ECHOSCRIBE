@@ -1,0 +1,206 @@
+{
+ "sessions": 19,
+ "audio_minutes": 276.6,
+ "mentees": [
+  "Althaf",
+  "Sneha",
+  "Sofia"
+ ],
+ "sessions_per_mentee": {
+  "Althaf": 6,
+  "Sneha": 7,
+  "Sofia": 6
+ },
+ "processing": {
+  "seconds_per_audio_minute_median": 11.1,
+  "stage_seconds_median": {
+   "prepare": 23.6,
+   "diarize": 41.8,
+   "stt": 7.1,
+   "roles": 0.9,
+   "note": 89.3
+  }
+ },
+ "speakers": {
+  "two_speakers_found": {
+   "k": 19,
+   "n": 19,
+   "rate": 1.0,
+   "ci95": [
+    0.8318,
+    1.0
+   ]
+  },
+  "one_mentor_one_mentee": {
+   "k": 19,
+   "n": 19,
+   "rate": 1.0,
+   "ci95": [
+    0.8318,
+    1.0
+   ]
+  },
+  "mentor_share_of_words_mean": 0.747,
+  "diarization": {
+   "pyannote": 19
+  },
+  "attribution": {
+   "word timestamps": 19
+  },
+  "stt": {
+   "Groq": 19
+  }
+ },
+ "grow": {
+  "all_four_sections": {
+   "k": 19,
+   "n": 19,
+   "rate": 1.0,
+   "ci95": [
+    0.8318,
+    1.0
+   ]
+  },
+  "section_filled": {
+   "goal": {
+    "k": 19,
+    "n": 19,
+    "rate": 1.0,
+    "ci95": [
+     0.8318,
+     1.0
+    ]
+   },
+   "reality": {
+    "k": 19,
+    "n": 19,
+    "rate": 1.0,
+    "ci95": [
+     0.8318,
+     1.0
+    ]
+   },
+   "options": {
+    "k": 19,
+    "n": 19,
+    "rate": 1.0,
+    "ci95": [
+     0.8318,
+     1.0
+    ]
+   },
+   "way_forward": {
+    "k": 19,
+    "n": 19,
+    "rate": 1.0,
+    "ci95": [
+     0.8318,
+     1.0
+    ]
+   }
+  }
+ },
+ "grounding": {
+  "sentences": 283,
+  "sentences_per_note_mean": 14.9,
+  "cited": {
+   "k": 283,
+   "n": 283,
+   "rate": 1.0,
+   "ci95": [
+    0.9866,
+    1.0
+   ]
+  },
+  "supported": {
+   "k": 231,
+   "n": 283,
+   "rate": 0.8163,
+   "ci95": [
+    0.767,
+    0.857
+   ]
+  },
+  "partial": {
+   "k": 13,
+   "n": 283,
+   "rate": 0.0459,
+   "ci95": [
+    0.027,
+    0.077
+   ]
+  },
+  "unsupported": {
+   "k": 0,
+   "n": 283,
+   "rate": 0.0,
+   "ci95": [
+    0.0,
+    0.0134
+   ]
+  },
+  "notes_with_unsupported": 0,
+  "judge_vendors": {
+   "OpenRouter": 16,
+   "none": 2,
+   "Groq": 1
+  }
+ },
+ "repair": {
+  "flagged": 59,
+  "rewritten": 43,
+  "removed": 3,
+  "cascade_escalations": 0
+ },
+ "per_mentee": {
+  "Althaf": {
+   "sessions": 6,
+   "grow_complete": 6,
+   "supported": 0.655
+  },
+  "Sneha": {
+   "sessions": 7,
+   "grow_complete": 7,
+   "supported": 0.956
+  },
+  "Sofia": {
+   "sessions": 6,
+   "grow_complete": 6,
+   "supported": 0.734
+  }
+ },
+ "recheck_groq": {
+  "notes": 19,
+  "sentences": 283,
+  "supported": {
+   "k": 234,
+   "n": 283,
+   "rate": 0.8269,
+   "ci95": [
+    0.7785,
+    0.8665
+   ]
+  },
+  "unsupported": {
+   "k": 6,
+   "n": 283,
+   "rate": 0.0212,
+   "ci95": [
+    0.0098,
+    0.0455
+   ]
+  },
+  "agreement_with_pipeline": {
+   "k": 215,
+   "n": 283,
+   "rate": 0.7597,
+   "ci95": [
+    0.7067,
+    0.8058
+   ]
+  },
+  "judges": [
+   "Groq (openai/gpt-oss-120b)"
+  ]
+ }
+}

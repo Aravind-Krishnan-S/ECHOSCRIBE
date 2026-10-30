@@ -19,11 +19,21 @@ process.env.ROLE_TIMEOUT_VERIFY = '180000';
 
 const grounding = require('../src/services/grounding');
 const split = process.argv[2] || 'test1';
-const FILES = { test1: 'clinicalnlp_taskB_test1', test2: 'clinicalnlp_taskC_test2' };
-const aci = require(`./data/aci-bench/data/challenge_data_json/${FILES[split]}.json`).data;
-const inFile = path.join(__dirname, 'results', split === 'test1' ? 'ablation_notes.jsonl' : `ablation_notes_${split}.jsonl`);
-const outFile = path.join(__dirname, 'results', `recheck_${JUDGE}_${split}.jsonl`);
-const notes = fs.readFileSync(inFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
+// 'earlier' = the evidence-linked Gemini notes made before one-fact-per-sentence and repair (same dialogues as test1)
+const FILES = { test1: 'clinicalnlp_taskB_test1', test2: 'clinicalnlp_taskC_test2', earlier: 'clinicalnlp_taskB_test1' };
+const MENTORING = split === 'mentoring';   // GROW notes from eval/mentoring_eval.js: transcript and sections are stored per session
+const ANNOMI = split === 'annomi';   // AnnoMI notes (annomi_eval.js); transcripts come from selected.json
+const aci = (MENTORING || ANNOMI) ? [] : require(`./data/aci-bench/data/challenge_data_json/${FILES[split]}.json`).data;
+const MTAG = process.env.MENTORING_TAG || '';
+const mentoringDir = path.join(__dirname, 'results', `mentoring${MTAG}`);
+const inFile = path.join(__dirname, 'results', ANNOMI ? 'annomi_notes.jsonl' : split === 'earlier' ? 'aci_notes_gemini.jsonl' : split === 'test1' ? 'ablation_notes.jsonl' : `ablation_notes_${split}.jsonl`);
+const outFile = path.join(__dirname, 'results', `recheck_${JUDGE}_${split}${MENTORING ? MTAG : ''}.jsonl`);
+const annomiById = ANNOMI ? Object.fromEntries(require('./data/annomi/selected.json').map(d => [d.id, d.transcript])) : {};
+const mentoringNotes = () => fs.readdirSync(mentoringDir).filter(f => f.endsWith('.json')).sort().map(f => {
+    const d = JSON.parse(fs.readFileSync(path.join(mentoringDir, f), 'utf8'));
+    return { file: d.id, transcript: d.transcript, sections: d.note.grounding.sections };
+});
+const notes = MENTORING ? mentoringNotes() : fs.readFileSync(inFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).map(n => ANNOMI ? { ...n, file: n.id, transcript: annomiById[n.id] } : n);
 const done = new Set(fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).file) : []);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -57,9 +67,9 @@ async function waitForOpenRouterQuota() {
     let fails = 0;
     for (const note of notes) {
         if (done.has(note.file)) continue;
-        const item = aci.find(a => a.file === note.file);
+        const item = (MENTORING || ANNOMI) ? { src: null } : aci.find(a => a.file === note.file);
         if (!item) continue;
-        const { turns } = grounding.numberTranscript(toTranscript(item.src));
+        const { turns } = grounding.numberTranscript((MENTORING || ANNOMI) ? note.transcript : toTranscript(item.src));
         const flat = Object.values(note.sections).flat().map(s => ({ text: s.text, turns: s.turns || [], pipeline_label: s.label }));
         if (!flat.length) continue;
         const v = await grounding.verifyStatements(flat, turns, {});

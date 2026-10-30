@@ -264,9 +264,24 @@ put("ResAblHeldUnsupported", pct((rg.get("unsupported") or {}).get("rate")))
 put("ResAblHeldAgree", pct((rg.get("agreement_with_pipeline") or {}).get("rate")))
 ci = (rg.get("supported") or {}).get("ci95") or (None, None)
 put("ResAblHeldSupportedCi", None if ci[0] is None else f"{ci[0] * 100:.1f}--{ci[1] * 100:.1f}")
+cu = (rg.get("unsupported") or {}).get("ci95") or (None, None)
+put("ResAblHeldUnsupportedCi", None if cu[0] is None else f"{cu[0] * 100:.1f}--{cu[1] * 100:.1f}")
+put("ResAblHeldNotesUnsupported", (abl.get("paired_gain") or {}).get("notes_with_unsupported_final"))
+eg = abl.get("earlier_groq") or {}
+put("ResAblEarlierSentences", eg.get("sentences"))
+put("ResAblEarlierSupported", pct((eg.get("supported") or {}).get("rate")))
+put("ResAblEarlierUnsupported", pct((eg.get("unsupported") or {}).get("rate")))
+put("ResAblEarlierNotesUnsupported", eg.get("notes_with_unsupported"))
+ec = (eg.get("supported") or {}).get("ci95") or (None, None)
+put("ResAblEarlierSupportedCi", None if ec[0] is None else f"{ec[0] * 100:.1f}--{ec[1] * 100:.1f}")
+pg = abl.get("paired_gain") or {}
+put("ResAblGain", pg.get("mean_points"))
+put("ResAblGainCi", None if not pg else f"{pg['ci95_points'][0]:.1f}--{pg['ci95_points'][1]:.1f}")
+put("ResAblImproved", pg.get("improved"))
+put("ResAblWorse", pg.get("worse"))
 
 # ── mentoring-session benchmark (mentoring_eval.js, score_mentoring.py) ──
-mn = load("mentoring_scores.json") or {}
+mn = load("mentoring_scores_whisper.json") or load("mentoring_scores.json") or {}
 put("ResMenSessions", mn.get("sessions"))
 put("ResMenMinutes", None if mn.get("audio_minutes") is None else f"{mn['audio_minutes']:.0f}")
 put("ResMenMentees", len(mn.get("mentees") or []) or None)
@@ -287,6 +302,29 @@ for k in ("flagged", "rewritten", "removed"):
 mh = mn.get("recheck_groq") or mn.get("recheck_openrouter") or {}
 put("ResMenHeldSupported", pct((mh.get("supported") or {}).get("rate")))
 put("ResMenHeldNotes", mh.get("notes"))
+
+# ── AnnoMI notes judged again by the held-out Groq judge ──
+ah = jsonl("recheck_groq_annomi.jsonl")
+ahs = sum(r["sentences"] for r in ah)
+put("ResAnnoHeldNotes", len(ah) or None)
+put("ResAnnoHeldSupported", ahs and pct(sum(r["supported"] for r in ah) / ahs))
+put("ResAnnoHeldUnsupported", ahs and pct(sum(r["unsupported"] for r in ah) / ahs))
+
+# ── role-played mentoring sessions recorded by the team (tag _roleplay) ──
+rpm = load("mentoring_scores_roleplay.json") or {}
+put("ResRpSessions", rpm.get("sessions"))
+put("ResRpMinutes", None if rpm.get("audio_minutes") is None else f"{rpm['audio_minutes']:.0f}")
+rsp = rpm.get("speakers") or {}
+put("ResRpTwoSpk", None if not rsp else f"{rsp['two_speakers_found']['k']}/{rsp['two_speakers_found']['n']}")
+put("ResRpRoles", None if not rsp else f"{rsp['one_mentor_one_mentee']['k']}/{rsp['one_mentor_one_mentee']['n']}")
+rgw = rpm.get("grow") or {}
+put("ResRpGrowAll", None if not rgw else f"{rgw['all_four_sections']['k']}/{rgw['all_four_sections']['n']}")
+rgr = rpm.get("grounding") or {}
+put("ResRpSentences", rgr.get("sentences"))
+put("ResRpSupported", pct((rgr.get("supported") or {}).get("rate")))
+rhh = rpm.get("recheck_groq") or {}
+put("ResRpHeldSupported", pct((rhh.get("supported") or {}).get("rate")))
+put("ResRpHeldUnsupported", pct((rhh.get("unsupported") or {}).get("rate")))
 
 # ── switches: pending work appears in the paper only when its results are complete ──
 n_recheck = len(jsonl("recheck_groq_test1.jsonl"))
