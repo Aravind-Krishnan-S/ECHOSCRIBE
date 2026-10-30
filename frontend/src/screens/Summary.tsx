@@ -102,6 +102,12 @@ export default function Summary() {
         subtitle={`${fmtDate(session.created_at)}, ${fmtTime(session.created_at)}${dur ? ` · ${duration(dur)}` : ''} · written by ${analysis._provider || 'unknown model'}`}
         actions={<>
           <button className="btn btn-secondary btn-sm" onClick={() => download(`/api/export/pdf/${session.id}`, `echoscribe-${session.id}.pdf`).catch(e => toast(e.message, 'error'))}><Download size={14} />PDF</button>
+          {session.audio_url && (
+            <button className="btn btn-secondary btn-sm" title="Download the saved recording of this session"
+              onClick={() => download(`/api/session/${session.id}/audio?mode=${ws.api}`, `echoscribe-${session.id}-audio.${(session.audio_url.split('?')[0].split('.').pop() || 'webm').slice(0, 4)}`).catch(e => toast(e.message, 'error'))}>
+              <Download size={14} />Audio
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" disabled={regenerate.isPending} onClick={() => regenerate.mutate({ swapRoles: true })}
             title={`Swap ${ws.professional.toLowerCase()} and ${ws.client.toLowerCase()} in the transcript, then write the note again`}>
             <ArrowLeftRight size={14} />Swap roles
