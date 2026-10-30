@@ -43,11 +43,11 @@ Section V states what remains unvalidated (no public therapy or mentoring corpus
 
 **11. Inadequate Citation and Explanation of Tables and Figures:** *The tables and figures should be properly referenced and explained in the main text. Each table and figure should have a meaningful caption, and its relevance to the proposed methodology or experimental results should be clearly discussed.*
 
-**Response:** Every figure and table is now cited in the text, has a caption that explains what it shows, and is followed by a paragraph interpreting it: Fig. 1 (pipeline, Section III), Fig. 2 (verification bar, labelled and cited sentences and transcript in the session view, Section III-C), Table I (router, Section IV-B), Table II (notes and verification, Section IV-C) and Table III (speech, Section IV-E). Tables that only listed configuration settings or technology stacks were removed.
+**Response:** Every figure and table is now cited in the text, has a caption that explains what it shows, and is followed by a paragraph interpreting it: Fig. 1 (pipeline, Section III), Fig. 2 (verification bar and labelled, cited sentences in the session view, Section III-C), Table I (router, Section IV-B), Table II (notes and verification, Section IV-C) and Table III (speech, Section IV-E). Tables that only listed configuration settings or technology stacks were removed.
 
 **12. Poor Figure Clarity:** *The quality and readability of the figures need improvement. The authors should provide higher-resolution diagrams with clearly visible labels, appropriate font sizes, and better organization of components and connections.*
 
-**Response:** Fig. 1 was redrawn as a vector diagram (TikZ), so it stays sharp at any zoom. Labels are set in the document's font at a readable size, each processing role is a labelled box, and fallback paths are shown as dashed arrows. Fig. 2 uses captures of the current interface (a) verification bar and Objective section with sentence labels and cited turns, (b) the cited transcript turns, rendered from real pipeline output on an invented example session.
+**Response:** Fig. 1 was redrawn as a vector diagram (TikZ), so it stays sharp at any zoom. Labels are set in the document's font at a readable size, each processing role is a labelled box, and fallback paths are shown as dashed arrows. Fig. 2 uses captures of the current interface, the verification bar and the Objective section with sentence labels and cited turns, rendered from real pipeline output on an invented example session.
 
 ---
 
