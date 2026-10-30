@@ -53,8 +53,12 @@ EchoScribe turns a recorded two-person session into a **SOAP** (therapy) or **GR
     <td><img src="docs/images/models-and-keys.png" alt="Models and API keys" /><br /><sub><b>Models &amp; API keys.</b> Add a key, test it, choose models per role. Keys stay in the browser unless you sync one.</sub></td>
   </tr>
   <tr>
+    <td><img src="docs/images/home-mentoring.png" alt="Mentoring home" /><br /><sub><b>Mentoring workspace.</b> The same home screen for mentors, with mentees instead of patients.</sub></td>
+    <td><img src="docs/images/session-note-mentoring.png" alt="A GROW note with verification stripes and cited turns" /><br /><sub><b>GROW notes.</b> Goal, Reality, Options and Way forward, each sentence cited and verified (pipeline output on a role-played session).</sub></td>
+  </tr>
+  <tr>
     <td><img src="docs/images/regenerate-model-picker.png" alt="Regenerate the note on a chosen model" /><br /><sub><b>Regenerate on a model you pick.</b> The current model is greyed out; exhausted models show a warning and cannot be chosen.</sub></td>
-    <td align="center"><img src="docs/images/session-note-mobile.png" alt="The note on a phone" width="260" /><br /><sub><b>Phone-friendly.</b> The same note, one column.</sub></td>
+    <td align="center"><img src="docs/images/session-note-mobile.png" alt="A SOAP note on a phone" width="200" />&nbsp;&nbsp;<img src="docs/images/session-note-mentoring-mobile.png" alt="A GROW note on a phone" width="200" /><br /><sub><b>Phone-friendly.</b> SOAP and GROW notes in one column.</sub></td>
   </tr>
 </table>
 
