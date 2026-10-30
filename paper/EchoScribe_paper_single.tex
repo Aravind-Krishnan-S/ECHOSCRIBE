@@ -413,6 +413,9 @@
 \usepackage{cite}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
+% Caption style of the previous paper: "Fig. 1: ..." and "TABLE I: ...",
+% single-line captions centred, longer ones justified, small caption font.
+\usepackage[labelsep=colon,font=footnotesize,justification=justified,singlelinecheck=true]{caption}
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{url}
@@ -785,19 +788,57 @@
 
 \newcommand{\role}[1]{\textsc{\MakeLowercase{#1}}}
 
+% Row break inside the author block (gives 3 authors on the first row, 2 on the second,
+% as in the previous paper).
+\makeatletter
+\newcommand{\linebreakand}{%
+  \end{@IEEEauthorhalign}
+  \hfill\mbox{}\par
+  \mbox{}\hfill\begin{@IEEEauthorhalign}
+}
+\makeatother
+
 \begin{document}
 
-\title{EchoScribe: Evidence-Linked, Independently\\ Verified Notes for Therapy and Mentoring}
+\title{EchoScribe: An AI-Powered Clinical
+Documentation Platform with Multi-Provider
+Speech Processing, Speaker Diarization, and
+Intelligent SOAP/GROW Note Generation}
 
 \author{
-\IEEEauthorblockN{Aravind Krishnan S, Parvathy Krishna M, Angisha B, Lloyd Sebastian}
-\IEEEauthorblockA{\textit{Department of Artificial Intelligence and Data Science}\\
-\textit{Jyothi Engineering College}, Cheruthuruthy, Kerala, India\\
-\{aravindkrishnans.ad23, parvathykrishnam.ad23, angishab.ad23, lloydsebastian.ad23\}@jecc.ac.in}
+\IEEEauthorblockN{Aravind Krishnan S}
+\IEEEauthorblockA{\textit{Dept. of Artificial Intelligence}\\
+\textit{and Data Science}\\
+\textit{Jyothi Engineering College}\\
+Cheruthuruthy, Kerala, India\\
+aravindkrishnans.ad23@jecc.ac.in}
+\and
+\IEEEauthorblockN{Parvathy Krishna M}
+\IEEEauthorblockA{\textit{Dept. of Artificial Intelligence}\\
+\textit{and Data Science}\\
+\textit{Jyothi Engineering College}\\
+Cheruthuruthy, Kerala, India\\
+parvathykrishnam.ad23@jecc.ac.in}
+\and
+\IEEEauthorblockN{Angisha B}
+\IEEEauthorblockA{\textit{Dept. of Artificial Intelligence}\\
+\textit{and Data Science}\\
+\textit{Jyothi Engineering College}\\
+Cheruthuruthy, Kerala, India\\
+angishab.ad23@jecc.ac.in}
+\linebreakand
+\IEEEauthorblockN{Lloyd Sebastian}
+\IEEEauthorblockA{\textit{Dept. of Artificial Intelligence}\\
+\textit{and Data Science}\\
+\textit{Jyothi Engineering College}\\
+Cheruthuruthy, Kerala, India\\
+lloydsebastian.ad23@jecc.ac.in}
 \and
 \IEEEauthorblockN{Jayakrishnan A}
-\IEEEauthorblockA{\textit{Department of Artificial Intelligence and Data Science}\\
-\textit{Jyothi Engineering College}, Cheruthuruthy, Kerala, India\\
+\IEEEauthorblockA{\textit{Dept. of Artificial Intelligence}\\
+\textit{and Data Science}\\
+\textit{Jyothi Engineering College}\\
+Cheruthuruthy, Kerala, India\\
 jayakrishnana@jecc.ac.in}
 }
 
@@ -812,7 +853,7 @@ clinical documentation, hallucination detection, speaker diarization, large lang
 \end{IEEEkeywords}
 
 \section{Introduction}
-Writing session notes is one of the most time-consuming non-clinical tasks of mental health work and of academic mentoring. A SOAP note records the client's account, the clinician's observations, an assessment and a plan~\cite{weed1968}; a GROW note records a mentee's goal, current reality, options and way forward~\cite{whitmore2017}. Documentation extends the working day well beyond the session~\cite{sinsky2016}, and ambient scribes that draft notes from recorded encounters are now in clinical use and under randomized evaluation~\cite{tierney2024,lukac2025}.
+Writing session notes is one of the most time-consuming non-clinical tasks of mental health work and of academic mentoring. A SOAP note records the client's account, the clinician's observations, an assessment and a plan~\cite{weed1968}; a GROW note records a mentee's goal, current reality, options and way forward~\cite{whitmore2017}. Documentation extends the working day~\cite{sinsky2016}, and ambient scribes that draft notes from recorded encounters are now in clinical use and under randomized evaluation~\cite{tierney2024,lukac2025}.
 
 Two gaps limit what such systems can be trusted with. A note may contain statements the conversation never supported~\cite{ji2023survey,asgari2025}, and the reviewer cannot tell which sentence rests on what. And published scribes depend on one model from one vendor, so a quota, an outage or a retired model stops documentation altogether; neither gap is addressed for counselling or mentoring~\cite{wang2025scribe,xu2025laos,yim2023aci}. EchoScribe's contributions are:
 \begin{enumerate}
@@ -825,7 +866,7 @@ Two gaps limit what such systems can be trusted with. A note may contain stateme
 \section{Related Work}
 \textbf{Ambient scribes and note generation.} Note generation from doctor--patient dialogue has been benchmarked on ACI-Bench~\cite{yim2023aci} and in MEDIQA-Chat~\cite{benabacha2023mediqa}; PriMock57 adds audio of mock consultations~\cite{korfiatis2022primock57} and AnnoMI counselling dialogues~\cite{wu2022annomi}. Adapted models can match experts on clinical summarisation~\cite{vanveen2024,wang2025acl}, and deployed systems report physician review~\cite{xu2025laos,wang2025scribe}. For mental health, Adhikary et~al. benchmarked summarisation of counselling sessions~\cite{adhikary2024}. None of these produces mentoring (GROW) notes, links each sentence to its evidence, or survives its vendor failing.
 
-\textbf{Hallucination and verification.} Hallucination is a recurring failure of generated text~\cite{ji2023survey}, and clinical safety frameworks annotate hallucinations and omissions~\cite{asgari2025}. Remedies include citation-constrained generation~\cite{gao2023alce}, atomic-fact scoring~\cite{min2023factscore}, self-consistency sampling~\cite{manakul2023selfcheck} and self-verification~\cite{dhuliawala2024cove}. EchoScribe combines citation-constrained writing with sentence-level verification by an \emph{independent} model, so that the checker does not share the writer's failure modes, and uses the verdicts for review and to trigger regeneration.
+\textbf{Hallucination and verification.} Hallucination is a recurring failure of generated text~\cite{ji2023survey}, and clinical safety frameworks annotate hallucinations and omissions~\cite{asgari2025}. Remedies include citation-constrained generation~\cite{gao2023alce}, atomic-fact scoring~\cite{min2023factscore}, self-consistency sampling~\cite{manakul2023selfcheck} and self-verification~\cite{dhuliawala2024cove}. EchoScribe combines citation-constrained writing with sentence-level verification by an \emph{independent} model, so the checker does not share the writer's failure modes, and uses the verdicts for review and regeneration.
 
 \textbf{Speech.} Diarization combines activity detection, speaker embeddings and clustering~\cite{park2022review}: ECAPA-TDNN~\cite{desplanques2020ecapa} with spectral clustering~\cite{vonluxburg2007} is a strong baseline, while pyannote's powerset model~\cite{plaquet2023powerset} and Sortformer~\cite{park2025sortformer} learn segmentation directly; WhisperX aligns recognition with diarization~\cite{bain2023whisperx}, and speaker roles in clinical conversations have been studied~\cite{zolensky2025}. SepFormer~\cite{subakan2021sepformer} in SpeechBrain~\cite{ravanelli2021speechbrain}, trained on WHAM!~\cite{wichern2019wham}, is one of many enhancement models~\cite{dubey2024dns}, but enhancement artefacts can hurt recognition~\cite{iwamoto2022}.
 
@@ -886,7 +927,7 @@ Two gaps limit what such systems can be trusted with. A note may contain stateme
 Fig.~\ref{fig:pipeline} shows the pipeline. A browser client records or uploads audio, an Express.js server coordinates every model call, and Supabase stores records under per-user row-level security. Five roles call language or speech models: \role{STT}, \role{DIARIZE}, \role{ROLE\_LABEL}, \role{NOTE\_SYNTH} and \role{VERIFY}.
 
 \subsection{Embedded multi-provider router}\label{sec:router}
-Each role is served by a \emph{combo}: an ordered list of targets $\langle$vendor, model, keys$\rangle$ and a routing strategy. Vendors are thin adapters: Gemini~\cite{gemini2023}, Groq-hosted gpt-oss-120b~\cite{openai2025gptoss} and Whisper~\cite{radford2023whisper}, Deepgram and a local pyannote service ship with the system. Several keys for one model form a pool whose keys take turns. The strategy orders targets per request: \emph{priority} (declared order; the next target is used only when every key of the current one is cooling down or retired, or the model itself fails), \emph{round-robin}, \emph{random}, \emph{strict-random}, \emph{least-used}, and \emph{lkgp} (the last target that succeeded goes first).
+Each role is served by a \emph{combo}: an ordered list of targets $\langle$vendor, model, keys$\rangle$ and a routing strategy. Vendors are thin adapters: Gemini~\cite{gemini2023}, Groq-hosted gpt-oss-120b~\cite{openai2025gptoss} and Whisper~\cite{radford2023whisper}, Deepgram and a local pyannote service ship with the system. The strategy orders targets per request: \emph{priority} (declared order; the next target is used only when every key of the current one is cooling down or retired, or the model itself fails), \emph{round-robin}, \emph{random}, \emph{strict-random}, \emph{least-used}, and \emph{lkgp} (the last target that succeeded goes first).
 
 Failures are classified. A key that fails authentication is retired; a rate-limited or failing key enters an exponential cooldown of $5\cdot 2^{k-1}$~s (capped at 5~min) after its $k$-th consecutive failure, reset on success; a vendor with 15 failures within 30~min is skipped for 10~min (2 in 5~min for the local service); an HTTP~400 is treated as specific to the request and moves on without cooling the key.  Keys stay in the user's browser unless the user syncs one, which is then stored encrypted.
 
@@ -902,8 +943,8 @@ Two further steps work at sentence level. \emph{Repair}: each flagged sentence g
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.56\columnwidth]{figures/ui_bar.png}\\[3pt]
-\includegraphics[width=0.56\columnwidth]{figures/ui_objective.png}
+\includegraphics[width=0.5\columnwidth]{figures/ui_bar.png}\\[3pt]
+\includegraphics[width=0.5\columnwidth]{figures/ui_objective.png}
 \caption{EchoScribe's session summary for a scripted example session (invented transcript; real pipeline output). The verification bar counts sentences the independent verifier (here gpt-oss-120b, checking a Gemini-written note) judged supported, partly supported or unsupported; Objective sentences carry a stripe for their label (green supported, amber partly, red unsupported) and the turns they cite.}
 \label{fig:ui}
 \end{figure}
@@ -1020,13 +1061,13 @@ Volunteers role-played mentoring sessions from a script we provided: \ResMenSess
 \fi
 
 \section{Discussion and Limitations}
-\textbf{Limitations.} (i) ACI-Bench and PriMock57 are medical, and AnnoMI has no reference notes; no public corpus of counselling or mentoring sessions with reference notes exists\ifmentoring, and the mentoring sessions we ran are acted and share personas\else, so GROW notes were not evaluated\fi. (ii) Support labels come from a model; the planted-error test bounds how often it misses errors of three kinds, but subtler omissions and misattributions need human review~\cite{asgari2025}. (iii) Simulated speech is read without overlap, and PriMock57 is acted speech; overlapping, emotional clinical speech will be harder, and at 0~dB our attribution is not better than cloud diarization. (iv) Results depend on model versions that vendors retire. (v) The risk screen has not been validated against clinician labels. Blinded rating kits for notes and verifier agreement are released with the code. \textbf{Ethics:} no patient or clinical data were used; experiments use public datasets, simulated speech and scripted role-plays recorded by volunteers who knew the audio would be processed by the system, and free-tier model vendors may use submitted text for training, so deployments with real sessions should use institutionally approved vendors or local models.
+\textbf{Limitations.} (i) ACI-Bench and PriMock57 are medical, and AnnoMI has no reference notes; no public corpus of counselling or mentoring sessions with reference notes exists\ifmentoring, and the mentoring sessions we ran are acted and share personas\else, so GROW notes were not evaluated\fi. (ii) Support labels come from a model; the planted-error test bounds how often it misses errors of three kinds, but subtler omissions and misattributions need human review~\cite{asgari2025}. (iii) Simulated and mock speech has no overlap or strong emotion, and at 0~dB our attribution is not better than cloud diarization. (iv) Results depend on model versions that vendors retire. (v) The risk screen has not been validated against clinician labels. Blinded rating kits for notes and verifier agreement are released with the code. \textbf{Ethics:} no patient or clinical data were used; experiments use public datasets, simulated speech and scripted role-plays recorded by volunteers who knew the audio would be processed by the system, and free-tier model vendors may use submitted text for training, so deployments with real sessions should use institutionally approved vendors or local models.
 
 \section{Conclusion}
 EchoScribe produces SOAP and GROW notes from recorded two-person sessions in which every sentence points to the turns that support it and is checked by a model other than its writer, with a two-model risk screen and an embedded router that keeps every role available through quota exhaustion and outages. Citing evidence halved unsupported content against a single-pass note from the same writer; assigning words to speakers by timestamp cut speaker-attributed error from \ResPmCpDuration\ to \ResPmCpWords\ on mock consultations; and role identification needed no enrolment. The code, evaluation scripts and rating kits are available at \url{https://github.com/Aravind-Krishnan-S/ECHOSCRIBE}.
 
 \section*{Acknowledgment}
-The authors thank the faculty of the Department of Artificial Intelligence and Data Science at Jyothi Engineering College for their guidance, and the pyannote, SpeechBrain, ACI-Bench, AnnoMI, PriMock57, LibriSpeech and OmniRoute communities for openly licensed models, data and code. Claude (Anthropic) was used to draft and revise the manuscript text and LaTeX, and to write parts of the software and evaluation code; the authors directed, verified and take responsibility for all content.
+The authors thank the faculty of the Department of Artificial Intelligence and Data Science at Jyothi Engineering College for their guidance, and the pyannote, SpeechBrain, ACI-Bench, AnnoMI, PriMock57, LibriSpeech and OmniRoute communities for openly licensed models, data and code. Claude (Anthropic) was used to draft and revise the manuscript text and LaTeX; the authors directed, verified and take responsibility for all content.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}
