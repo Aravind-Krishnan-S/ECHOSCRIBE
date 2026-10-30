@@ -88,3 +88,6 @@ eval/results/mentoring_scores.json
 eval/results/*.raw.log
 eval/team_kit/grow_rating/
 ~$*
+
+# The manuscript is kept out of the repository
+paper/

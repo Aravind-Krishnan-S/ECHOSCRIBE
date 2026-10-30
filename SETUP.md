@@ -57,7 +57,7 @@ npm start              # then open http://localhost:3000
 
 The server log shows `[Speech] Local diarization ready: … on cuda` (or `on cpu`).
 
-## Re-running the paper's evaluations
+## Re-running the evaluations
 
 ```bash
 python -m venv eval/.venv
@@ -65,8 +65,7 @@ eval/.venv/bin/python -m pip install jiwer rouge-score bert-score pyannote.metri
 ```
 
 Each script in `eval/` starts with a usage line. The datasets (ACI-Bench, AnnoMI, PriMock57, LibriSpeech) are downloaded
-into `eval/data/`, which is git-ignored. The paper compiles with [Tectonic](https://tectonic-typesetting.github.io/):
-`tectonic paper/main.tex`. Numbers in the paper are generated from `eval/results/` by `eval/make_macros.py`.
+into `eval/data/`, which is git-ignored. Result files are written to `eval/results/`.
 
 ## Troubleshooting
 

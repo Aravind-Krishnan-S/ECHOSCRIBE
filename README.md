@@ -8,7 +8,6 @@
 
 [![CI](https://github.com/Aravind-Krishnan-S/ECHOSCRIBE/actions/workflows/ci.yml/badge.svg)](https://github.com/Aravind-Krishnan-S/ECHOSCRIBE/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0f766e.svg)](LICENSE)
-[![Paper](https://img.shields.io/badge/paper-NGETI%202026%20(in%20revision)-1d4ed8.svg)](paper/main.pdf)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -93,7 +92,7 @@ flowchart LR
 
 ## Results
 
-All numbers are produced by scripts in [`eval/`](eval) from public data and are reproduced in the [paper](paper/main.pdf).
+All numbers are produced by the scripts in [`eval/`](eval), from public data and role-played recordings; the result files are in [`eval/results/`](eval/results).
 
 | Question | Result |
 |---|---|
@@ -107,7 +106,7 @@ All numbers are produced by scripts in [`eval/`](eval) from public data and are 
 | Mentoring sessions (23 role-played, 309 min) | Two speakers and roles found, GROW notes complete, in every session |
 
 Limits that matter: support labels come from a model, the mentoring sessions are acted and share personas, no human has
-rated GROW content yet, and the risk screen is not validated against clinician labels. The paper states these plainly.
+rated GROW content yet, and the risk screen is not validated against clinician labels. These limits apply to every number above.
 
 ## Model providers
 
@@ -144,7 +143,6 @@ Full instructions, including the database setup and GPU notes, are in [SETUP.md]
 | Data | Supabase (PostgreSQL with Row-Level Security, Auth, Storage) |
 | Speech | pyannote.audio 4 (community-1), PyTorch 2.8, FastAPI; Whisper via Groq; Deepgram |
 | Language models | Gemini, Groq-hosted gpt-oss-120b, OpenRouter free models, Mistral and others, through the embedded router |
-| Paper | LaTeX (IEEEtran), Tectonic |
 
 ## Repository layout
 
@@ -154,7 +152,6 @@ src/                 server: routes, controllers, services (router, grounding, a
   python/              pyannote speech service (FastAPI, port 5050)
 frontend/            React web app
 eval/                every experiment: scripts, result files, rater kits
-paper/               the manuscript (LaTeX), figures and generated result macros
 supabase/            SQL for the database and migrations
 docs/images/         screenshots and the pipeline diagram used in this README
 api/                 Vercel entry point
@@ -174,12 +171,11 @@ documentation is served at `/api/docs`.
 | Export | `GET /api/export/pdf/:sessionId`, `/api/export/csv`, `/api/export/record` |
 | Providers | `GET /api/providers`, `GET /api/providers/status`, `POST /api/providers/test`, `GET/POST/DELETE /api/providers/keys` |
 
-## Reproducing the paper
+## Reproducing the evaluation
 
 ```bash
-tectonic paper/main.tex                    # builds paper/main.pdf
-python eval/make_macros.py                 # regenerates paper/results_macros.tex from eval/results/
 node eval/run_router_sim.js                # router fault-injection grid
+node eval/ablation_notes.js 40 test1       # note-quality experiment on ACI-Bench (needs provider keys)
 ```
 
 Each script in [`eval/`](eval) starts with a usage line. Datasets are downloaded into `eval/data/` (git-ignored). The
